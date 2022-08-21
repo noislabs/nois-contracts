@@ -1,0 +1,24 @@
+[workspace]
+members = ["packages/*", "contracts/*"]
+resolver = "2"
+
+[profile.release.package.nois-proxy]
+codegen-units = 1
+incremental = false
+
+[profile.release.package.nois-terrand]
+codegen-units = 1
+incremental = false
+
+[profile.release]
+rpath = false
+lto = true
+overflow-checks = true
+opt-level = 3
+debug = false
+debug-assertions = false
+
+# [patch.crates-io]
+# getrandom = {  }
+
+
