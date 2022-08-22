@@ -1,7 +1,6 @@
 use thiserror::Error;
 
 use cosmwasm_std::StdError;
-use cw_utils::ParseReplyError;
 
 use nois_ibc_protocol::ChannelError;
 
@@ -9,9 +8,6 @@ use nois_ibc_protocol::ChannelError;
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
-
-    #[error("{0}")]
-    ParseReply(#[from] ParseReplyError),
 
     #[error("{0}")]
     ChannelError(#[from] ChannelError),
