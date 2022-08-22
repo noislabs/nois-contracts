@@ -21,4 +21,7 @@ pub enum ContractError {
 
     #[error("Invalid reply id")]
     InvalidReplyId,
+
+    #[error("Invalid public key")]
+    InvalidPubkey,
 }
