@@ -1,16 +1,19 @@
 use cosmwasm_std::{
-    entry_point, from_slice, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse,
-    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    QueryResponse, Response, StdResult, Uint64,
+    entry_point, from_slice, to_binary, Binary, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse,
+    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg,
+    IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
+    IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint64,
 };
+use drand_verify::{derive_randomness, g1_from_variable, verify};
 use nois_ibc_protocol::{
     check_order, check_version, Beacon, IbcGetRoundResponse, PacketMsg, StdAck, IBC_APP_VERSION,
 };
 
 use crate::error::ContractError;
-use crate::msg::{InstantiateMsg, QueryMsg};
-use crate::state::ROUNDS;
+use crate::msg::{
+    ConfigResponse, ExecuteMsg, GetRandomResponse, InstantiateMsg, LatestRandomResponse, QueryMsg,
+};
+use crate::state::{Config, CONFIG, ROUNDS};
 
 #[entry_point]
 pub fn instantiate(
@@ -19,6 +22,16 @@ pub fn instantiate(
     _info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> StdResult<Response> {
+    let config = Config {
+        drand_public_key: vec![
+            134, 143, 0, 94, 184, 230, 228, 202, 10, 71, 200, 167, 124, 234, 165, 48, 154, 71, 151,
+            138, 124, 113, 188, 92, 206, 150, 54, 107, 93, 122, 86, 153, 55, 197, 41, 238, 218,
+            102, 199, 41, 55, 132, 169, 64, 40, 1, 175, 49,
+        ]
+        .into(),
+    };
+    CONFIG.save(deps.storage, &config)?;
+
     ROUNDS.save(
         deps.storage,
         2183667,
@@ -52,12 +65,58 @@ pub fn instantiate(
         },
     )?;
 
-    Ok(Response::new())
+    Ok(Response::default())
 }
 
 #[entry_point]
-pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
-    match msg {}
+pub fn execute(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
+    match msg {
+        ExecuteMsg::Drand {
+            round,
+            previous_signature,
+            signature,
+        } => execute_add_random(deps, env, info, round, previous_signature, signature),
+    }
+}
+
+#[entry_point]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
+    let response = match msg {
+        QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
+        QueryMsg::GetRandomness { round } => to_binary(&query_get(deps, round)?)?,
+        QueryMsg::LatestDrand {} => to_binary(&query_latest(deps)?)?,
+    };
+    Ok(response)
+}
+
+fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let config = CONFIG.load(deps.storage)?;
+    Ok(config)
+}
+// Query beacon by round
+fn query_get(deps: Deps, round: u64) -> StdResult<GetRandomResponse> {
+    let beacon = ROUNDS.load(deps.storage, round)?;
+
+    Ok(GetRandomResponse {
+        randomness: beacon.randomness,
+    })
+}
+// Query latest beacon
+fn query_latest(deps: Deps) -> StdResult<LatestRandomResponse> {
+    let mut iter = ROUNDS.range(deps.storage, None, None, Order::Descending);
+    let (key, value) = iter
+        .next()
+        .ok_or_else(|| StdError::generic_err("Not found"))??;
+
+    Ok(LatestRandomResponse {
+        round: key,
+        randomness: value.randomness,
+    })
 }
 
 #[entry_point]
@@ -156,6 +215,52 @@ pub fn ibc_packet_timeout(
     _msg: IbcPacketTimeoutMsg,
 ) -> StdResult<IbcBasicResponse> {
     Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_timeout"))
+}
+
+fn execute_add_random(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    round: u64,
+    previous_signature: Binary,
+    signature: Binary,
+) -> Result<Response, ContractError> {
+    // Handle sender is not sending funds
+    if !info.funds.is_empty() {
+        return Err(StdError::generic_err("Do not send funds").into());
+    }
+
+    // Sender is not adding new rounds.
+    // Unclear if this is supposed to be an error (i.e. fail/revert the whole transaction)
+    // but let's see.
+    if ROUNDS.has(deps.storage, round) {
+        return Err(
+            StdError::generic_err(format!("Round already {} added", round.to_string())).into(),
+        );
+    };
+
+    let config = CONFIG.load(deps.storage)?;
+
+    let pk =
+        g1_from_variable(&config.drand_public_key).map_err(|_| ContractError::InvalidPubkey {})?;
+    let is_valid = verify(&pk, round, &previous_signature, &signature).unwrap_or(false);
+
+    if !is_valid {
+        return Err(StdError::generic_err("Unauthorized").into());
+    }
+
+    let randomness = derive_randomness(signature.as_slice());
+    let randomness_hex = hex::encode(&randomness);
+
+    let beacon = &Beacon {
+        randomness: randomness_hex.clone(),
+    };
+    ROUNDS.save(deps.storage, round, beacon)?;
+
+    Ok(Response::new()
+        .add_attribute("round", round.to_string())
+        .add_attribute("randomness", randomness_hex)
+        .add_attribute("worker", info.sender.to_string()))
 }
 
 #[cfg(test)]
