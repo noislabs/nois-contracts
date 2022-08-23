@@ -4,9 +4,7 @@ import { assert, sleep } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
-const { osmosis: oldOsmo, setup, wasmd, randomAddress } = testutils;
-const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
-
+import { Bot } from "./bot";
 import {
   assertPacketsFromA,
   loeMainnetPubkey,
@@ -15,6 +13,9 @@ import {
   setupOsmosisClient,
   setupWasmClient,
 } from "./utils";
+
+const { osmosis: oldOsmo, setup, wasmd, randomAddress } = testutils;
+const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 let wasmCodeIds: Record<string, number> = {};
 let osmosisCodeIds: Record<string, number> = {};
@@ -36,6 +37,22 @@ test.before(async (t) => {
   osmosisCodeIds = await setupContracts(osmosisSign, osmosisContracts);
 
   t.pass();
+});
+
+test.serial("Bot can submit to Terrand", async (t) => {
+  // Instantiate Terrand on osmosis
+  const osmoClient = await setupOsmosisClient();
+  const { contractAddress: terrandAddress } = await osmoClient.sign.instantiate(
+    osmoClient.senderAddress,
+    osmosisCodeIds.terrand,
+    { pubkey: loeMainnetPubkey },
+    "Terrand instance",
+    "auto"
+  );
+  t.truthy(terrandAddress);
+
+  const bot = await Bot.connect(terrandAddress);
+  await bot.submitRound(2183666);
 });
 
 test.serial("set up channel", async (t) => {
