@@ -140,7 +140,7 @@ fn acknowledge_query(
                 .into_wrapped_binary()?,
                 funds: vec![],
             })
-            .with_gas_limit(200_000);
+            .with_gas_limit(2_000_000);
             Ok(IbcBasicResponse::new()
                 .add_attribute("action", "acknowledge_ibc_query")
                 .add_attribute("callback_id", id)

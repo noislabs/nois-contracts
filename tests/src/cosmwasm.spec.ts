@@ -9,6 +9,7 @@ const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 import {
   assertPacketsFromA,
+  loeMainnetPubkey,
   NoisProtocolIbcVersion,
   setupContracts,
   setupOsmosisClient,
@@ -57,7 +58,7 @@ test.serial("set up channel", async (t) => {
   const { contractAddress: terrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
-    {},
+    { pubkey: loeMainnetPubkey },
     "Terrand instance",
     "auto"
   );
@@ -109,7 +110,7 @@ async function demoSetup(): Promise<SetupInfo> {
   const { contractAddress: noisTerrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
-    {},
+    { pubkey: loeMainnetPubkey },
     "Terrand instance",
     "auto"
   );
