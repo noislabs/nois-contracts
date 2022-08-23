@@ -228,9 +228,7 @@ fn execute_add_round(
     // Unclear if this is supposed to be an error (i.e. fail/revert the whole transaction)
     // but let's see.
     if ROUNDS.has(deps.storage, round) {
-        return Err(
-            StdError::generic_err(format!("Round already {} added", round.to_string())).into(),
-        );
+        return Err(StdError::generic_err(format!("Round already {} added", round)).into());
     };
 
     let config = CONFIG.load(deps.storage)?;
@@ -479,7 +477,7 @@ mod tests {
         connect(deps.as_mut(), channel_id, account);
         // assign it some funds
         let funds = vec![coin(123456, "uatom"), coin(7654321, "tgrd")];
-        deps.querier.update_balance(account, funds.clone());
+        deps.querier.update_balance(account, funds);
 
         // close the channel
         let channel = mock_ibc_channel_close_init(channel_id, APP_ORDER, IBC_APP_VERSION);
