@@ -228,9 +228,7 @@ fn execute_add_round(
     // Unclear if this is supposed to be an error (i.e. fail/revert the whole transaction)
     // but let's see.
     if ROUNDS.has(deps.storage, round) {
-        return Err(
-            StdError::generic_err(format!("Round already {} added", round)).into(),
-        );
+        return Err(StdError::generic_err(format!("Round already {} added", round)).into());
     };
 
     let config = CONFIG.load(deps.storage)?;
