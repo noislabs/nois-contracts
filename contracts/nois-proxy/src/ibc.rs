@@ -118,12 +118,12 @@ fn acknowledge_query(
     let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
 
     let randomness = match ack {
-        StdAck::Result(foo) => {
-            let response: IbcGetRoundResponse = from_binary(&foo)?;
+        StdAck::Result(data) => {
+            let response: IbcGetRoundResponse = from_binary(&data)?;
             response
                 .beacon
                 .map(|b| b.randomness)
-                .unwrap_or("none".to_string())
+                .unwrap_or_else(|| "none".to_string())
         }
         StdAck::Error(err) => return Err(ContractError::ForeignError { err }),
     };

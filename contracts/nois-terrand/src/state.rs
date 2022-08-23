@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use nois_ibc_protocol::Beacon;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
     pub drand_pubkey: Binary,
 }
