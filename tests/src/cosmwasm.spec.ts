@@ -173,8 +173,9 @@ async function demoSetup(): Promise<SetupInfo> {
   };
 }
 
-test.serial("query remote chain", async (t) => {
-  const { wasmClient, noisProxyAddress, link, osmoClient } = await demoSetup();
+test.serial("proxy works", async (t) => {
+  const { wasmClient, noisProxyAddress, link, osmoClient, noisTerrandAddress } = await demoSetup();
+  const bot = await Bot.connect(noisTerrandAddress);
 
   // make a new empty account on osmosis
   const emptyAddr = randomAddress(osmosis.prefix);
@@ -183,6 +184,7 @@ test.serial("query remote chain", async (t) => {
 
   // Query round 1 (existing)
   {
+    await bot.submitRound(2183668);
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
@@ -237,10 +239,13 @@ test.serial("query remote chain", async (t) => {
 });
 
 test.serial("demo contract can be used", async (t) => {
-  const { wasmClient, noisDemoAddress, link } = await demoSetup();
+  const { wasmClient, noisDemoAddress, link, noisTerrandAddress } = await demoSetup();
+  const bot = await Bot.connect(noisTerrandAddress);
 
-  // Query round 1 (existing)
+  // Query round 2183667 (existing)
   {
+    await bot.submitRound(2183667);
+
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
@@ -267,6 +272,10 @@ test.serial("demo contract can be used", async (t) => {
   }
 
   // a few more values
+  await bot.submitRound(2183668);
+  await bot.submitRound(2183669);
+  await bot.submitRound(2183670);
+
   for (const round of ["2183668", "2183669", "2183670"]) {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,

@@ -26,40 +26,6 @@ pub fn instantiate(
         drand_pubkey: msg.pubkey,
     };
     CONFIG.save(deps.storage, &config)?;
-
-    ROUNDS.save(
-        deps.storage,
-        2183667,
-        &Beacon {
-            randomness: "3fde1bdae10b7c8c826bccee66f534b82d374f88c1f8d1836063b00d2817e327"
-                .to_string(),
-        },
-    )?;
-    ROUNDS.save(
-        deps.storage,
-        2183668,
-        &Beacon {
-            randomness: "3436462283a07e695c41854bb953e5964d8737e7e29745afe54a9f4897b6c319"
-                .to_string(),
-        },
-    )?;
-    ROUNDS.save(
-        deps.storage,
-        2183669,
-        &Beacon {
-            randomness: "408de94b8c7e1972b06a4ab7636eb1ba2a176022a30d018c3b55e89289d41149"
-                .to_string(),
-        },
-    )?;
-    ROUNDS.save(
-        deps.storage,
-        2183670,
-        &Beacon {
-            randomness: "e5f7ba655389eee248575dde70cb9f3293c9774c8538136a135601907158d957"
-                .to_string(),
-        },
-    )?;
-
     Ok(Response::default())
 }
 
