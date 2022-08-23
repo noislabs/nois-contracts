@@ -20,4 +20,7 @@ pub enum ContractError {
 
     #[error("Invalid public key")]
     InvalidPubkey,
+
+    #[error("Invalid signature")]
+    InvalidSignature,
 }

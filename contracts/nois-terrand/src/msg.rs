@@ -1,17 +1,21 @@
 use cosmwasm_std::Binary;
+use nois_ibc_protocol::Beacon;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::state::Config;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    /// The public key of the drand network
+    pub pubkey: Binary,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    /// Add random from this
-    Drand {
+    /// Add drand beacon
+    AddRound {
         round: u64,
         previous_signature: Binary,
         signature: Binary,
@@ -25,13 +29,13 @@ pub enum QueryMsg {
     Config {},
     /// Get the last randomness
     LatestDrand {},
-    /// Get a specific randomness
-    GetRandomness { round: u64 },
+    /// Get a specific drand round
+    Round { round: u64 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema, Default)]
-pub struct GetRandomResponse {
-    pub randomness: String,
+pub struct RoundReponse {
+    pub beacon: Option<Beacon>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]

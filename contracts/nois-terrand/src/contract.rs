@@ -11,7 +11,7 @@ use nois_ibc_protocol::{
 
 use crate::error::ContractError;
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, GetRandomResponse, InstantiateMsg, LatestRandomResponse, QueryMsg,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, LatestRandomResponse, QueryMsg, RoundReponse,
 };
 use crate::state::{Config, CONFIG, ROUNDS};
 
@@ -20,15 +20,10 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> StdResult<Response> {
     let config = Config {
-        drand_public_key: vec![
-            134, 143, 0, 94, 184, 230, 228, 202, 10, 71, 200, 167, 124, 234, 165, 48, 154, 71, 151,
-            138, 124, 113, 188, 92, 206, 150, 54, 107, 93, 122, 86, 153, 55, 197, 41, 238, 218,
-            102, 199, 41, 55, 132, 169, 64, 40, 1, 175, 49,
-        ]
-        .into(),
+        drand_pubkey: msg.pubkey,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -76,11 +71,11 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::Drand {
+        ExecuteMsg::AddRound {
             round,
             previous_signature,
             signature,
-        } => execute_add_random(deps, env, info, round, previous_signature, signature),
+        } => execute_add_round(deps, env, info, round, previous_signature, signature),
     }
 }
 
@@ -88,7 +83,7 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
-        QueryMsg::GetRandomness { round } => to_binary(&query_get(deps, round)?)?,
+        QueryMsg::Round { round } => to_binary(&query_round(deps, round)?)?,
         QueryMsg::LatestDrand {} => to_binary(&query_latest(deps)?)?,
     };
     Ok(response)
@@ -98,14 +93,13 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config)
 }
-// Query beacon by round
-fn query_get(deps: Deps, round: u64) -> StdResult<GetRandomResponse> {
-    let beacon = ROUNDS.load(deps.storage, round)?;
 
-    Ok(GetRandomResponse {
-        randomness: beacon.randomness,
-    })
+// Query beacon by round
+fn query_round(deps: Deps, round: u64) -> StdResult<RoundReponse> {
+    let round = ROUNDS.may_load(deps.storage, round)?;
+    Ok(RoundReponse { beacon: round })
 }
+
 // Query latest beacon
 fn query_latest(deps: Deps) -> StdResult<LatestRandomResponse> {
     let mut iter = ROUNDS.range(deps.storage, None, None, Order::Descending);
@@ -217,7 +211,7 @@ pub fn ibc_packet_timeout(
     Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_timeout"))
 }
 
-fn execute_add_random(
+fn execute_add_round(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
@@ -241,12 +235,11 @@ fn execute_add_random(
 
     let config = CONFIG.load(deps.storage)?;
 
-    let pk =
-        g1_from_variable(&config.drand_public_key).map_err(|_| ContractError::InvalidPubkey {})?;
+    let pk = g1_from_variable(&config.drand_pubkey).map_err(|_| ContractError::InvalidPubkey {})?;
     let is_valid = verify(&pk, round, &previous_signature, &signature).unwrap_or(false);
 
     if !is_valid {
-        return Err(StdError::generic_err("Unauthorized").into());
+        return Err(ContractError::InvalidSignature {});
     }
 
     let randomness = derive_randomness(signature.as_slice());
@@ -271,14 +264,16 @@ mod tests {
         mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_info, MockApi, MockQuerier,
         MockStorage,
     };
-    use cosmwasm_std::{coin, OwnedDeps};
+    use cosmwasm_std::{coin, from_binary, OwnedDeps};
     use nois_ibc_protocol::{APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            pubkey: pubkey_loe_mainnet(),
+        };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -306,15 +301,143 @@ mod tests {
         );
     }
 
+    // $ node
+    // > Uint8Array.from(Buffer.from("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31", "hex"))
+    fn pubkey_loe_mainnet() -> Binary {
+        vec![
+            134, 143, 0, 94, 184, 230, 228, 202, 10, 71, 200, 167, 124, 234, 165, 48, 154, 71, 151,
+            138, 124, 113, 188, 92, 206, 150, 54, 107, 93, 122, 86, 153, 55, 197, 41, 238, 218,
+            102, 199, 41, 55, 132, 169, 64, 40, 1, 175, 49,
+        ]
+        .into()
+    }
+
+    //
+    // Instantiate tests
+    //
+
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            pubkey: pubkey_loe_mainnet(),
+        };
         let info = mock_info("creator", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len())
     }
+
+    //
+    // Execute tests
+    //
+
+    #[test]
+    fn add_round_verifies_and_stores_randomness() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            pubkey: pubkey_loe_mainnet(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let info = mock_info("anyone", &[]);
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/72785
+            round: 72785,
+            previous_signature: hex::decode("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap().into(),
+            signature: hex::decode("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap().into(),
+        };
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let response: RoundReponse = from_binary(
+            &query(deps.as_ref(), mock_env(), QueryMsg::Round { round: 72785 }).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            response.beacon.unwrap().randomness,
+            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
+        );
+    }
+
+    #[test]
+    fn add_round_fails_when_pubkey_is_invalid() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let mut broken: Vec<u8> = pubkey_loe_mainnet().into();
+        broken.push(0xF9);
+        let msg = InstantiateMsg {
+            pubkey: broken.into(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let info = mock_info("anyone", &[]);
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/72785 | jq
+            round: 72785,
+            previous_signature: hex::decode("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap().into(),
+            signature: hex::decode("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap().into(),
+        };
+        let result = execute(deps.as_mut(), mock_env(), info, msg);
+        match result.unwrap_err() {
+            ContractError::InvalidPubkey {} => {}
+            err => panic!("Unexpected error: {:?}", err),
+        }
+    }
+
+    #[test]
+    fn add_round_fails_for_broken_signature() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            pubkey: pubkey_loe_mainnet(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let info = mock_info("anyone", &[]);
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/72785
+            round: 72785,
+            previous_signature: hex::decode("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap().into(),
+            signature: hex::decode("3cc6f6cdf59e95526d5a5d82aaa84fa6f181e4").unwrap().into(), // broken signature
+        };
+        let result = execute(deps.as_mut(), mock_env(), info, msg);
+        match result.unwrap_err() {
+            ContractError::InvalidSignature {} => {}
+            err => panic!("Unexpected error: {:?}", err),
+        }
+    }
+
+    #[test]
+    fn add_round_fails_for_invalid_signature() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            pubkey: pubkey_loe_mainnet(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let info = mock_info("anyone", &[]);
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/72785
+            round: 1111, // wrong round
+            previous_signature: hex::decode("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap().into(),
+            signature: hex::decode("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap().into(),
+        };
+        let result = execute(deps.as_mut(), mock_env(), info, msg);
+        match result.unwrap_err() {
+            ContractError::InvalidSignature {} => {}
+            err => panic!("Unexpected error: {:?}", err),
+        }
+    }
+
+    //
+    // IBC tests
+    //
 
     #[test]
     fn enforce_version_in_handshake() {
