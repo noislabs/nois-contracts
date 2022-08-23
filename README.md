@@ -63,7 +63,7 @@ In terminal 2 run:
 
 which will log in `debug-wasmd.log`.
 
-In terminal 3 With `docker ps` you can see the running chains. `docker kill osmosis` and `docker kill wasmd` allows you to stop them.
+In terminal 3 with `docker ps` you can see the running chains. `docker kill osmosis` and `docker kill wasmd` allows you to stop them.
 
 ### Run tests
 
