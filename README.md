@@ -41,8 +41,11 @@ cargo fmt
 The production grade Wasm builds are compiled with:
 
 ```
+#If you are running on OSX you might need to first run "brew install coreutils"
 ./devtools/build_integration_wasm.sh
 ```
+
+
 
 ### Starting/stopping the chains
 
@@ -62,11 +65,13 @@ In terminal 2 run:
 
 which will log in `debug-wasmd.log`.
 
-With `docker ps` you can see the running chains. `docker ps osmosis` and `docker ps wasmd` allows you to stop them.
+In terminal 3 With `docker ps` you can see the running chains. `docker kill osmosis` and `docker kill wasmd` allows you to stop them.
 
 ### Run tests
 
 The tests are written in JavaScript in the `./tests` folder
+
+In terminal 3 run:
 
 ```
 cd tests
