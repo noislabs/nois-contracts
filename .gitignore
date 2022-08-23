@@ -30,3 +30,5 @@ tarpaulin-report.*
 
 packages/*/schema
 contracts/*/schema
+package-lock.json
+

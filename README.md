@@ -45,8 +45,6 @@ The production grade Wasm builds are compiled with:
 ./devtools/build_integration_wasm.sh
 ```
 
-
-
 ### Starting/stopping the chains
 
 In terminal 1 run:
