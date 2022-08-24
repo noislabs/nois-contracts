@@ -67,8 +67,6 @@ pub fn execute_receive(
     id: String,
     randomness: String,
 ) -> Result<Response, ContractError> {
-    LATEST_RESULT.save(deps.storage, &randomness)?;
-
     let randomness =
         hex::decode(&randomness).map_err(|_from_hex_err| ContractError::InvalidRandomness)?;
     let randomness: [u8; 32] = randomness
@@ -112,8 +110,8 @@ pub fn execute_receive(
     let four = Decimal::from_atomics(4u32, 0).unwrap();
     let estimated_pi = in_circle_ratio * four;
 
-    RESULTS.save(deps.storage, &id, &estimated_pi.to_string())?;
-    LATEST_RESULT.save(deps.storage, &estimated_pi.to_string())?;
+    RESULTS.save(deps.storage, &id, &estimated_pi)?;
+    LATEST_RESULT.save(deps.storage, &estimated_pi)?;
 
     Ok(Response::default())
 }
@@ -126,17 +124,17 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     }
 }
 
-fn query_results(deps: Deps) -> StdResult<Vec<String>> {
-    let out: Vec<String> = RESULTS
+fn query_results(deps: Deps) -> StdResult<Vec<Decimal>> {
+    let out: Vec<Decimal> = RESULTS
         .range(deps.storage, None, None, Order::Ascending)
         .map(|item| item.map(|(_id, value)| value))
         .collect::<StdResult<_>>()?;
     Ok(out)
 }
 
-fn query_latest_result(deps: Deps) -> StdResult<String> {
-    let results = LATEST_RESULT.load(deps.storage)?;
-    Ok(results)
+fn query_latest_result(deps: Deps) -> StdResult<Option<Decimal>> {
+    let result = LATEST_RESULT.may_load(deps.storage)?;
+    Ok(result)
 }
 
 #[cfg(test)]

@@ -193,7 +193,7 @@ test.serial("proxy works", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_beacon: { round: 2183668 } },
+      { get_beacon: { round: 2183668, callback_id: null } },
       "auto"
     );
     console.log(getRoundQuery);
@@ -205,10 +205,7 @@ test.serial("proxy works", async (t) => {
       latest_get_beacon_result: {},
     });
     const response = parseIbcPacketAckMsg(latestResult.response);
-    t.deepEqual(response, {
-      beacon: { randomness: "3436462283a07e695c41854bb953e5964d8737e7e29745afe54a9f4897b6c319" },
-    });
-    console.log(response);
+    t.deepEqual(response, {});
   }
 
   // Query round 3 (non-existing)
@@ -216,7 +213,7 @@ test.serial("proxy works", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_beacon: { round: 2999999 } },
+      { get_beacon: { round: 2999999, callback_id: null } },
       "auto"
     );
     console.log(getRoundQuery);
@@ -228,8 +225,7 @@ test.serial("proxy works", async (t) => {
       latest_get_beacon_result: {},
     });
     const response = parseIbcPacketAckMsg(latestResult.response);
-    console.log(response);
-    t.deepEqual(response, { beacon: null });
+    t.deepEqual(response, {});
   }
 });
 
@@ -256,7 +252,8 @@ test.serial("demo contract can be used", async (t) => {
       latest_result: {},
     });
     console.log(latestResult);
-    t.regex(latestResult, /3\.1[0-9]+/);
+    // t.regex(latestResult, /3\.1[0-9]+/);
+    t.is(latestResult, null);
 
     const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       results: {},

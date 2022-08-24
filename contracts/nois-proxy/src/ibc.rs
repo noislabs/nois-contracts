@@ -1,12 +1,15 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, from_slice, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, StdResult, SubMsg, WasmMsg,
+    from_binary, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, StdResult, SubMsg, WasmMsg,
 };
 
-use nois_ibc_protocol::{check_order, check_version, IbcGetBeaconResponse, PacketMsg, StdAck};
+use nois_ibc_protocol::{
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck,
+    RequestBeaconPacketAck, StdAck,
+};
 
 use crate::error::ContractError;
 use crate::state::{GetBeaconResponse, LATEST_QUERY_RESULT, TERRAND_CHANNEL};
@@ -73,60 +76,16 @@ pub fn ibc_channel_close(
 pub fn ibc_packet_receive(
     _deps: DepsMut,
     _env: Env,
-    _packet: IbcPacketReceiveMsg,
+    packet: IbcPacketReceiveMsg,
 ) -> StdResult<IbcReceiveResponse> {
-    Ok(IbcReceiveResponse::new()
-        .set_ack(b"{}")
-        .add_attribute("action", "ibc_packet_ack"))
-}
+    let DeliverBeaconPacket {
+        round: _,
+        randomness,
+        sender,
+        callback_id,
+    } = from_binary(&packet.packet.data)?;
 
-#[cfg_attr(not(feature = "library"), entry_point)]
-pub fn ibc_packet_ack(
-    deps: DepsMut,
-    env: Env,
-    msg: IbcPacketAckMsg,
-) -> Result<IbcBasicResponse, ContractError> {
-    // we need to parse the ack based on our request
-    let original_packet: PacketMsg = from_slice(&msg.original_packet.data)?;
-    let _res: StdAck = from_slice(&msg.acknowledgement.data)?;
-
-    match original_packet {
-        PacketMsg::GetBeacon {
-            sender,
-            callback_id,
-            round: _,
-        } => acknowledge_query(deps, env, sender, callback_id, msg),
-    }
-}
-
-fn acknowledge_query(
-    deps: DepsMut,
-    env: Env,
-    sender: String,
-    callback_id: Option<String>,
-    msg: IbcPacketAckMsg,
-) -> Result<IbcBasicResponse, ContractError> {
-    // store IBC response for later querying from the smart contract??
-    LATEST_QUERY_RESULT.save(
-        deps.storage,
-        &GetBeaconResponse {
-            last_update_time: env.block.time,
-            response: msg.clone(),
-        },
-    )?;
-
-    let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
-
-    let randomness = match ack {
-        StdAck::Result(data) => {
-            let response: IbcGetBeaconResponse = from_binary(&data)?;
-            response
-                .beacon
-                .map(|b| b.randomness)
-                .unwrap_or_else(|| "none".to_string())
-        }
-        StdAck::Error(err) => return Err(ContractError::ForeignError { err }),
-    };
+    let acknowledgement = StdAck::success(&DeliverBeaconPacketAck {});
 
     match callback_id {
         Some(id) => {
@@ -141,12 +100,41 @@ fn acknowledge_query(
                 funds: vec![],
             })
             .with_gas_limit(2_000_000);
-            Ok(IbcBasicResponse::new()
+            Ok(IbcReceiveResponse::new()
+                .set_ack(acknowledgement)
                 .add_attribute("action", "acknowledge_ibc_query")
                 .add_attribute("callback_id", id)
                 .add_submessage(msg))
         }
-        None => Ok(IbcBasicResponse::new().add_attribute("action", "acknowledge_ibc_query")),
+        None => Ok(IbcReceiveResponse::new()
+            .set_ack(acknowledgement)
+            .add_attribute("action", "acknowledge_ibc_query")),
+    }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn ibc_packet_ack(
+    deps: DepsMut,
+    env: Env,
+    msg: IbcPacketAckMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    // store IBC response for later querying from the smart contract??
+    LATEST_QUERY_RESULT.save(
+        deps.storage,
+        &GetBeaconResponse {
+            last_update_time: env.block.time,
+            response: msg.clone(),
+        },
+    )?;
+
+    let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
+    match ack {
+        StdAck::Result(data) => {
+            let _response: RequestBeaconPacketAck = from_binary(&data)?;
+            // alright
+            Ok(IbcBasicResponse::new().add_attribute("action", "RequestBeaconPacketAck"))
+        }
+        StdAck::Error(err) => Err(ContractError::ForeignError { err }),
     }
 }
 

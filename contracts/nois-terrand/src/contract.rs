@@ -1,19 +1,25 @@
 use cosmwasm_std::{
-    entry_point, from_slice, to_binary, Binary, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse,
-    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg,
-    IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
-    IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
+    entry_point, from_binary, from_slice, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, Event,
+    Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
+    IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError,
+    StdResult, Timestamp,
 };
 use drand_verify::{derive_randomness, g1_from_variable, verify};
 use nois_ibc_protocol::{
-    check_order, check_version, Beacon, IbcGetBeaconResponse, PacketMsg, StdAck, IBC_APP_VERSION,
+    check_order, check_version, Beacon, DeliverBeaconPacket, RequestBeaconPacket,
+    RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
 use crate::error::ContractError;
 use crate::msg::{
     BeaconReponse, ConfigResponse, ExecuteMsg, InstantiateMsg, LatestRandomResponse, QueryMsg,
 };
-use crate::state::{Config, BEACONS, CONFIG};
+use crate::state::{Config, Job, BEACONS, CONFIG, JOBS};
+
+// TODO: make configurable?
+/// packets live one hour
+pub const PACKET_LIFETIME: u64 = 60 * 60;
 
 #[entry_point]
 pub fn instantiate(
@@ -134,35 +140,82 @@ pub fn ibc_channel_close(
 #[entry_point]
 pub fn ibc_packet_receive(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let packet = msg.packet;
     // which local channel did this packet come on
-    let _caller = packet.dest.channel_id;
-    let msg: PacketMsg = from_slice(&packet.data)?;
-    match msg {
-        PacketMsg::GetBeacon { round, .. } => receive_get_beacon(deps.as_ref(), round),
-    }
+    let channel = packet.dest.channel_id;
+    let msg: RequestBeaconPacket = from_slice(&packet.data)?;
+    receive_get_beacon(deps, env, channel, msg.round, msg.sender, msg.callback_id)
 }
 
-fn receive_get_beacon(deps: Deps, round: u64) -> Result<IbcReceiveResponse, ContractError> {
+fn receive_get_beacon(
+    deps: DepsMut,
+    env: Env,
+    channel: String,
+    round: u64,
+    sender: String,
+    callback_id: Option<String>,
+) -> Result<IbcReceiveResponse, ContractError> {
+    let job = Job {
+        round,
+        channel,
+        sender,
+        callback_id,
+    };
+
     let beacon = BEACONS.may_load(deps.storage, round)?;
-    let response = IbcGetBeaconResponse { beacon };
-    let acknowledgement = StdAck::success(&response);
+
+    let mut msgs = Vec::<CosmosMsg>::new();
+
+    if let Some(beacon) = beacon.as_ref() {
+        let msg = process_job(env.block.time, job, beacon)?;
+        msgs.push(msg.into());
+    } else {
+        // If we don't have the beacon yet we store the job for later
+        let mut jobs = JOBS.may_load(deps.storage, round)?.unwrap_or_default();
+        jobs.push(job);
+        JOBS.save(deps.storage, round, &jobs)?;
+    }
+
+    let acknowledgement = StdAck::success(&RequestBeaconPacketAck {});
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
+        .add_messages(msgs)
         .add_attribute("action", "receive_get_beacon"))
 }
 
+fn process_job(blocktime: Timestamp, job: Job, beacon: &Beacon) -> Result<IbcMsg, ContractError> {
+    let packet = DeliverBeaconPacket {
+        sender: job.sender,
+        callback_id: job.callback_id,
+        randomness: beacon.randomness.clone(),
+        round: job.round,
+    };
+    let msg = IbcMsg::SendPacket {
+        channel_id: job.channel,
+        data: to_binary(&packet)?,
+        timeout: blocktime.plus_seconds(PACKET_LIFETIME).into(),
+    };
+    Ok(msg)
+}
+
 #[entry_point]
-/// never should be called as we do not send packets
 pub fn ibc_packet_ack(
     _deps: DepsMut,
     _env: Env,
-    _msg: IbcPacketAckMsg,
-) -> StdResult<IbcBasicResponse> {
-    Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_ack"))
+    msg: IbcPacketAckMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
+    match ack {
+        StdAck::Result(data) => {
+            let _response: RequestBeaconPacketAck = from_binary(&data)?;
+            // alright
+            Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_ack"))
+        }
+        StdAck::Error(err) => Err(ContractError::ForeignError { err }),
+    }
 }
 
 #[entry_point]
@@ -177,7 +230,7 @@ pub fn ibc_packet_timeout(
 
 fn execute_add_round(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     round: u64,
     previous_signature: Binary,
@@ -212,7 +265,19 @@ fn execute_add_round(
     };
     BEACONS.save(deps.storage, round, beacon)?;
 
+    let mut msgs = Vec::<CosmosMsg>::new();
+    if let Some(jobs) = JOBS.may_load(deps.storage, round)? {
+        JOBS.remove(deps.storage, round);
+
+        for job in jobs {
+            // Use IbcMsg::SendPacket to send packages to the proxies.
+            let msg = process_job(env.block.time, job, beacon)?;
+            msgs.push(msg.into());
+        }
+    }
+
     Ok(Response::new()
+        .add_messages(msgs)
         .add_attribute("round", round.to_string())
         .add_attribute("randomness", randomness_hex)
         .add_attribute("worker", info.sender.to_string()))
