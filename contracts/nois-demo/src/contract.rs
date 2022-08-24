@@ -67,8 +67,6 @@ pub fn execute_receive(
     id: String,
     randomness: String,
 ) -> Result<Response, ContractError> {
-    LATEST_RESULT.save(deps.storage, &randomness)?;
-
     let randomness =
         hex::decode(&randomness).map_err(|_from_hex_err| ContractError::InvalidRandomness)?;
     let randomness: [u8; 32] = randomness
@@ -113,7 +111,7 @@ pub fn execute_receive(
     let estimated_pi = in_circle_ratio * four;
 
     RESULTS.save(deps.storage, &id, &estimated_pi.to_string())?;
-    LATEST_RESULT.save(deps.storage, &estimated_pi.to_string())?;
+    LATEST_RESULT.save(deps.storage, &estimated_pi)?;
 
     Ok(Response::default())
 }
@@ -134,9 +132,9 @@ fn query_results(deps: Deps) -> StdResult<Vec<String>> {
     Ok(out)
 }
 
-fn query_latest_result(deps: Deps) -> StdResult<String> {
-    let results = LATEST_RESULT.load(deps.storage)?;
-    Ok(results)
+fn query_latest_result(deps: Deps) -> StdResult<Option<Decimal>> {
+    let result = LATEST_RESULT.may_load(deps.storage)?;
+    Ok(result)
 }
 
 #[cfg(test)]
