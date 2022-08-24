@@ -12,7 +12,7 @@ use nois_ibc_protocol::{
 };
 
 use crate::error::ContractError;
-use crate::state::{GetBeaconResponse, LATEST_QUERY_RESULT, TERRAND_CHANNEL};
+use crate::state::TERRAND_CHANNEL;
 use crate::NoisCallbackMsg;
 
 // TODO: make configurable?
@@ -114,19 +114,10 @@ pub fn ibc_packet_receive(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
-    deps: DepsMut,
-    env: Env,
+    _deps: DepsMut,
+    _env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // store IBC response for later querying from the smart contract??
-    LATEST_QUERY_RESULT.save(
-        deps.storage,
-        &GetBeaconResponse {
-            last_update_time: env.block.time,
-            response: msg.clone(),
-        },
-    )?;
-
     let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
     match ack {
         StdAck::Result(data) => {

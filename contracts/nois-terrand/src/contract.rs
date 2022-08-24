@@ -7,8 +7,8 @@ use cosmwasm_std::{
 };
 use drand_verify::{derive_randomness, g1_from_variable, verify};
 use nois_ibc_protocol::{
-    check_order, check_version, Beacon, DeliverBeaconPacket, RequestBeaconPacket,
-    RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
+    check_order, check_version, Beacon, DeliverBeaconPacket, DeliverBeaconPacketAck,
+    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
 use crate::error::ContractError;
@@ -169,17 +169,18 @@ fn receive_get_beacon(
 
     let mut msgs = Vec::<CosmosMsg>::new();
 
-    if let Some(beacon) = beacon.as_ref() {
+    let acknowledgement: Binary = if let Some(beacon) = beacon.as_ref() {
         let msg = process_job(env.block.time, job, beacon)?;
         msgs.push(msg.into());
+        StdAck::success(&RequestBeaconPacketAck::Processed)
     } else {
         // If we don't have the beacon yet we store the job for later
         let mut jobs = JOBS.may_load(deps.storage, round)?.unwrap_or_default();
         jobs.push(job);
         JOBS.save(deps.storage, round, &jobs)?;
-    }
+        StdAck::success(&RequestBeaconPacketAck::Queued)
+    };
 
-    let acknowledgement = StdAck::success(&RequestBeaconPacketAck {});
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
         .add_messages(msgs)
@@ -210,7 +211,7 @@ pub fn ibc_packet_ack(
     let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
     match ack {
         StdAck::Result(data) => {
-            let _response: RequestBeaconPacketAck = from_binary(&data)?;
+            let _response: DeliverBeaconPacketAck = from_binary(&data)?;
             // alright
             Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_ack"))
         }
