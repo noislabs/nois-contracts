@@ -6,7 +6,8 @@ use cosmwasm_std::{
 };
 use drand_verify::{derive_randomness, g1_from_variable, verify};
 use nois_ibc_protocol::{
-    check_order, check_version, Beacon, IbcGetBeaconResponse, PacketMsg, StdAck, IBC_APP_VERSION,
+    check_order, check_version, Beacon, IbcGetBeaconResponse, RequestBeaconPacket, StdAck,
+    IBC_APP_VERSION,
 };
 
 use crate::error::ContractError;
@@ -140,14 +141,8 @@ pub fn ibc_packet_receive(
     let packet = msg.packet;
     // which local channel did this packet come on
     let channel = packet.dest.channel_id;
-    let msg: PacketMsg = from_slice(&packet.data)?;
-    match msg {
-        PacketMsg::GetBeacon {
-            round,
-            sender,
-            callback_id,
-        } => receive_get_beacon(deps, channel, round, sender, callback_id),
-    }
+    let msg: RequestBeaconPacket = from_slice(&packet.data)?;
+    receive_get_beacon(deps, channel, msg.round, msg.sender, msg.callback_id)
 }
 
 fn receive_get_beacon(

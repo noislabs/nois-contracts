@@ -6,7 +6,9 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, StdResult, SubMsg, WasmMsg,
 };
 
-use nois_ibc_protocol::{check_order, check_version, IbcGetBeaconResponse, PacketMsg, StdAck};
+use nois_ibc_protocol::{
+    check_order, check_version, IbcGetBeaconResponse, RequestBeaconPacket, StdAck,
+};
 
 use crate::error::ContractError;
 use crate::state::{GetBeaconResponse, LATEST_QUERY_RESULT, TERRAND_CHANNEL};
@@ -87,16 +89,15 @@ pub fn ibc_packet_ack(
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     // we need to parse the ack based on our request
-    let original_packet: PacketMsg = from_slice(&msg.original_packet.data)?;
+    let original_packet: RequestBeaconPacket = from_slice(&msg.original_packet.data)?;
     let _res: StdAck = from_slice(&msg.acknowledgement.data)?;
-
-    match original_packet {
-        PacketMsg::GetBeacon {
-            sender,
-            callback_id,
-            round: _,
-        } => acknowledge_query(deps, env, sender, callback_id, msg),
-    }
+    acknowledge_query(
+        deps,
+        env,
+        original_packet.sender,
+        original_packet.callback_id,
+        msg,
+    )
 }
 
 fn acknowledge_query(

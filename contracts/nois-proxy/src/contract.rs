@@ -3,7 +3,7 @@ use cosmwasm_std::entry_point;
 use cosmwasm_std::{
     to_binary, Deps, DepsMut, Env, IbcMsg, MessageInfo, QueryResponse, Response, StdResult,
 };
-use nois_ibc_protocol::PacketMsg;
+use nois_ibc_protocol::RequestBeaconPacket;
 
 use crate::ibc::PACKET_LIFETIME;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -36,7 +36,7 @@ pub fn execute_get_beacon(
     callback_id: Option<String>,
 ) -> StdResult<Response> {
     let sender = info.sender.into();
-    let packet = PacketMsg::GetBeacon {
+    let packet = RequestBeaconPacket {
         round,
         sender,
         callback_id,

@@ -3,7 +3,7 @@ use std::fs::create_dir_all;
 
 use cosmwasm_schema::{export_schema, remove_schemas, schema_for};
 
-use nois_ibc_protocol::{PacketMsg, StdAck};
+use nois_ibc_protocol::{DeliverBeaconPacket, RequestBeaconPacket, StdAck};
 
 fn main() {
     let mut out_dir = current_dir().unwrap();
@@ -11,6 +11,7 @@ fn main() {
     create_dir_all(&out_dir).unwrap();
     remove_schemas(&out_dir).unwrap();
 
-    export_schema(&schema_for!(PacketMsg), &out_dir);
+    export_schema(&schema_for!(RequestBeaconPacket), &out_dir);
+    export_schema(&schema_for!(DeliverBeaconPacket), &out_dir);
     export_schema(&schema_for!(StdAck), &out_dir);
 }
