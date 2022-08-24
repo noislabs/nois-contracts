@@ -51,8 +51,18 @@ test.serial("Bot can submit to Terrand", async (t) => {
   );
   t.truthy(terrandAddress);
 
+  const before = await osmoClient.sign.queryContractSmart(terrandAddress, {
+    beacon: { round: 2183666 },
+  });
+  t.deepEqual(before, { beacon: null });
+
   const bot = await Bot.connect(terrandAddress);
   await bot.submitRound(2183666);
+
+  const after = await osmoClient.sign.queryContractSmart(terrandAddress, {
+    beacon: { round: 2183666 },
+  });
+  t.deepEqual(after, { beacon: { randomness: "768bd188a948f1f2959d15c657f159dd34bdf741b7d4b17a29b877eb36c04dcf" } });
 });
 
 test.serial("set up channel", async (t) => {

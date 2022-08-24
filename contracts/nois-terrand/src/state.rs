@@ -13,4 +13,4 @@ pub struct Config {
 pub const CONFIG: Item<Config> = Item::new("config");
 
 // A map from round number to drand beacon
-pub const ROUNDS: Map<u64, Beacon> = Map::new("rounds");
+pub const BEACONS: Map<u64, Beacon> = Map::new("beacons");

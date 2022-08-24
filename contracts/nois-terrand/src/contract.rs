@@ -11,9 +11,9 @@ use nois_ibc_protocol::{
 
 use crate::error::ContractError;
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, LatestRandomResponse, QueryMsg, RoundReponse,
+    BeaconReponse, ConfigResponse, ExecuteMsg, InstantiateMsg, LatestRandomResponse, QueryMsg,
 };
-use crate::state::{Config, CONFIG, ROUNDS};
+use crate::state::{Config, BEACONS, CONFIG};
 
 #[entry_point]
 pub fn instantiate(
@@ -49,7 +49,7 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
-        QueryMsg::Round { round } => to_binary(&query_round(deps, round)?)?,
+        QueryMsg::Beacon { round } => to_binary(&query_beacon(deps, round)?)?,
         QueryMsg::LatestDrand {} => to_binary(&query_latest(deps)?)?,
     };
     Ok(response)
@@ -61,14 +61,14 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 }
 
 // Query beacon by round
-fn query_round(deps: Deps, round: u64) -> StdResult<RoundReponse> {
-    let round = ROUNDS.may_load(deps.storage, round)?;
-    Ok(RoundReponse { beacon: round })
+fn query_beacon(deps: Deps, round: u64) -> StdResult<BeaconReponse> {
+    let beacon = BEACONS.may_load(deps.storage, round)?;
+    Ok(BeaconReponse { beacon })
 }
 
 // Query latest beacon
 fn query_latest(deps: Deps) -> StdResult<LatestRandomResponse> {
-    let mut iter = ROUNDS.range(deps.storage, None, None, Order::Descending);
+    let mut iter = BEACONS.range(deps.storage, None, None, Order::Descending);
     let (key, value) = iter
         .next()
         .ok_or_else(|| StdError::generic_err("Not found"))??;
@@ -149,7 +149,7 @@ pub fn ibc_packet_receive(
 // TODO use query request for msgs here (empty custom)
 // processes IBC query
 fn receive_get_round(deps: Deps, round: Uint64) -> Result<IbcReceiveResponse, ContractError> {
-    let beacon = ROUNDS.may_load(deps.storage, round.u64())?;
+    let beacon = BEACONS.may_load(deps.storage, round.u64())?;
     let response = IbcGetRoundResponse { beacon };
     let acknowledgement = StdAck::success(&response);
     Ok(IbcReceiveResponse::new()
@@ -193,7 +193,7 @@ fn execute_add_round(
     // Sender is not adding new rounds.
     // Unclear if this is supposed to be an error (i.e. fail/revert the whole transaction)
     // but let's see.
-    if ROUNDS.has(deps.storage, round) {
+    if BEACONS.has(deps.storage, round) {
         return Err(StdError::generic_err(format!("Round already {} added", round)).into());
     };
 
@@ -212,7 +212,7 @@ fn execute_add_round(
     let beacon = &Beacon {
         randomness: randomness_hex.clone(),
     };
-    ROUNDS.save(deps.storage, round, beacon)?;
+    BEACONS.save(deps.storage, round, beacon)?;
 
     Ok(Response::new()
         .add_attribute("round", round.to_string())
@@ -315,8 +315,8 @@ mod tests {
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let response: RoundReponse = from_binary(
-            &query(deps.as_ref(), mock_env(), QueryMsg::Round { round: 72785 }).unwrap(),
+        let response: BeaconReponse = from_binary(
+            &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72785 }).unwrap(),
         )
         .unwrap();
         assert_eq!(
