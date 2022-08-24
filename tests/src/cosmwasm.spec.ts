@@ -14,7 +14,7 @@ import {
   setupWasmClient,
 } from "./utils";
 
-const { osmosis: oldOsmo, setup, wasmd, randomAddress } = testutils;
+const { osmosis: oldOsmo, setup, wasmd } = testutils;
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 let wasmCodeIds: Record<string, number> = {};
@@ -184,13 +184,8 @@ async function demoSetup(): Promise<SetupInfo> {
 }
 
 test.serial("proxy works", async (t) => {
-  const { wasmClient, noisProxyAddress, link, osmoClient, noisTerrandAddress } = await demoSetup();
+  const { wasmClient, noisProxyAddress, link, noisTerrandAddress } = await demoSetup();
   const bot = await Bot.connect(noisTerrandAddress);
-
-  // make a new empty account on osmosis
-  const emptyAddr = randomAddress(osmosis.prefix);
-  const noFunds = await osmoClient.sign.getBalance(emptyAddr, osmosis.denomFee);
-  t.is(noFunds.amount, "0");
 
   // Query round 1 (existing)
   {
