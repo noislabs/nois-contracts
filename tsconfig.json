@@ -1,0 +1,6 @@
+// With this file we can make test TypeScript project ./tests work
+// well in VC Code. Otherwise the tests/tsconfig.json is not found.
+// See https://github.com/microsoft/TypeScript/issues/33094
+{
+  "extends": "./tests/tsconfig.json"
+}

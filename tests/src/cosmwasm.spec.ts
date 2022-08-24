@@ -1,6 +1,5 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
-import { fromBinary } from "@cosmjs/cosmwasm-stargate";
-import { assert, sleep } from "@cosmjs/utils";
+import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
@@ -9,12 +8,13 @@ import {
   assertPacketsFromA,
   loeMainnetPubkey,
   NoisProtocolIbcVersion,
+  parseIbcPacketAckMsg,
   setupContracts,
   setupOsmosisClient,
   setupWasmClient,
 } from "./utils";
 
-const { osmosis: oldOsmo, setup, wasmd, randomAddress } = testutils;
+const { osmosis: oldOsmo, setup, wasmd } = testutils;
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 let wasmCodeIds: Record<string, number> = {};
@@ -51,8 +51,18 @@ test.serial("Bot can submit to Terrand", async (t) => {
   );
   t.truthy(terrandAddress);
 
+  const before = await osmoClient.sign.queryContractSmart(terrandAddress, {
+    beacon: { round: 2183666 },
+  });
+  t.deepEqual(before, { beacon: null });
+
   const bot = await Bot.connect(terrandAddress);
   await bot.submitRound(2183666);
+
+  const after = await osmoClient.sign.queryContractSmart(terrandAddress, {
+    beacon: { round: 2183666 },
+  });
+  t.deepEqual(after, { beacon: { randomness: "768bd188a948f1f2959d15c657f159dd34bdf741b7d4b17a29b877eb36c04dcf" } });
 });
 
 test.serial("set up channel", async (t) => {
@@ -174,13 +184,8 @@ async function demoSetup(): Promise<SetupInfo> {
 }
 
 test.serial("proxy works", async (t) => {
-  const { wasmClient, noisProxyAddress, link, osmoClient, noisTerrandAddress } = await demoSetup();
+  const { wasmClient, noisProxyAddress, link, noisTerrandAddress } = await demoSetup();
   const bot = await Bot.connect(noisTerrandAddress);
-
-  // make a new empty account on osmosis
-  const emptyAddr = randomAddress(osmosis.prefix);
-  const noFunds = await osmoClient.sign.getBalance(emptyAddr, osmosis.denomFee);
-  t.is(noFunds.amount, "0");
 
   // Query round 1 (existing)
   {
@@ -188,7 +193,7 @@ test.serial("proxy works", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_round: { round: "2183668" } },
+      { get_beacon: { round: 2183668 } },
       "auto"
     );
     console.log(getRoundQuery);
@@ -196,15 +201,10 @@ test.serial("proxy works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
 
-    await sleep(1000);
-
     const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
-      latest_get_round_result: {},
+      latest_get_beacon_result: {},
     });
-    // console.log(latestResult);
-    // console.log(latestResult.response.acknowledgement.data);
-    const result: string = fromBinary(latestResult.response.acknowledgement.data).result;
-    const response = fromBinary(result);
+    const response = parseIbcPacketAckMsg(latestResult.response);
     t.deepEqual(response, {
       beacon: { randomness: "3436462283a07e695c41854bb953e5964d8737e7e29745afe54a9f4897b6c319" },
     });
@@ -216,7 +216,7 @@ test.serial("proxy works", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_round: { round: "2999999" } },
+      { get_beacon: { round: 2999999 } },
       "auto"
     );
     console.log(getRoundQuery);
@@ -224,15 +224,10 @@ test.serial("proxy works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
 
-    await sleep(1000);
-
     const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
-      latest_get_round_result: {},
+      latest_get_beacon_result: {},
     });
-    // console.log(latestResult);
-    // console.log(latestResult.response.acknowledgement.data);
-    const result: string = fromBinary(latestResult.response.acknowledgement.data).result;
-    const response = fromBinary(result);
+    const response = parseIbcPacketAckMsg(latestResult.response);
     console.log(response);
     t.deepEqual(response, { beacon: null });
   }
@@ -249,15 +244,13 @@ test.serial("demo contract can be used", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
-      { estimate_pi: { round: "2183667", job_id: Date.now().toString() } },
+      { estimate_pi: { round: 2183667, job_id: Date.now().toString() } },
       "auto"
     );
     console.log(getRoundQuery);
 
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
-
-    await sleep(1000);
 
     const latestResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       latest_result: {},
@@ -272,11 +265,9 @@ test.serial("demo contract can be used", async (t) => {
   }
 
   // a few more values
-  await bot.submitRound(2183668);
-  await bot.submitRound(2183669);
-  await bot.submitRound(2183670);
+  await bot.submitRounds([2183668, 2183669, 2183670]);
 
-  for (const round of ["2183668", "2183669", "2183670"]) {
+  for (const round of [2183668, 2183669, 2183670]) {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
@@ -287,8 +278,6 @@ test.serial("demo contract can be used", async (t) => {
 
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
-
-    await sleep(1000);
 
     const latestResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       latest_result: {},

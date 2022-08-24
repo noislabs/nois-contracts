@@ -1,4 +1,4 @@
-use cosmwasm_std::{from_slice, to_binary, Binary, Uint64};
+use cosmwasm_std::{from_slice, to_binary, Binary};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PacketMsg {
-    GetRound {
-        round: Uint64,
+    GetBeacon {
+        round: u64,
         /// The address from which the proxy was executed, i.e. the randomness consumer
         sender: String,
         callback_id: Option<String>,
@@ -68,6 +68,6 @@ pub struct Beacon {
 
 /// Return the data field for each message
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct IbcGetRoundResponse {
+pub struct IbcGetBeaconResponse {
     pub beacon: Option<Beacon>,
 }

@@ -1,6 +1,8 @@
-import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { fromHex, toBase64 } from "@cosmjs/encoding";
+import { MsgExecuteContractEncodeObject, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { fromHex, toBase64, toUtf8 } from "@cosmjs/encoding";
+import { assertIsDeliverTxSuccess } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
+import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx";
 
 import { setupOsmosisClient } from "./utils";
 
@@ -48,19 +50,35 @@ export class Bot {
   }
 
   public async submitRound(round: number): Promise<void> {
-    const beacon = localDataSource.get(round);
-    assert(beacon, `No data source for round ${round} available`);
-    await this.client.execute(
-      this.address,
-      this.terrandAddress,
-      {
+    return this.submitRounds([round]);
+  }
+
+  public async submitRounds(rounds: number[]): Promise<void> {
+    const beacons = rounds.map((round) => {
+      const beacon = localDataSource.get(round);
+      assert(beacon, `No data source for round ${round} available`);
+      return beacon;
+    });
+
+    // TODO: use executeMultiple after upgrading to CosmJS 0.29.
+    const msgs: MsgExecuteContractEncodeObject[] = beacons.map((beacon) => {
+      const msg = {
         add_round: {
           round: beacon.round,
           signature: toBase64(fromHex(beacon.signature)),
           previous_signature: toBase64(fromHex(beacon.previous_signature)),
         },
-      },
-      "auto"
-    );
+      };
+      return {
+        typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+        value: MsgExecuteContract.fromPartial({
+          sender: this.address,
+          contract: this.terrandAddress,
+          msg: toUtf8(JSON.stringify(msg)),
+        }),
+      };
+    });
+    const result = await this.client.signAndBroadcast(this.address, msgs, "auto");
+    assertIsDeliverTxSuccess(result);
   }
 }

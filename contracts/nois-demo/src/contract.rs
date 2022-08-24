@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     entry_point, to_binary, CheckedFromRatioError, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryResponse, Response, StdResult, Uint64, WasmMsg,
+    QueryResponse, Response, StdResult, WasmMsg,
 };
 use nois_proxy::NoisCallbackMsg;
 use rand_core::{RngCore, SeedableRng};
@@ -44,14 +44,14 @@ pub fn execute_estimate_pi(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    round: Uint64,
+    round: u64,
     job_id: String,
 ) -> Result<Response, ContractError> {
     let nois_proxy = NOIS_PROXY.load(deps.storage)?;
 
     let res = Response::new().add_message(WasmMsg::Execute {
         contract_addr: nois_proxy,
-        msg: to_binary(&nois_proxy::ExecuteMsg::GetRound {
+        msg: to_binary(&nois_proxy::ExecuteMsg::GetBeacon {
             round,
             callback_id: Some(job_id),
         })?,

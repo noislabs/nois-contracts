@@ -30,11 +30,11 @@ pub enum QueryMsg {
     /// Get the last randomness
     LatestDrand {},
     /// Get a specific drand round
-    Round { round: u64 },
+    Beacon { round: u64 },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema, Default)]
-pub struct RoundReponse {
+pub struct BeaconReponse {
     pub beacon: Option<Beacon>,
 }
 
