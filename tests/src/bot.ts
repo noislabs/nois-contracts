@@ -50,7 +50,7 @@ export class Bot {
   }
 
   public async submitRound(round: number): Promise<void> {
-    this.submitRounds([round]);
+    return this.submitRounds([round]);
   }
 
   public async submitRounds(rounds: number[]): Promise<void> {
