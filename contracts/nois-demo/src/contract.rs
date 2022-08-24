@@ -110,7 +110,7 @@ pub fn execute_receive(
     let four = Decimal::from_atomics(4u32, 0).unwrap();
     let estimated_pi = in_circle_ratio * four;
 
-    RESULTS.save(deps.storage, &id, &estimated_pi.to_string())?;
+    RESULTS.save(deps.storage, &id, &estimated_pi)?;
     LATEST_RESULT.save(deps.storage, &estimated_pi)?;
 
     Ok(Response::default())
@@ -124,8 +124,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     }
 }
 
-fn query_results(deps: Deps) -> StdResult<Vec<String>> {
-    let out: Vec<String> = RESULTS
+fn query_results(deps: Deps) -> StdResult<Vec<Decimal>> {
+    let out: Vec<Decimal> = RESULTS
         .range(deps.storage, None, None, Order::Ascending)
         .map(|item| item.map(|(_id, value)| value))
         .collect::<StdResult<_>>()?;
