@@ -1,4 +1,4 @@
-use cosmwasm_std::{to_binary, Binary, StdResult, Uint64};
+use cosmwasm_std::{to_binary, Binary, StdResult};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -10,8 +10,8 @@ pub struct InstantiateMsg {}
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    GetRound {
-        round: Uint64,
+    GetBeacon {
+        round: u64,
         // A callback ID chosen by the caller
         callback_id: Option<String>,
     },
@@ -21,7 +21,7 @@ pub enum ExecuteMsg {
 #[serde(rename_all = "snake_case")]
 pub enum QueryMsg {
     // Get latest query
-    LatestGetRoundResult {},
+    LatestGetBeaconResult {},
 }
 
 /// This hould be de/serialized under `Receive()` variant in a ExecuteMsg

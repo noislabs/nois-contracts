@@ -6,10 +6,10 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, StdResult, SubMsg, WasmMsg,
 };
 
-use nois_ibc_protocol::{check_order, check_version, IbcGetRoundResponse, PacketMsg, StdAck};
+use nois_ibc_protocol::{check_order, check_version, IbcGetBeaconResponse, PacketMsg, StdAck};
 
 use crate::error::ContractError;
-use crate::state::{GetRoundResponse, LATEST_QUERY_RESULT, TERRAND_CHANNEL};
+use crate::state::{GetBeaconResponse, LATEST_QUERY_RESULT, TERRAND_CHANNEL};
 use crate::NoisCallbackMsg;
 
 // TODO: make configurable?
@@ -91,7 +91,7 @@ pub fn ibc_packet_ack(
     let _res: StdAck = from_slice(&msg.acknowledgement.data)?;
 
     match original_packet {
-        PacketMsg::GetRound {
+        PacketMsg::GetBeacon {
             sender,
             callback_id,
             round: _,
@@ -109,7 +109,7 @@ fn acknowledge_query(
     // store IBC response for later querying from the smart contract??
     LATEST_QUERY_RESULT.save(
         deps.storage,
-        &GetRoundResponse {
+        &GetBeaconResponse {
             last_update_time: env.block.time,
             response: msg.clone(),
         },
@@ -119,7 +119,7 @@ fn acknowledge_query(
 
     let randomness = match ack {
         StdAck::Result(data) => {
-            let response: IbcGetRoundResponse = from_binary(&data)?;
+            let response: IbcGetBeaconResponse = from_binary(&data)?;
             response
                 .beacon
                 .map(|b| b.randomness)

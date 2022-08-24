@@ -2,11 +2,11 @@ use cosmwasm_std::{
     entry_point, from_slice, to_binary, Binary, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse,
     IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg,
     IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
-    IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint64,
+    IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
 };
 use drand_verify::{derive_randomness, g1_from_variable, verify};
 use nois_ibc_protocol::{
-    check_order, check_version, Beacon, IbcGetRoundResponse, PacketMsg, StdAck, IBC_APP_VERSION,
+    check_order, check_version, Beacon, IbcGetBeaconResponse, PacketMsg, StdAck, IBC_APP_VERSION,
 };
 
 use crate::error::ContractError;
@@ -142,19 +142,17 @@ pub fn ibc_packet_receive(
     let _caller = packet.dest.channel_id;
     let msg: PacketMsg = from_slice(&packet.data)?;
     match msg {
-        PacketMsg::GetRound { round, .. } => receive_get_round(deps.as_ref(), round),
+        PacketMsg::GetBeacon { round, .. } => receive_get_beacon(deps.as_ref(), round),
     }
 }
 
-// TODO use query request for msgs here (empty custom)
-// processes IBC query
-fn receive_get_round(deps: Deps, round: Uint64) -> Result<IbcReceiveResponse, ContractError> {
-    let beacon = BEACONS.may_load(deps.storage, round.u64())?;
-    let response = IbcGetRoundResponse { beacon };
+fn receive_get_beacon(deps: Deps, round: u64) -> Result<IbcReceiveResponse, ContractError> {
+    let beacon = BEACONS.may_load(deps.storage, round)?;
+    let response = IbcGetBeaconResponse { beacon };
     let acknowledgement = StdAck::success(&response);
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
-        .add_attribute("action", "receive_ibc_query"))
+        .add_attribute("action", "receive_get_beacon"))
 }
 
 #[entry_point]

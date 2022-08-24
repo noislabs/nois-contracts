@@ -198,7 +198,7 @@ test.serial("proxy works", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_round: { round: "2183668" } },
+      { get_beacon: { round: 2183668 } },
       "auto"
     );
     console.log(getRoundQuery);
@@ -209,7 +209,7 @@ test.serial("proxy works", async (t) => {
     await sleep(1000);
 
     const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
-      latest_get_round_result: {},
+      latest_get_beacon_result: {},
     });
     // console.log(latestResult);
     // console.log(latestResult.response.acknowledgement.data);
@@ -226,7 +226,7 @@ test.serial("proxy works", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_round: { round: "2999999" } },
+      { get_beacon: { round: 2999999 } },
       "auto"
     );
     console.log(getRoundQuery);
@@ -237,7 +237,7 @@ test.serial("proxy works", async (t) => {
     await sleep(1000);
 
     const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
-      latest_get_round_result: {},
+      latest_get_beacon_result: {},
     });
     // console.log(latestResult);
     // console.log(latestResult.response.acknowledgement.data);
@@ -259,7 +259,7 @@ test.serial("demo contract can be used", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
-      { estimate_pi: { round: "2183667", job_id: Date.now().toString() } },
+      { estimate_pi: { round: 2183667, job_id: Date.now().toString() } },
       "auto"
     );
     console.log(getRoundQuery);
@@ -284,7 +284,7 @@ test.serial("demo contract can be used", async (t) => {
   // a few more values
   await bot.submitRounds([2183668, 2183669, 2183670]);
 
-  for (const round of ["2183668", "2183669", "2183670"]) {
+  for (const round of [2183668, 2183669, 2183670]) {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,

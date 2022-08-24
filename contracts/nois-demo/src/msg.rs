@@ -1,4 +1,3 @@
-use cosmwasm_std::Uint64;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +15,7 @@ pub struct InstantiateMsg {
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     EstimatePi {
-        round: Uint64,
+        round: u64,
         /// An ID for this job which allows for gathering the results.
         job_id: String,
     },
