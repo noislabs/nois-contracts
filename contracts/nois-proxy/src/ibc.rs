@@ -7,7 +7,8 @@ use cosmwasm_std::{
 };
 
 use nois_ibc_protocol::{
-    check_order, check_version, IbcGetBeaconResponse, RequestBeaconPacket, StdAck,
+    check_order, check_version, DeliverBeaconPacket, RequestBeaconPacket, RequestBeaconPacketAck,
+    StdAck,
 };
 
 use crate::error::ContractError;
@@ -75,11 +76,40 @@ pub fn ibc_channel_close(
 pub fn ibc_packet_receive(
     _deps: DepsMut,
     _env: Env,
-    _packet: IbcPacketReceiveMsg,
+    packet: IbcPacketReceiveMsg,
 ) -> StdResult<IbcReceiveResponse> {
-    Ok(IbcReceiveResponse::new()
-        .set_ack(b"{}")
-        .add_attribute("action", "ibc_packet_ack"))
+    let DeliverBeaconPacket {
+        round: _,
+        randomness,
+        sender,
+        callback_id,
+    } = from_binary(&packet.packet.data)?;
+
+    let acknowledgement = StdAck::success("okay");
+
+    match callback_id {
+        Some(id) => {
+            // Send IBC packet ack message to another contract
+            let msg = SubMsg::new(WasmMsg::Execute {
+                contract_addr: sender,
+                msg: NoisCallbackMsg {
+                    id: id.clone(),
+                    randomness,
+                }
+                .into_wrapped_binary()?,
+                funds: vec![],
+            })
+            .with_gas_limit(2_000_000);
+            Ok(IbcReceiveResponse::new()
+                .set_ack(acknowledgement)
+                .add_attribute("action", "acknowledge_ibc_query")
+                .add_attribute("callback_id", id)
+                .add_submessage(msg))
+        }
+        None => Ok(IbcReceiveResponse::new()
+            .set_ack(acknowledgement)
+            .add_attribute("action", "acknowledge_ibc_query")),
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -103,8 +133,8 @@ pub fn ibc_packet_ack(
 fn acknowledge_query(
     deps: DepsMut,
     env: Env,
-    sender: String,
-    callback_id: Option<String>,
+    _sender: String,
+    _callback_id: Option<String>,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     // store IBC response for later querying from the smart contract??
@@ -118,36 +148,13 @@ fn acknowledge_query(
 
     let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
 
-    let randomness = match ack {
+    match ack {
         StdAck::Result(data) => {
-            let response: IbcGetBeaconResponse = from_binary(&data)?;
-            response
-                .beacon
-                .map(|b| b.randomness)
-                .unwrap_or_else(|| "none".to_string())
+            let _response: RequestBeaconPacketAck = from_binary(&data)?;
+            // alright
+            Ok(IbcBasicResponse::new().add_attribute("action", "acknowledge_ibc_query"))
         }
-        StdAck::Error(err) => return Err(ContractError::ForeignError { err }),
-    };
-
-    match callback_id {
-        Some(id) => {
-            // Send IBC packet ack message to another contract
-            let msg = SubMsg::new(WasmMsg::Execute {
-                contract_addr: sender,
-                msg: NoisCallbackMsg {
-                    id: id.clone(),
-                    randomness,
-                }
-                .into_wrapped_binary()?,
-                funds: vec![],
-            })
-            .with_gas_limit(2_000_000);
-            Ok(IbcBasicResponse::new()
-                .add_attribute("action", "acknowledge_ibc_query")
-                .add_attribute("callback_id", id)
-                .add_submessage(msg))
-        }
-        None => Ok(IbcBasicResponse::new().add_attribute("action", "acknowledge_ibc_query")),
+        StdAck::Error(err) => Err(ContractError::ForeignError { err }),
     }
 }
 

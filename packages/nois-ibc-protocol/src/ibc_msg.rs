@@ -13,12 +13,17 @@ pub struct RequestBeaconPacket {
     pub callback_id: Option<String>,
 }
 
+/// Return the data field for each message
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct RequestBeaconPacketAck {}
+
 /// This is the message we send over the IBC channel from Terrand to proxy
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct DeliverBeaconPacket {
     pub round: u64,
     pub randomness: String,
+    pub sender: String,
     pub callback_id: Option<String>,
 }
 
@@ -71,10 +76,4 @@ impl StdAck {
 pub struct Beacon {
     /// The sha256(signature) in lower case hex
     pub randomness: String,
-}
-
-/// Return the data field for each message
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct IbcGetBeaconResponse {
-    pub beacon: Option<Beacon>,
 }
