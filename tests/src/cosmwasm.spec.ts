@@ -206,8 +206,6 @@ test.serial("proxy works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
 
-    await sleep(1000);
-
     const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
       latest_get_beacon_result: {},
     });
@@ -230,8 +228,6 @@ test.serial("proxy works", async (t) => {
 
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
-
-    await sleep(1000);
 
     const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
       latest_get_beacon_result: {},
@@ -261,8 +257,6 @@ test.serial("demo contract can be used", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
 
-    await sleep(1000);
-
     const latestResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       latest_result: {},
     });
@@ -289,8 +283,6 @@ test.serial("demo contract can be used", async (t) => {
 
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
-
-    await sleep(1000);
 
     const latestResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       latest_result: {},
