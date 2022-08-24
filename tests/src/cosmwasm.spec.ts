@@ -1,4 +1,6 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
+import { toBinary } from "@cosmjs/cosmwasm-stargate";
+import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
@@ -8,7 +10,6 @@ import {
   assertPacketsFromA,
   loeMainnetPubkey,
   NoisProtocolIbcVersion,
-  parseIbcPacketAckMsg,
   setupContracts,
   setupOsmosisClient,
   setupWasmClient,
@@ -21,20 +22,20 @@ let wasmCodeIds: Record<string, number> = {};
 let osmosisCodeIds: Record<string, number> = {};
 
 test.before(async (t) => {
-  console.debug("Upload contracts to wasmd...");
+  t.log("Upload contracts to wasmd...");
   const wasmContracts = {
     proxy: "./internal/nois_proxy.wasm",
     demo: "./internal/nois_demo.wasm",
   };
   const wasmSign = await setupWasmClient();
-  wasmCodeIds = await setupContracts(wasmSign, wasmContracts);
+  wasmCodeIds = await setupContracts(t, wasmSign, wasmContracts);
 
-  console.debug("Upload contracts to osmosis...");
+  t.log("Upload contracts to osmosis...");
   const osmosisContracts = {
     terrand: "./internal/nois_terrand.wasm",
   };
   const osmosisSign = await setupOsmosisClient();
-  osmosisCodeIds = await setupContracts(osmosisSign, osmosisContracts);
+  osmosisCodeIds = await setupContracts(t, osmosisSign, osmosisContracts);
 
   t.pass();
 });
@@ -190,42 +191,32 @@ test.serial("proxy works", async (t) => {
   // Query round 1 (existing)
   {
     await bot.submitRound(2183668);
-    const getRoundQuery = await wasmClient.sign.execute(
+    await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
       { get_beacon: { round: 2183668, callback_id: null } },
       "auto"
     );
-    console.log(getRoundQuery);
 
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
-
-    const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
-      latest_get_beacon_result: {},
-    });
-    const response = parseIbcPacketAckMsg(latestResult.response);
-    t.deepEqual(response, {});
+    const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck, { result: toBinary("processed") });
   }
 
   // Query round 3 (non-existing)
   {
-    const getRoundQuery = await wasmClient.sign.execute(
+    await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
       { get_beacon: { round: 2999999, callback_id: null } },
       "auto"
     );
-    console.log(getRoundQuery);
 
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
-
-    const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
-      latest_get_beacon_result: {},
-    });
-    const response = parseIbcPacketAckMsg(latestResult.response);
-    t.deepEqual(response, {});
+    const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck, { result: toBinary("queued") });
   }
 });
 

@@ -7,7 +7,7 @@ use nois_ibc_protocol::RequestBeaconPacket;
 
 use crate::ibc::PACKET_LIFETIME;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{GetBeaconResponse, LATEST_QUERY_RESULT, TERRAND_CHANNEL};
+use crate::state::TERRAND_CHANNEL;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -55,15 +55,8 @@ pub fn execute_get_beacon(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
-    match msg {
-        QueryMsg::LatestGetBeaconResult {} => to_binary(&query_latest_get_beacon_result(deps)?),
-    }
-}
-
-fn query_latest_get_beacon_result(deps: Deps) -> StdResult<GetBeaconResponse> {
-    let results = LATEST_QUERY_RESULT.load(deps.storage)?;
-    Ok(results)
+pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
+    match msg {}
 }
 
 #[cfg(test)]

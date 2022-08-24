@@ -14,7 +14,13 @@ pub struct RequestBeaconPacket {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-pub struct RequestBeaconPacketAck {}
+#[serde(rename_all = "snake_case")]
+pub enum RequestBeaconPacketAck {
+    /// Beacon already exists and this request can be processed immediately.
+    Processed,
+    /// Beacon does not yet exist. This request is queued for later.
+    Queued,
+}
 
 /// This is the message we send over the IBC channel from Terrand to proxy
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]

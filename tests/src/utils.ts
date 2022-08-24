@@ -4,6 +4,7 @@ import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/r
 import { fromBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromHex, fromUtf8, toBase64 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
+import { ExecutionContext } from "ava";
 
 const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingCosmWasmClient, wasmd } = testutils;
 
@@ -15,6 +16,7 @@ export const loeMainnetPubkey = toBase64(
 );
 
 export async function setupContracts(
+  t: ExecutionContext,
   cosmwasm: CosmWasmSigner,
   contracts: Record<string, string>
 ): Promise<Record<string, number>> {
@@ -22,10 +24,10 @@ export async function setupContracts(
 
   for (const name in contracts) {
     const path = contracts[name];
-    console.info(`Storing ${name} from ${path}...`);
+    t.log(`Storing ${name} from ${path}...`);
     const wasm = await readFileSync(path);
     const receipt = await cosmwasm.sign.upload(cosmwasm.senderAddress, wasm, "auto", `Upload ${name}`);
-    console.debug(`Upload ${name} with CodeID: ${receipt.codeId}`);
+    t.log(`Uploaded ${name} with CodeID: ${receipt.codeId}`);
     results[name] = receipt.codeId;
   }
 
