@@ -13,7 +13,7 @@ use crate::error::ContractError;
 use crate::msg::{
     BeaconReponse, ConfigResponse, ExecuteMsg, InstantiateMsg, LatestRandomResponse, QueryMsg,
 };
-use crate::state::{Config, BEACONS, CONFIG};
+use crate::state::{Config, Job, BEACONS, CONFIG, JOBS};
 
 #[entry_point]
 pub fn instantiate(
@@ -139,15 +139,38 @@ pub fn ibc_packet_receive(
 ) -> Result<IbcReceiveResponse, ContractError> {
     let packet = msg.packet;
     // which local channel did this packet come on
-    let _caller = packet.dest.channel_id;
+    let channel = packet.dest.channel_id;
     let msg: PacketMsg = from_slice(&packet.data)?;
     match msg {
-        PacketMsg::GetBeacon { round, .. } => receive_get_beacon(deps.as_ref(), round),
+        PacketMsg::GetBeacon {
+            round,
+            sender,
+            callback_id,
+        } => receive_get_beacon(deps, channel, round, sender, callback_id),
     }
 }
 
-fn receive_get_beacon(deps: Deps, round: u64) -> Result<IbcReceiveResponse, ContractError> {
+fn receive_get_beacon(
+    deps: DepsMut,
+    channel: String,
+    round: u64,
+    sender: String,
+    callback_id: Option<String>,
+) -> Result<IbcReceiveResponse, ContractError> {
     let beacon = BEACONS.may_load(deps.storage, round)?;
+
+    // If we don't have the beacon yet we store the job for later
+    if beacon.is_none() {
+        let mut jobs = JOBS.may_load(deps.storage, round)?.unwrap_or_default();
+        jobs.push(Job {
+            channel,
+            sender,
+            callback_id,
+        });
+        JOBS.save(deps.storage, round, &jobs)?;
+    }
+
+    // We always return the same response type
     let response = IbcGetBeaconResponse { beacon };
     let acknowledgement = StdAck::success(&response);
     Ok(IbcReceiveResponse::new()
@@ -211,6 +234,14 @@ fn execute_add_round(
         randomness: randomness_hex.clone(),
     };
     BEACONS.save(deps.storage, round, beacon)?;
+
+    if let Some(jobs) = JOBS.may_load(deps.storage, round)? {
+        JOBS.remove(deps.storage, round);
+
+        for _job in jobs {
+            // Use IbcMsg::SendPacket to send packages to the proxies.
+        }
+    }
 
     Ok(Response::new()
         .add_attribute("round", round.to_string())
