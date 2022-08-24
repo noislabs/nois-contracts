@@ -193,7 +193,7 @@ test.serial("proxy works", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_beacon: { round: 2183668 } },
+      { get_beacon: { round: 2183668, callback_id: null } },
       "auto"
     );
     console.log(getRoundQuery);
@@ -213,7 +213,7 @@ test.serial("proxy works", async (t) => {
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_beacon: { round: 2999999 } },
+      { get_beacon: { round: 2999999, callback_id: null } },
       "auto"
     );
     console.log(getRoundQuery);
