@@ -13,7 +13,6 @@ pub struct RequestBeaconPacket {
     pub callback_id: Option<String>,
 }
 
-/// Return the data field for each message
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct RequestBeaconPacketAck {}
 
@@ -26,6 +25,9 @@ pub struct DeliverBeaconPacket {
     pub sender: String,
     pub callback_id: Option<String>,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct DeliverBeaconPacketAck {}
 
 /// This is a generic ICS acknowledgement format.
 /// Proto defined here: https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147

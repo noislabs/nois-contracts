@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, from_slice, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, Event,
+    entry_point, from_binary, from_slice, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, Event,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError,
@@ -202,13 +202,20 @@ fn process_job(blocktime: Timestamp, job: Job, beacon: &Beacon) -> Result<IbcMsg
 }
 
 #[entry_point]
-/// never should be called as we do not send packets
 pub fn ibc_packet_ack(
     _deps: DepsMut,
     _env: Env,
-    _msg: IbcPacketAckMsg,
-) -> StdResult<IbcBasicResponse> {
-    Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_ack"))
+    msg: IbcPacketAckMsg,
+) -> Result<IbcBasicResponse, ContractError> {
+    let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
+    match ack {
+        StdAck::Result(data) => {
+            let _response: RequestBeaconPacketAck = from_binary(&data)?;
+            // alright
+            Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_ack"))
+        }
+        StdAck::Error(err) => Err(ContractError::ForeignError { err }),
+    }
 }
 
 #[entry_point]

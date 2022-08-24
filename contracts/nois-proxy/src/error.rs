@@ -18,6 +18,6 @@ pub enum ContractError {
     #[error("remote account changed from {old} to {addr}")]
     RemoteAccountChanged { addr: String, old: String },
 
-    #[error("Foraign error: {err}")]
+    #[error("Foreign error: {err}")]
     ForeignError { err: String },
 }

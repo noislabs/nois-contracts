@@ -5,7 +5,8 @@ use cosmwasm_std::IbcOrder;
 
 pub use crate::checks::{check_order, check_version, ChannelError};
 pub use crate::ibc_msg::{
-    Beacon, DeliverBeaconPacket, RequestBeaconPacket, RequestBeaconPacketAck, StdAck,
+    Beacon, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
+    RequestBeaconPacketAck, StdAck,
 };
 
 pub const IBC_APP_VERSION: &str = "nois-v1";

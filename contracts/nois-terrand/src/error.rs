@@ -23,4 +23,7 @@ pub enum ContractError {
 
     #[error("Invalid signature")]
     InvalidSignature,
+
+    #[error("Foreign error: {err}")]
+    ForeignError { err: String },
 }

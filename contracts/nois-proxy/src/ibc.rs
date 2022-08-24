@@ -1,14 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, from_slice, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, StdResult, SubMsg, WasmMsg,
+    from_binary, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, StdResult, SubMsg, WasmMsg,
 };
 
 use nois_ibc_protocol::{
-    check_order, check_version, DeliverBeaconPacket, RequestBeaconPacket, RequestBeaconPacketAck,
-    StdAck,
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck,
+    RequestBeaconPacketAck, StdAck,
 };
 
 use crate::error::ContractError;
@@ -85,7 +85,7 @@ pub fn ibc_packet_receive(
         callback_id,
     } = from_binary(&packet.packet.data)?;
 
-    let acknowledgement = StdAck::success("okay");
+    let acknowledgement = StdAck::success(&DeliverBeaconPacketAck {});
 
     match callback_id {
         Some(id) => {
@@ -118,25 +118,6 @@ pub fn ibc_packet_ack(
     env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    // we need to parse the ack based on our request
-    let original_packet: RequestBeaconPacket = from_slice(&msg.original_packet.data)?;
-    let _res: StdAck = from_slice(&msg.acknowledgement.data)?;
-    acknowledge_query(
-        deps,
-        env,
-        original_packet.sender,
-        original_packet.callback_id,
-        msg,
-    )
-}
-
-fn acknowledge_query(
-    deps: DepsMut,
-    env: Env,
-    _sender: String,
-    _callback_id: Option<String>,
-    msg: IbcPacketAckMsg,
-) -> Result<IbcBasicResponse, ContractError> {
     // store IBC response for later querying from the smart contract??
     LATEST_QUERY_RESULT.save(
         deps.storage,
@@ -147,12 +128,11 @@ fn acknowledge_query(
     )?;
 
     let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
-
     match ack {
         StdAck::Result(data) => {
             let _response: RequestBeaconPacketAck = from_binary(&data)?;
             // alright
-            Ok(IbcBasicResponse::new().add_attribute("action", "acknowledge_ibc_query"))
+            Ok(IbcBasicResponse::new().add_attribute("action", "RequestBeaconPacketAck"))
         }
         StdAck::Error(err) => Err(ContractError::ForeignError { err }),
     }
