@@ -17,6 +17,7 @@ pub const BEACONS: Map<u64, Beacon> = Map::new("beacons");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Job {
+    pub round: u64,
     // The channel the job came from and we have to send the response to
     pub channel: String,
     // contract address on the app chain

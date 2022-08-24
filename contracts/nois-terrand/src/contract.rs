@@ -152,16 +152,19 @@ fn receive_get_beacon(
     sender: String,
     callback_id: Option<String>,
 ) -> Result<IbcReceiveResponse, ContractError> {
+    let job = Job {
+        round,
+        channel,
+        sender,
+        callback_id,
+    };
+
     let beacon = BEACONS.may_load(deps.storage, round)?;
 
     // If we don't have the beacon yet we store the job for later
     if beacon.is_none() {
         let mut jobs = JOBS.may_load(deps.storage, round)?.unwrap_or_default();
-        jobs.push(Job {
-            channel,
-            sender,
-            callback_id,
-        });
+        jobs.push(job);
         JOBS.save(deps.storage, round, &jobs)?;
     }
 
