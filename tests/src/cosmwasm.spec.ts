@@ -1,6 +1,5 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
-import { fromBinary } from "@cosmjs/cosmwasm-stargate";
-import { assert, sleep } from "@cosmjs/utils";
+import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
@@ -9,6 +8,7 @@ import {
   assertPacketsFromA,
   loeMainnetPubkey,
   NoisProtocolIbcVersion,
+  parseIbcPacketAckMsg,
   setupContracts,
   setupOsmosisClient,
   setupWasmClient,
@@ -211,10 +211,7 @@ test.serial("proxy works", async (t) => {
     const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
       latest_get_beacon_result: {},
     });
-    // console.log(latestResult);
-    // console.log(latestResult.response.acknowledgement.data);
-    const result: string = fromBinary(latestResult.response.acknowledgement.data).result;
-    const response = fromBinary(result);
+    const response = parseIbcPacketAckMsg(latestResult.response);
     t.deepEqual(response, {
       beacon: { randomness: "3436462283a07e695c41854bb953e5964d8737e7e29745afe54a9f4897b6c319" },
     });
@@ -239,10 +236,7 @@ test.serial("proxy works", async (t) => {
     const latestResult = await wasmClient.sign.queryContractSmart(noisProxyAddress, {
       latest_get_beacon_result: {},
     });
-    // console.log(latestResult);
-    // console.log(latestResult.response.acknowledgement.data);
-    const result: string = fromBinary(latestResult.response.acknowledgement.data).result;
-    const response = fromBinary(result);
+    const response = parseIbcPacketAckMsg(latestResult.response);
     console.log(response);
     t.deepEqual(response, { beacon: null });
   }

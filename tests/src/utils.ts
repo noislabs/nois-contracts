@@ -1,7 +1,9 @@
 import { readFileSync } from "fs";
 
 import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/relayer";
+import { fromBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromHex, fromUtf8, toBase64 } from "@cosmjs/encoding";
+import { assert } from "@cosmjs/utils";
 
 const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingCosmWasmClient, wasmd } = testutils;
 
@@ -101,4 +103,24 @@ export function assertPacketsFromB(relay: RelayInfo, count: number, success: boo
   } else {
     assertAckErrors(relay.acksFromA);
   }
+}
+
+interface IbcAcknowledgement {
+  /** base64 data */
+  data: string;
+}
+
+/** See cosmwasm_std::IbcPacketAckMsg */
+interface IbcPacketAckMsg {
+  acknowledgement: IbcAcknowledgement;
+  original_packet: unknown;
+  relayer: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function parseIbcPacketAckMsg(m: IbcPacketAckMsg): any {
+  const stdAck = fromBinary(m.acknowledgement.data);
+  const result = stdAck.result;
+  assert(typeof result === "string");
+  return fromBinary(result);
 }
