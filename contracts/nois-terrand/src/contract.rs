@@ -271,7 +271,7 @@ fn execute_add_round(
 
         for job in jobs {
             // Use IbcMsg::SendPacket to send packages to the proxies.
-            let msg = process_job(env.block.time, job, &beacon)?;
+            let msg = process_job(env.block.time, job, beacon)?;
             msgs.push(msg.into());
         }
     }
