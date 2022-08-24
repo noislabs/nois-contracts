@@ -272,9 +272,7 @@ test.serial("demo contract can be used", async (t) => {
   }
 
   // a few more values
-  await bot.submitRound(2183668);
-  await bot.submitRound(2183669);
-  await bot.submitRound(2183670);
+  await bot.submitRounds([2183668, 2183669, 2183670]);
 
   for (const round of ["2183668", "2183669", "2183670"]) {
     const getRoundQuery = await wasmClient.sign.execute(
