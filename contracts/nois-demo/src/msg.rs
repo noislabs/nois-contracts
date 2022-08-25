@@ -27,6 +27,6 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     // Get all results
     Results {},
-    // Get latest result
-    LatestResult {},
+    // Get a result
+    Result { job_id: String },
 }
