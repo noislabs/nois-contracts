@@ -88,12 +88,12 @@ pub fn ibc_packet_receive(
     let acknowledgement = StdAck::success(&DeliverBeaconPacketAck {});
 
     match callback_id {
-        Some(id) => {
+        Some(callback_id) => {
             // Send IBC packet ack message to another contract
             let msg = SubMsg::new(WasmMsg::Execute {
                 contract_addr: sender,
                 msg: NoisCallbackMsg {
-                    id: id.clone(),
+                    id: callback_id.clone(),
                     randomness,
                 }
                 .into_wrapped_binary()?,
@@ -103,7 +103,7 @@ pub fn ibc_packet_receive(
             Ok(IbcReceiveResponse::new()
                 .set_ack(acknowledgement)
                 .add_attribute("action", "acknowledge_ibc_query")
-                .add_attribute("callback_id", id)
+                .add_attribute("callback_id", callback_id)
                 .add_submessage(msg))
         }
         None => Ok(IbcReceiveResponse::new()

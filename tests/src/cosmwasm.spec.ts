@@ -8,6 +8,7 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 import { Bot } from "./bot";
 import {
   assertPacketsFromA,
+  assertPacketsFromB,
   loeMainnetPubkey,
   NoisProtocolIbcVersion,
   setupContracts,
@@ -228,54 +229,78 @@ test.serial("demo contract can be used", async (t) => {
   {
     await bot.submitRound(2183667);
 
+    const jobId = Date.now().toString();
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
-      { estimate_pi: { round: 2183667, job_id: Date.now().toString() } },
+      { estimate_pi: { round: 2183667, job_id: jobId } },
       "auto"
     );
-    console.log(getRoundQuery);
+    t.log(getRoundQuery);
 
-    const info = await link.relayAll();
-    assertPacketsFromA(info, 1, true);
+    // RequestBeacon packet
+    const infoA2B = await link.relayAll();
+    assertPacketsFromA(infoA2B, 1, true);
+    const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck, { result: toBinary("processed") });
 
-    const latestResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
-      latest_result: {},
+    // DeliverBeacon packet
+    const infoB2A = await link.relayAll();
+    assertPacketsFromB(infoB2A, 1, true);
+
+    const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
+      result: { job_id: jobId },
     });
-    console.log(latestResult);
-    // t.regex(latestResult, /3\.1[0-9]+/);
-    t.is(latestResult, null);
+    t.log(myResult);
+    t.regex(myResult, /3\.1[0-9]+/);
 
-    const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
-      results: {},
-    });
-    console.log(results);
+    const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
+    t.log(results);
   }
 
-  // a few more values
-  await bot.submitRounds([2183668, 2183669, 2183670]);
-
-  for (const round of [2183668, 2183669, 2183670]) {
+  // Query round 2183668 (not yet existing)
+  {
+    const jobId = Date.now().toString();
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
-      { estimate_pi: { round, job_id: Date.now().toString() } },
+      { estimate_pi: { round: 2183668, job_id: jobId } },
       "auto"
     );
-    console.log(getRoundQuery);
+    t.log(getRoundQuery);
 
-    const info = await link.relayAll();
-    assertPacketsFromA(info, 1, true);
+    // RequestBeacon packet
+    const infoA2B = await link.relayAll();
+    assertPacketsFromA(infoA2B, 1, true);
+    const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck, { result: toBinary("queued") });
 
-    const latestResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
-      latest_result: {},
+    // DeliverBeacon packet not yet
+    const infoB2A = await link.relayAll();
+    assertPacketsFromB(infoB2A, 0, true);
+
+    const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
+      result: { job_id: jobId },
     });
-    console.log(latestResult);
-    t.regex(latestResult, /3\.1[0-9]+/);
+    t.is(myResult, null);
 
-    const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
-      results: {},
+    const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
+    t.log(results);
+
+    // Round incoming
+    await bot.submitRound(2183668);
+
+    // DeliverBeacon packet
+    const infoB2A2 = await link.relayAll();
+    assertPacketsFromB(infoB2A2, 1, true);
+
+    const myResult2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
+      result: { job_id: jobId },
     });
-    console.log(results);
+    t.log(myResult2);
+    t.regex(myResult2, /3\.1[0-9]+/);
+
+    const results2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
+    t.log(results2);
   }
 });

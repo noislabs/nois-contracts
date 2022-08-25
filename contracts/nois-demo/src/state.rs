@@ -3,6 +3,5 @@ use cw_storage_plus::{Item, Map};
 
 pub const NOIS_PROXY: Item<String> = Item::new("nois_proxy");
 
-/// Map from ID to result
+/// Map from callback ID to result
 pub const RESULTS: Map<&str, Decimal> = Map::new("results");
-pub const LATEST_RESULT: Item<Decimal> = Item::new("latest_result");

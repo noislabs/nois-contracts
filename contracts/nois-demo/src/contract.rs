@@ -8,7 +8,7 @@ use rand_xoshiro::Xoshiro128PlusPlus;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{LATEST_RESULT, NOIS_PROXY, RESULTS};
+use crate::state::{NOIS_PROXY, RESULTS};
 
 #[entry_point]
 pub fn instantiate(
@@ -34,9 +34,10 @@ pub fn execute(
         ExecuteMsg::EstimatePi { round, job_id } => {
             execute_estimate_pi(deps, env, info, round, job_id)
         }
-        ExecuteMsg::Receive(NoisCallbackMsg { id, randomness }) => {
-            execute_receive(deps, env, info, id, randomness)
-        }
+        ExecuteMsg::Receive(NoisCallbackMsg {
+            id: callback_id,
+            randomness,
+        }) => execute_receive(deps, env, info, callback_id, randomness),
     }
 }
 
@@ -64,7 +65,7 @@ pub fn execute_receive(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    id: String,
+    callback_id: String,
     randomness: String,
 ) -> Result<Response, ContractError> {
     let randomness =
@@ -110,8 +111,7 @@ pub fn execute_receive(
     let four = Decimal::from_atomics(4u32, 0).unwrap();
     let estimated_pi = in_circle_ratio * four;
 
-    RESULTS.save(deps.storage, &id, &estimated_pi)?;
-    LATEST_RESULT.save(deps.storage, &estimated_pi)?;
+    RESULTS.save(deps.storage, &callback_id, &estimated_pi)?;
 
     Ok(Response::default())
 }
@@ -120,20 +120,20 @@ pub fn execute_receive(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     match msg {
         QueryMsg::Results {} => to_binary(&query_results(deps)?),
-        QueryMsg::LatestResult {} => to_binary(&query_latest_result(deps)?),
+        QueryMsg::Result { job_id } => to_binary(&query_result(deps, job_id)?),
     }
 }
 
-fn query_results(deps: Deps) -> StdResult<Vec<Decimal>> {
-    let out: Vec<Decimal> = RESULTS
+fn query_results(deps: Deps) -> StdResult<Vec<String>> {
+    let out: Vec<String> = RESULTS
         .range(deps.storage, None, None, Order::Ascending)
-        .map(|item| item.map(|(_id, value)| value))
+        .map(|item| item.map(|(id, value)| format!("{id}:{value}")))
         .collect::<StdResult<_>>()?;
     Ok(out)
 }
 
-fn query_latest_result(deps: Deps) -> StdResult<Option<Decimal>> {
-    let result = LATEST_RESULT.may_load(deps.storage)?;
+fn query_result(deps: Deps, job_id: String) -> StdResult<Option<Decimal>> {
+    let result = RESULTS.may_load(deps.storage, &job_id)?;
     Ok(result)
 }
 
