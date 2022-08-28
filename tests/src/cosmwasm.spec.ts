@@ -73,7 +73,7 @@ test.serial("set up channel", async (t) => {
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmCodeIds.proxy,
-    {},
+    { test_mode: true },
     "Proxy instance",
     "auto"
   );
@@ -121,21 +121,19 @@ interface SetupInfo {
   };
 }
 
-async function demoSetup(): Promise<SetupInfo> {
+async function instantiateAndConnectIbc(): Promise<SetupInfo> {
+  const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
+
   // Instantiate proxy on appchain
-  const wasmClient = await setupWasmClient();
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmCodeIds.proxy,
-    {},
+    { test_mode: true },
     "Proxy instance",
     "auto"
   );
-  const { ibcPortId: proxyPort } = await wasmClient.sign.getContract(noisProxyAddress);
-  assert(proxyPort);
 
   // Instantiate Terrand on Osmosis
-  const osmoClient = await setupOsmosisClient();
   const { contractAddress: noisTerrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
@@ -143,7 +141,14 @@ async function demoSetup(): Promise<SetupInfo> {
     "Terrand instance",
     "auto"
   );
-  const { ibcPortId: terrandPort } = await osmoClient.sign.getContract(noisTerrandAddress);
+
+  const [noisProxyInfo, noisTerrandInfo] = await Promise.all([
+    wasmClient.sign.getContract(noisProxyAddress),
+    osmoClient.sign.getContract(noisTerrandAddress),
+  ]);
+  const { ibcPortId: proxyPort } = noisProxyInfo;
+  assert(proxyPort);
+  const { ibcPortId: terrandPort } = noisTerrandInfo;
   assert(terrandPort);
 
   // Create a connection between the chains
@@ -186,16 +191,16 @@ async function demoSetup(): Promise<SetupInfo> {
 }
 
 test.serial("proxy works", async (t) => {
-  const { wasmClient, noisProxyAddress, link, noisTerrandAddress } = await demoSetup();
+  const { wasmClient, noisProxyAddress, link, noisTerrandAddress } = await instantiateAndConnectIbc();
   const bot = await Bot.connect(noisTerrandAddress);
 
   // Query round 1 (existing)
   {
-    await bot.submitRound(2183668);
+    await bot.submitNext();
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_beacon: { round: 2183668, callback_id: null } },
+      { get_next_randomness: { callback_id: null } },
       "auto"
     );
 
@@ -210,7 +215,7 @@ test.serial("proxy works", async (t) => {
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_beacon: { round: 2999999, callback_id: null } },
+      { get_next_randomness: { callback_id: null } },
       "auto"
     );
 
@@ -222,18 +227,18 @@ test.serial("proxy works", async (t) => {
 });
 
 test.serial("demo contract can be used", async (t) => {
-  const { wasmClient, noisDemoAddress, link, noisTerrandAddress } = await demoSetup();
+  const { wasmClient, noisDemoAddress, link, noisTerrandAddress } = await instantiateAndConnectIbc();
   const bot = await Bot.connect(noisTerrandAddress);
 
-  // Query round 2183667 (existing)
+  // Correct round submitted before request
   {
-    await bot.submitRound(2183667);
+    await bot.submitNext();
 
     const jobId = Date.now().toString();
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
-      { estimate_pi: { round: 2183667, job_id: jobId } },
+      { estimate_pi: { job_id: jobId } },
       "auto"
     );
     t.log(getRoundQuery);
@@ -258,13 +263,13 @@ test.serial("demo contract can be used", async (t) => {
     t.log(results);
   }
 
-  // Query round 2183668 (not yet existing)
+  // Round submitted after request
   {
     const jobId = Date.now().toString();
     const getRoundQuery = await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
-      { estimate_pi: { round: 2183668, job_id: jobId } },
+      { estimate_pi: { job_id: jobId } },
       "auto"
     );
     t.log(getRoundQuery);
@@ -288,7 +293,7 @@ test.serial("demo contract can be used", async (t) => {
     t.log(results);
 
     // Round incoming
-    await bot.submitRound(2183668);
+    await bot.submitNext();
 
     // DeliverBeacon packet
     const infoB2A2 = await link.relayAll();

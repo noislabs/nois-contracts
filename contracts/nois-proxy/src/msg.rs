@@ -5,13 +5,16 @@ use serde::{Deserialize, Serialize};
 /// This needs no info. Owner of the contract is whoever signed the InstantiateMsg.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    /// In test mode the next round calculation is detached from the clock.
+    pub test_mode: bool,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
-    GetBeacon {
-        round: u64,
+    /// Get's the next randomness.
+    GetNextRandomness {
         // A callback ID chosen by the caller
         callback_id: Option<String>,
     },
