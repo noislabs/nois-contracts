@@ -4,7 +4,7 @@ use cosmwasm_std::{
     from_binary, to_binary, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, QueryResponse,
-    Response, StdResult, SubMsg, WasmMsg,
+    Response, StdResult, Storage, SubMsg, Timestamp, WasmMsg,
 };
 use nois_ibc_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
@@ -45,13 +45,21 @@ pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> S
 }
 
 pub fn execute_get_next_randomness(
-    mut deps: DepsMut,
+    deps: DepsMut,
     env: Env,
     info: MessageInfo,
     callback_id: Option<String>,
 ) -> StdResult<Response> {
     let sender = info.sender.into();
-    let round = next_round(deps.branch())?;
+    let Config { test_mode } = CONFIG.load(deps.storage)?;
+    let mode = if test_mode {
+        NextRoundMode::Test
+    } else {
+        NextRoundMode::Time {
+            base: env.block.time,
+        }
+    };
+    let round = next_round(deps.storage, mode)?;
     let packet = RequestBeaconPacket {
         round,
         sender,
@@ -70,17 +78,33 @@ pub fn execute_get_next_randomness(
     Ok(res)
 }
 
-fn next_round(deps: DepsMut) -> StdResult<u64> {
-    let Config { test_mode } = CONFIG.load(deps.storage)?;
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum NextRoundMode {
+    Test,
+    Time { base: Timestamp },
+}
 
-    if test_mode {
-        let next = TEST_MODE_NEXT_ROUND
-            .may_load(deps.storage)?
-            .unwrap_or(2183660);
-        TEST_MODE_NEXT_ROUND.save(deps.storage, &(next + 1))?;
-        Ok(next)
-    } else {
-        unimplemented!("Calculate drand round")
+const DRAND_GENESIS: Timestamp = Timestamp::from_seconds(1595431050);
+const DRAND_ROUND_LENGTH: u64 = 30_000_000_000; // in nanoseconds
+
+/// Calculates the next round in the future, i.e. publish time > base time.
+fn next_round(storage: &mut dyn Storage, mode: NextRoundMode) -> StdResult<u64> {
+    match mode {
+        NextRoundMode::Test => {
+            let next = TEST_MODE_NEXT_ROUND.may_load(storage)?.unwrap_or(2183660);
+            TEST_MODE_NEXT_ROUND.save(storage, &(next + 1))?;
+            Ok(next)
+        }
+        NextRoundMode::Time { base } => {
+            // Losely ported from https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L49-L63
+            if base < DRAND_GENESIS {
+                Ok(1)
+            } else {
+                let from_genesis = base.nanos() - DRAND_GENESIS.nanos();
+                let next_round = (from_genesis / DRAND_ROUND_LENGTH) + 1;
+                Ok(next_round + 1)
+            }
+        }
     }
 }
 
@@ -253,5 +277,87 @@ mod tests {
 
         let valid_handshake = mock_ibc_channel_open_try("channel-12", APP_ORDER, IBC_APP_VERSION);
         ibc_channel_open(deps.as_mut(), mock_env(), valid_handshake).unwrap();
+    }
+
+    #[test]
+    fn next_round_works_for_test_mode() {
+        let mut deps = mock_dependencies();
+        let round = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
+        assert_eq!(round, 2183660);
+        let round = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
+        assert_eq!(round, 2183661);
+        let round = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
+        assert_eq!(round, 2183662);
+    }
+
+    #[test]
+    fn next_round_works_for_time_mode() {
+        let mut deps = mock_dependencies();
+
+        // UNIX epoch
+        let round = next_round(
+            &mut deps.storage,
+            NextRoundMode::Time {
+                base: Timestamp::from_seconds(0),
+            },
+        )
+        .unwrap();
+        assert_eq!(round, 1);
+
+        // Before Drand genesis (https://api3.drand.sh/info)
+        let round = next_round(
+            &mut deps.storage,
+            NextRoundMode::Time {
+                base: Timestamp::from_seconds(1595431050).minus_nanos(1),
+            },
+        )
+        .unwrap();
+        assert_eq!(round, 1);
+
+        // At Drand genesis (https://api3.drand.sh/info)
+        let round = next_round(
+            &mut deps.storage,
+            NextRoundMode::Time {
+                base: Timestamp::from_seconds(1595431050),
+            },
+        )
+        .unwrap();
+        assert_eq!(round, 2);
+
+        // After Drand genesis (https://api3.drand.sh/info)
+        let round = next_round(
+            &mut deps.storage,
+            NextRoundMode::Time {
+                base: Timestamp::from_seconds(1595431050).plus_nanos(1),
+            },
+        )
+        .unwrap();
+        assert_eq!(round, 2);
+
+        // Drand genesis +29s/30s/31s
+        let round = next_round(
+            &mut deps.storage,
+            NextRoundMode::Time {
+                base: Timestamp::from_seconds(1595431050).plus_seconds(29),
+            },
+        )
+        .unwrap();
+        assert_eq!(round, 2);
+        let round = next_round(
+            &mut deps.storage,
+            NextRoundMode::Time {
+                base: Timestamp::from_seconds(1595431050).plus_seconds(30),
+            },
+        )
+        .unwrap();
+        assert_eq!(round, 3);
+        let round = next_round(
+            &mut deps.storage,
+            NextRoundMode::Time {
+                base: Timestamp::from_seconds(1595431050).plus_seconds(31),
+            },
+        )
+        .unwrap();
+        assert_eq!(round, 3);
     }
 }
