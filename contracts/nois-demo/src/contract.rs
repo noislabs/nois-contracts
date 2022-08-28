@@ -31,9 +31,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::EstimatePi { round, job_id } => {
-            execute_estimate_pi(deps, env, info, round, job_id)
-        }
+        ExecuteMsg::EstimatePi { job_id } => execute_estimate_pi(deps, env, info, job_id),
         ExecuteMsg::Receive(NoisCallbackMsg {
             id: callback_id,
             randomness,
@@ -45,15 +43,13 @@ pub fn execute_estimate_pi(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    round: u64,
     job_id: String,
 ) -> Result<Response, ContractError> {
     let nois_proxy = NOIS_PROXY.load(deps.storage)?;
 
     let res = Response::new().add_message(WasmMsg::Execute {
         contract_addr: nois_proxy,
-        msg: to_binary(&nois_proxy::ExecuteMsg::GetBeacon {
-            round,
+        msg: to_binary(&nois_proxy::ExecuteMsg::GetNextRandomness {
             callback_id: Some(job_id),
         })?,
         funds: vec![],

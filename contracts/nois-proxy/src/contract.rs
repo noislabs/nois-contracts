@@ -13,7 +13,7 @@ use nois_ibc_protocol::{
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::TERRAND_CHANNEL;
+use crate::state::{Config, CONFIG, TERRAND_CHANNEL, TEST_MODE_NEXT_ROUND};
 use crate::NoisCallbackMsg;
 
 // TODO: make configurable?
@@ -22,31 +22,36 @@ pub const PACKET_LIFETIME: u64 = 60 * 60;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> StdResult<Response> {
+    let config = Config {
+        test_mode: msg.test_mode,
+    };
+    CONFIG.save(deps.storage, &config)?;
+
     Ok(Response::new().add_attribute("action", "instantiate"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
     match msg {
-        ExecuteMsg::GetBeacon { round, callback_id } => {
-            execute_get_beacon(deps, env, info, round, callback_id)
+        ExecuteMsg::GetNextRandomness { callback_id } => {
+            execute_get_next_randomness(deps, env, info, callback_id)
         }
     }
 }
 
-pub fn execute_get_beacon(
-    deps: DepsMut,
+pub fn execute_get_next_randomness(
+    mut deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    round: u64,
     callback_id: Option<String>,
 ) -> StdResult<Response> {
     let sender = info.sender.into();
+    let round = next_round(deps.branch())?;
     let packet = RequestBeaconPacket {
         round,
         sender,
@@ -61,8 +66,22 @@ pub fn execute_get_beacon(
 
     let res = Response::new()
         .add_message(msg)
-        .add_attribute("action", "execute_get_beacon");
+        .add_attribute("action", "execute_get_next_randomness");
     Ok(res)
+}
+
+fn next_round(deps: DepsMut) -> StdResult<u64> {
+    let Config { test_mode } = CONFIG.load(deps.storage)?;
+
+    if test_mode {
+        let next = TEST_MODE_NEXT_ROUND
+            .may_load(deps.storage)?
+            .unwrap_or(2183660);
+        TEST_MODE_NEXT_ROUND.save(deps.storage, &(next + 1))?;
+        Ok(next)
+    } else {
+        unimplemented!("Calculate drand round")
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -206,7 +225,7 @@ mod tests {
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg { test_mode: true };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -216,7 +235,7 @@ mod tests {
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg { test_mode: true };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
