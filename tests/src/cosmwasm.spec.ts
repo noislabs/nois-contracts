@@ -122,8 +122,9 @@ interface SetupInfo {
 }
 
 async function instantiateAndConnectIbc(): Promise<SetupInfo> {
+  const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
+
   // Instantiate proxy on appchain
-  const wasmClient = await setupWasmClient();
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmCodeIds.proxy,
@@ -131,11 +132,8 @@ async function instantiateAndConnectIbc(): Promise<SetupInfo> {
     "Proxy instance",
     "auto"
   );
-  const { ibcPortId: proxyPort } = await wasmClient.sign.getContract(noisProxyAddress);
-  assert(proxyPort);
 
   // Instantiate Terrand on Osmosis
-  const osmoClient = await setupOsmosisClient();
   const { contractAddress: noisTerrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
@@ -143,7 +141,14 @@ async function instantiateAndConnectIbc(): Promise<SetupInfo> {
     "Terrand instance",
     "auto"
   );
-  const { ibcPortId: terrandPort } = await osmoClient.sign.getContract(noisTerrandAddress);
+
+  const [noisProxyInfo, noisTerrandInfo] = await Promise.all([
+    wasmClient.sign.getContract(noisProxyAddress),
+    osmoClient.sign.getContract(noisTerrandAddress),
+  ]);
+  const { ibcPortId: proxyPort } = noisProxyInfo;
+  assert(proxyPort);
+  const { ibcPortId: terrandPort } = noisTerrandInfo;
   assert(terrandPort);
 
   // Create a connection between the chains
