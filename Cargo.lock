@@ -463,8 +463,7 @@ dependencies = [
  "cw-storage-plus",
  "hex",
  "nois-proxy",
- "rand_core 0.6.3",
- "rand_xoshiro",
+ "nois-toolbox",
  "schemars",
  "serde",
  "thiserror",
@@ -504,6 +503,17 @@ dependencies = [
  "drand-verify",
  "hex",
  "nois-ibc-protocol",
+ "schemars",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "nois-toolbox"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-std",
+ "rand_chacha 0.3.1",
  "schemars",
  "serde",
  "thiserror",
@@ -603,7 +613,7 @@ checksum = "6a6b1679d49b24bbfe0c803429aa1874472f50d9b363131f0e89fc356b544d03"
 dependencies = [
  "getrandom 0.1.16",
  "libc",
- "rand_chacha",
+ "rand_chacha 0.2.2",
  "rand_core 0.5.1",
  "rand_hc",
 ]
@@ -616,6 +626,16 @@ checksum = "f4c8ed856279c9737206bf725bf36935d8666ead7aa69b52be55af369d193402"
 dependencies = [
  "ppv-lite86",
  "rand_core 0.5.1",
+]
+
+[[package]]
+name = "rand_chacha"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.6.3",
 ]
 
 [[package]]
@@ -652,15 +672,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77d416b86801d23dde1aa643023b775c3a462efc0ed96443add11546cdf1dca8"
 dependencies = [
  "rand_core 0.5.1",
-]
-
-[[package]]
-name = "rand_xoshiro"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
-dependencies = [
- "rand_core 0.6.3",
 ]
 
 [[package]]
