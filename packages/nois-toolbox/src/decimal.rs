@@ -79,16 +79,16 @@ mod tests {
 
         println!("Distribution: {c1}, {c2}, {c3}, {c4}, {c5}, {c6}, {c7}, {c8}, {c9}, {c10}");
 
-        assert!(c1 >= 4_800 && c1 <= 5_200);
-        assert!(c2 >= 4_800 && c2 <= 5_200);
-        assert!(c3 >= 4_800 && c3 <= 5_200);
-        assert!(c4 >= 4_800 && c4 <= 5_200);
-        assert!(c5 >= 4_800 && c5 <= 5_200);
-        assert!(c6 >= 4_800 && c6 <= 5_200);
-        assert!(c7 >= 4_800 && c7 <= 5_200);
-        assert!(c8 >= 4_800 && c8 <= 5_200);
-        assert!(c9 >= 4_800 && c9 <= 5_200);
-        assert!(c10 >= 4_800 && c10 <= 5_200);
+        assert!((4_800..=5_200).contains(&c1));
+        assert!((4_800..=5_200).contains(&c2));
+        assert!((4_800..=5_200).contains(&c3));
+        assert!((4_800..=5_200).contains(&c4));
+        assert!((4_800..=5_200).contains(&c5));
+        assert!((4_800..=5_200).contains(&c6));
+        assert!((4_800..=5_200).contains(&c7));
+        assert!((4_800..=5_200).contains(&c8));
+        assert!((4_800..=5_200).contains(&c9));
+        assert!((4_800..=5_200).contains(&c10));
 
         assert_eq!(
             c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10,
