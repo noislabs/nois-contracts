@@ -382,7 +382,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d38f1bec17d75a7c30b754cd74db6e7cb5927529021ced14fbd622411c04d8b"
 dependencies = [
  "fff",
- "rand",
+ "rand 0.7.3",
  "rand_xorshift",
  "thiserror",
 ]
@@ -513,6 +513,7 @@ name = "nois-toolbox"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-std",
+ "rand 0.8.5",
  "rand_xoshiro",
  "schemars",
  "serde",
@@ -616,6 +617,15 @@ dependencies = [
  "rand_chacha",
  "rand_core 0.5.1",
  "rand_hc",
+]
+
+[[package]]
+name = "rand"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+dependencies = [
+ "rand_core 0.6.3",
 ]
 
 [[package]]
