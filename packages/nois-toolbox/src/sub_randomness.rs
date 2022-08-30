@@ -36,11 +36,25 @@ mod tests {
     #[test]
     fn sub_randomness_works() {
         let randomness: [u8; 32] = [0x77; 32];
-        let mut generator = sub_randomness(randomness);
-        let v1 = generator.next().unwrap();
-        let v2 = generator.next().unwrap();
-        let v3 = generator.next().unwrap();
-        let v4 = generator.next().unwrap();
+        let mut provider = sub_randomness(randomness);
+        let v1 = provider.provide();
+        let v2 = provider.provide();
+        let v3 = provider.provide();
+        let v4 = provider.provide();
+        println!("v1 = {v1:?}");
+        println!("v2 = {v2:?}");
+        println!("v3 = {v3:?}");
+        println!("v4 = {v4:?}");
+    }
+
+    #[test]
+    fn sub_randomness_implements_iterator() {
+        let randomness: [u8; 32] = [0x77; 32];
+        let mut provider = sub_randomness(randomness);
+        let v1 = provider.next().unwrap();
+        let v2 = provider.next().unwrap();
+        let v3 = provider.next().unwrap();
+        let v4 = provider.next().unwrap();
         println!("v1 = {v1:?}");
         println!("v2 = {v2:?}");
         println!("v3 = {v3:?}");
