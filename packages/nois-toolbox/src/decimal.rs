@@ -3,15 +3,19 @@ use rand_xoshiro::rand_core::RngCore;
 
 use crate::prng::make_prng;
 
+const fn u128_from_parts(high: u64, low: u64) -> u128 {
+    let high = high.to_be_bytes();
+    let low = low.to_be_bytes();
+    u128::from_be_bytes([
+        high[0], high[1], high[2], high[3], high[4], high[5], high[6], high[7], low[0], low[1],
+        low[2], low[3], low[4], low[5], low[6], low[7],
+    ])
+}
+
 /// Returns a Decimal d with 0 <= d < 1
 pub fn random_decimal(randomness: [u8; 32]) -> Decimal {
     let mut rng = make_prng(randomness);
-    let high = rng.next_u64().to_be_bytes();
-    let low = rng.next_u64().to_be_bytes();
-    let mut value = u128::from_be_bytes([
-        high[0], high[1], high[2], high[3], high[4], high[5], high[6], high[7], low[0], low[1],
-        low[2], low[3], low[4], low[5], low[6], low[7],
-    ]);
+    let mut value = u128_from_parts(rng.next_u64(), rng.next_u64());
     // Using mod to get a random value in [0, 10**18) should be alright
     // since 10**18 is small compared to 2**128-1
     value %= 1000000000000000000;
@@ -26,6 +30,17 @@ mod tests {
     use super::*;
 
     use std::str::FromStr;
+
+    #[test]
+    fn u128_from_parts_works() {
+        assert_eq!(u128_from_parts(0, 0), 0);
+        assert_eq!(u128_from_parts(0, 1), 1);
+        assert_eq!(u128_from_parts(1, 0), 1 << 64);
+        assert_eq!(
+            u128_from_parts(0xA123456789ABCDEF, 0xD2E3F4A6C7992242),
+            0xA123456789ABCDEFD2E3F4A6C7992242
+        );
+    }
 
     #[test]
     fn random_decimal_works() {
