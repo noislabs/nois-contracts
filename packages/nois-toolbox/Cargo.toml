@@ -10,4 +10,4 @@ cosmwasm-std = { version = "1.0.0" }
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }
-rand_chacha = "0.3.1"
+rand_xoshiro = { version = "0.6.0", default-features = false }

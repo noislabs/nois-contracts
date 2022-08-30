@@ -1,5 +1,5 @@
 use cosmwasm_std::Decimal;
-use rand_chacha::rand_core::RngCore;
+use rand_xoshiro::rand_core::RngCore;
 
 use crate::prng::make_prng;
 

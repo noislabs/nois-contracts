@@ -1,9 +1,9 @@
-use rand_chacha::{rand_core::RngCore, ChaCha8Rng};
+use rand_xoshiro::{rand_core::RngCore, Xoshiro256PlusPlus};
 
 use crate::prng::make_prng;
 
 pub struct SubRandomnessProvider {
-    rng: ChaCha8Rng,
+    rng: Xoshiro256PlusPlus,
 }
 
 impl SubRandomnessProvider {
