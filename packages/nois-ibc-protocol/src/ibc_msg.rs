@@ -1,4 +1,4 @@
-use cosmwasm_std::{from_slice, to_binary, Binary};
+use cosmwasm_std::{from_slice, to_binary, Binary, Timestamp};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct RequestBeaconPacket {
-    pub round: u64,
+    /// Beacon publish time must be > `after`
+    pub after: Timestamp,
     /// The address from which the proxy was executed, i.e. the randomness consumer
     pub sender: String,
     pub callback_id: Option<String>,

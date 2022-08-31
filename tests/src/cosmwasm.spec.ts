@@ -47,7 +47,7 @@ test.serial("Bot can submit to Terrand", async (t) => {
   const { contractAddress: terrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
-    { pubkey: loeMainnetPubkey },
+    { pubkey: loeMainnetPubkey, test_mode: true },
     "Terrand instance",
     "auto"
   );
@@ -73,7 +73,7 @@ test.serial("set up channel", async (t) => {
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmCodeIds.proxy,
-    { test_mode: true },
+    {},
     "Proxy instance",
     "auto"
   );
@@ -87,7 +87,7 @@ test.serial("set up channel", async (t) => {
   const { contractAddress: terrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
-    { pubkey: loeMainnetPubkey },
+    { pubkey: loeMainnetPubkey, test_mode: true },
     "Terrand instance",
     "auto"
   );
@@ -128,7 +128,7 @@ async function instantiateAndConnectIbc(): Promise<SetupInfo> {
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmCodeIds.proxy,
-    { test_mode: true },
+    {},
     "Proxy instance",
     "auto"
   );
@@ -137,7 +137,7 @@ async function instantiateAndConnectIbc(): Promise<SetupInfo> {
   const { contractAddress: noisTerrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
-    { pubkey: loeMainnetPubkey },
+    { pubkey: loeMainnetPubkey, test_mode: true },
     "Terrand instance",
     "auto"
   );

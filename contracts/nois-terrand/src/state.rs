@@ -8,12 +8,16 @@ use nois_ibc_protocol::Beacon;
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
     pub drand_pubkey: Binary,
+    /// In test mode the next round calculation is detached from the clock.
+    pub test_mode: bool,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
 
 // A map from round number to drand beacon
 pub const BEACONS: Map<u64, Beacon> = Map::new("beacons");
+
+pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Job {
