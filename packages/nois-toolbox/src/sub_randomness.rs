@@ -1,4 +1,5 @@
 use rand_xoshiro::{rand_core::RngCore, Xoshiro256PlusPlus};
+use xxhash_rust::xxh3::xxh3_128;
 
 use crate::prng::make_prng;
 
@@ -29,11 +30,9 @@ pub fn sub_randomness_with_key(
     mut randomness: [u8; 32],
     key: impl AsRef<[u8]>,
 ) -> Box<SubRandomnessProvider> {
-    let key = key.as_ref();
-
-    for src_pos in 0..key.len() {
-        let dst_pos = src_pos % 32;
-        randomness[dst_pos] ^= key[src_pos];
+    let hashed_key = xxh3_128(key.as_ref()).to_be_bytes();
+    for (pos, byte) in hashed_key.iter().enumerate() {
+        randomness[pos] ^= byte;
     }
 
     let rng = make_prng(randomness);
