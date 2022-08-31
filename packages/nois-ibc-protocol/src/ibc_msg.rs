@@ -33,7 +33,8 @@ pub enum RequestBeaconPacketAck {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct DeliverBeaconPacket {
-    pub round: u64,
+    /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
+    pub source_id: String,
     pub randomness: String,
     pub sender: String,
     pub callback_id: Option<String>,

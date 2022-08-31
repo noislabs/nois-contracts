@@ -21,7 +21,8 @@ pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Job {
-    pub round: u64,
+    /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
+    pub source_id: String,
     // The channel the job came from and we have to send the response to
     pub channel: String,
     // contract address on the app chain
@@ -30,5 +31,5 @@ pub struct Job {
     pub callback_id: Option<String>,
 }
 
-// Unprocessed jobs that are waiting for the correct round to come in
-pub const JOBS: Map<u64, Vec<Job>> = Map::new("jobs");
+// Unprocessed drand jobs that are waiting for the correct round to come in
+pub const DRAND_JOBS: Map<u64, Vec<Job>> = Map::new("drand_jobs");

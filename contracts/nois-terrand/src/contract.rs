@@ -15,7 +15,7 @@ use crate::error::ContractError;
 use crate::msg::{
     BeaconReponse, ConfigResponse, ExecuteMsg, InstantiateMsg, LatestRandomResponse, QueryMsg,
 };
-use crate::state::{Config, Job, BEACONS, CONFIG, JOBS, TEST_MODE_NEXT_ROUND};
+use crate::state::{Config, Job, BEACONS, CONFIG, DRAND_JOBS, TEST_MODE_NEXT_ROUND};
 
 // TODO: make configurable?
 /// packets live one hour
@@ -168,7 +168,7 @@ fn receive_get_beacon(
     let (round, source_id) = next_round(deps.storage, mode)?;
 
     let job = Job {
-        round,
+        source_id: source_id.clone(),
         channel,
         sender,
         callback_id,
@@ -184,9 +184,11 @@ fn receive_get_beacon(
         StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
     } else {
         // If we don't have the beacon yet we store the job for later
-        let mut jobs = JOBS.may_load(deps.storage, round)?.unwrap_or_default();
+        let mut jobs = DRAND_JOBS
+            .may_load(deps.storage, round)?
+            .unwrap_or_default();
         jobs.push(job);
-        JOBS.save(deps.storage, round, &jobs)?;
+        DRAND_JOBS.save(deps.storage, round, &jobs)?;
         StdAck::success(&RequestBeaconPacketAck::Queued { source_id })
     };
 
@@ -201,7 +203,7 @@ fn process_job(blocktime: Timestamp, job: Job, beacon: &Beacon) -> Result<IbcMsg
         sender: job.sender,
         callback_id: job.callback_id,
         randomness: beacon.randomness.clone(),
-        round: job.round,
+        source_id: job.source_id,
     };
     let msg = IbcMsg::SendPacket {
         channel_id: job.channel,
@@ -311,8 +313,8 @@ fn execute_add_round(
     BEACONS.save(deps.storage, round, beacon)?;
 
     let mut msgs = Vec::<CosmosMsg>::new();
-    if let Some(jobs) = JOBS.may_load(deps.storage, round)? {
-        JOBS.remove(deps.storage, round);
+    if let Some(jobs) = DRAND_JOBS.may_load(deps.storage, round)? {
+        DRAND_JOBS.remove(deps.storage, round);
 
         for job in jobs {
             // Use IbcMsg::SendPacket to send packages to the proxies.

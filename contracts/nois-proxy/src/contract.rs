@@ -127,14 +127,13 @@ pub fn ibc_channel_close(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-/// never should be called as the other side never sends packets
 pub fn ibc_packet_receive(
     _deps: DepsMut,
     _env: Env,
     packet: IbcPacketReceiveMsg,
 ) -> StdResult<IbcReceiveResponse> {
     let DeliverBeaconPacket {
-        round: _,
+        source_id: _,
         randomness,
         sender,
         callback_id,
