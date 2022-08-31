@@ -165,7 +165,7 @@ fn receive_get_beacon(
     } else {
         NextRoundMode::Time { base: after }
     };
-    let round = next_round(deps.storage, mode)?;
+    let (round, source_id) = next_round(deps.storage, mode)?;
 
     let job = Job {
         round,
@@ -181,13 +181,13 @@ fn receive_get_beacon(
     let acknowledgement: Binary = if let Some(beacon) = beacon.as_ref() {
         let msg = process_job(env.block.time, job, beacon)?;
         msgs.push(msg.into());
-        StdAck::success(&RequestBeaconPacketAck::Processed)
+        StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
     } else {
         // If we don't have the beacon yet we store the job for later
         let mut jobs = JOBS.may_load(deps.storage, round)?.unwrap_or_default();
         jobs.push(job);
         JOBS.save(deps.storage, round, &jobs)?;
-        StdAck::success(&RequestBeaconPacketAck::Queued)
+        StdAck::success(&RequestBeaconPacketAck::Queued { source_id })
     };
 
     Ok(IbcReceiveResponse::new()
@@ -217,26 +217,31 @@ enum NextRoundMode {
     Time { base: Timestamp },
 }
 
+/// See https://drand.love/developer/
+const DRAND_CHAIN_HASH: &str = "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce";
 const DRAND_GENESIS: Timestamp = Timestamp::from_seconds(1595431050);
 const DRAND_ROUND_LENGTH: u64 = 30_000_000_000; // in nanoseconds
 
 /// Calculates the next round in the future, i.e. publish time > base time.
-fn next_round(storage: &mut dyn Storage, mode: NextRoundMode) -> StdResult<u64> {
+fn next_round(storage: &mut dyn Storage, mode: NextRoundMode) -> StdResult<(u64, String)> {
     match mode {
         NextRoundMode::Test => {
             let next = TEST_MODE_NEXT_ROUND.may_load(storage)?.unwrap_or(2183660);
             TEST_MODE_NEXT_ROUND.save(storage, &(next + 1))?;
-            Ok(next)
+            let source_id = format!("test-mode:{}", next);
+            Ok((next, source_id))
         }
         NextRoundMode::Time { base } => {
             // Losely ported from https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L49-L63
-            if base < DRAND_GENESIS {
-                Ok(1)
+            let round = if base < DRAND_GENESIS {
+                1
             } else {
                 let from_genesis = base.nanos() - DRAND_GENESIS.nanos();
                 let next_round = (from_genesis / DRAND_ROUND_LENGTH) + 1;
-                Ok(next_round + 1)
-            }
+                next_round + 1
+            };
+            let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
+            Ok((round, source_id))
         }
     }
 }
@@ -566,12 +571,15 @@ mod tests {
     #[test]
     fn next_round_works_for_test_mode() {
         let mut deps = mock_dependencies();
-        let round = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
+        let (round, source_id) = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
         assert_eq!(round, 2183660);
-        let round = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
+        assert_eq!(source_id, "test-mode:2183660");
+        let (round, source_id) = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
         assert_eq!(round, 2183661);
-        let round = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
+        assert_eq!(source_id, "test-mode:2183661");
+        let (round, source_id) = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
         assert_eq!(round, 2183662);
+        assert_eq!(source_id, "test-mode:2183662");
     }
 
     #[test]
@@ -579,7 +587,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         // UNIX epoch
-        let round = next_round(
+        let (round, _) = next_round(
             &mut deps.storage,
             NextRoundMode::Time {
                 base: Timestamp::from_seconds(0),
@@ -589,7 +597,7 @@ mod tests {
         assert_eq!(round, 1);
 
         // Before Drand genesis (https://api3.drand.sh/info)
-        let round = next_round(
+        let (round, _) = next_round(
             &mut deps.storage,
             NextRoundMode::Time {
                 base: Timestamp::from_seconds(1595431050).minus_nanos(1),
@@ -599,7 +607,7 @@ mod tests {
         assert_eq!(round, 1);
 
         // At Drand genesis (https://api3.drand.sh/info)
-        let round = next_round(
+        let (round, _) = next_round(
             &mut deps.storage,
             NextRoundMode::Time {
                 base: Timestamp::from_seconds(1595431050),
@@ -609,7 +617,7 @@ mod tests {
         assert_eq!(round, 2);
 
         // After Drand genesis (https://api3.drand.sh/info)
-        let round = next_round(
+        let (round, _) = next_round(
             &mut deps.storage,
             NextRoundMode::Time {
                 base: Timestamp::from_seconds(1595431050).plus_nanos(1),
@@ -619,7 +627,7 @@ mod tests {
         assert_eq!(round, 2);
 
         // Drand genesis +29s/30s/31s
-        let round = next_round(
+        let (round, _) = next_round(
             &mut deps.storage,
             NextRoundMode::Time {
                 base: Timestamp::from_seconds(1595431050).plus_seconds(29),
@@ -627,7 +635,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(round, 2);
-        let round = next_round(
+        let (round, _) = next_round(
             &mut deps.storage,
             NextRoundMode::Time {
                 base: Timestamp::from_seconds(1595431050).plus_seconds(30),
@@ -635,7 +643,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(round, 3);
-        let round = next_round(
+        let (round, _) = next_round(
             &mut deps.storage,
             NextRoundMode::Time {
                 base: Timestamp::from_seconds(1595431050).plus_seconds(31),

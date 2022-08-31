@@ -18,9 +18,15 @@ pub struct RequestBeaconPacket {
 #[serde(rename_all = "snake_case")]
 pub enum RequestBeaconPacketAck {
     /// Beacon already exists and this request can be processed immediately.
-    Processed,
+    Processed {
+        /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
+        source_id: String,
+    },
     /// Beacon does not yet exist. This request is queued for later.
-    Queued,
+    Queued {
+        /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
+        source_id: String,
+    },
 }
 
 /// This is the message we send over the IBC channel from Terrand to proxy

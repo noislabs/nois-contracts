@@ -207,7 +207,7 @@ test.serial("proxy works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary("processed") });
+    t.deepEqual(stdAck, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
   }
 
   // Query round 3 (non-existing)
@@ -222,7 +222,7 @@ test.serial("proxy works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary("queued") });
+    t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183661" } }) });
   }
 });
 
@@ -247,7 +247,7 @@ test.serial("demo contract can be used", async (t) => {
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary("processed") });
+    t.deepEqual(stdAck, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
 
     // DeliverBeacon packet
     const infoB2A = await link.relayAll();
@@ -278,7 +278,7 @@ test.serial("demo contract can be used", async (t) => {
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary("queued") });
+    t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183661" } }) });
 
     // DeliverBeacon packet not yet
     const infoB2A = await link.relayAll();
