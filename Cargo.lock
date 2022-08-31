@@ -382,7 +382,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d38f1bec17d75a7c30b754cd74db6e7cb5927529021ced14fbd622411c04d8b"
 dependencies = [
  "fff",
- "rand",
+ "rand 0.7.3",
  "rand_xorshift",
  "thiserror",
 ]
@@ -463,8 +463,7 @@ dependencies = [
  "cw-storage-plus",
  "hex",
  "nois-proxy",
- "rand_core 0.6.3",
- "rand_xoshiro",
+ "nois-toolbox",
  "schemars",
  "serde",
  "thiserror",
@@ -507,6 +506,19 @@ dependencies = [
  "schemars",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "nois-toolbox"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-std",
+ "rand 0.8.5",
+ "rand_xoshiro",
+ "schemars",
+ "serde",
+ "thiserror",
+ "xxhash-rust",
 ]
 
 [[package]]
@@ -606,6 +618,15 @@ dependencies = [
  "rand_chacha",
  "rand_core 0.5.1",
  "rand_hc",
+]
+
+[[package]]
+name = "rand"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+dependencies = [
+ "rand_core 0.6.3",
 ]
 
 [[package]]
@@ -885,6 +906,12 @@ name = "wasi"
 version = "0.11.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
+
+[[package]]
+name = "xxhash-rust"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "074914ea4eec286eb8d1fd745768504f420a1f7b7919185682a4a267bed7d2e7"
 
 [[package]]
 name = "zeroize"

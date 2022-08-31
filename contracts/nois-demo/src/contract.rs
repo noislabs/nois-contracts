@@ -3,8 +3,7 @@ use cosmwasm_std::{
     QueryResponse, Response, StdResult, WasmMsg,
 };
 use nois_proxy::NoisCallbackMsg;
-use rand_core::{RngCore, SeedableRng};
-use rand_xoshiro::Xoshiro128PlusPlus;
+use nois_toolbox::{random_decimal, sub_randomness};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -70,28 +69,14 @@ pub fn execute_receive(
         .try_into()
         .map_err(|_| ContractError::InvalidRandomness)?;
 
-    // Cut first 16 bytes from 32 byte value
-    let seed: [u8; 16] = randomness[0..16].try_into().unwrap();
+    let mut provider = sub_randomness(randomness);
 
-    // A PRNG that is not cryptographically secure.
-    // See https://docs.rs/rand/0.8.5/rand/rngs/struct.SmallRng.html
-    // where this is used for 32 bit systems.
-    // We don't use the SmallRng in order to get the same implementation
-    // in unit tests (64 bit dev machines) and the real contract (32 bit Wasm)
-    let mut rng = Xoshiro128PlusPlus::from_seed(seed);
-
-    const ROUNDS: u32 = 25_000;
+    const ROUNDS: u32 = 10_000;
     let mut inside = 0u32;
 
-    let mut buf = [0u8; 16];
     for _round in 0..ROUNDS {
-        // get x and y value in [0, 10**18]
-        rng.fill_bytes(&mut buf as &mut [u8]);
-        let x = u128::from_be_bytes(buf) % 1000000000000000001;
-        rng.fill_bytes(&mut buf as &mut [u8]);
-        let y = u128::from_be_bytes(buf) % 1000000000000000001;
-        let x = Decimal::from_atomics(x, 18).unwrap();
-        let y = Decimal::from_atomics(y, 18).unwrap();
+        let x = random_decimal(provider.provide());
+        let y = random_decimal(provider.provide());
         // sqrt calculation can be skipped because a² < 1 if and only if a < 1
         let in_circle = (x * x) + (y * y) < Decimal::one();
         if in_circle {
