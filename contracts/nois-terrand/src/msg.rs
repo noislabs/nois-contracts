@@ -9,6 +9,8 @@ use crate::state::Config;
 pub struct InstantiateMsg {
     /// The public key of the drand network
     pub pubkey: Binary,
+    /// In test mode the next round calculation is detached from the clock.
+    pub test_mode: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
