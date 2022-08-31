@@ -22,16 +22,52 @@ impl Iterator for SubRandomnessProvider {
     }
 }
 
-/// Takes a randomness and returns an arbitrary number of sub-randomnesses.
-pub fn sub_randomness(randomness: [u8; 32]) -> Box<SubRandomnessProvider> {
+/// Takes a randomness and a key. Returns an arbitrary number of sub-randomnesses.
+/// The key is mixed into the randomness such that calling this function with different keys
+/// leads to different outputs. Calling it with the same key and randomness leads to the same outputs.
+pub fn sub_randomness_with_key(
+    mut randomness: [u8; 32],
+    key: impl AsRef<[u8]>,
+) -> Box<SubRandomnessProvider> {
+    let key = key.as_ref();
+
+    for src_pos in 0..key.len() {
+        let dst_pos = src_pos % 32;
+        randomness[dst_pos] ^= key[src_pos];
+    }
+
     let rng = make_prng(randomness);
 
     Box::new(SubRandomnessProvider { rng })
 }
 
+/// Takes a randomness and a key. Returns an arbitrary number of sub-randomnesses.
+///
+/// This is equivalent to calling [`sub_randomness_with_key`] with key "_^default^_"
+pub fn sub_randomness(randomness: [u8; 32]) -> Box<SubRandomnessProvider> {
+    sub_randomness_with_key(randomness, b"_^default^_")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sub_randomness_with_key_works() {
+        // outputs are the same for the same randomness and key
+        let mut provider1 = sub_randomness_with_key([0xA6; 32], "A");
+        let mut provider2 = sub_randomness_with_key([0xA6; 32], "A");
+        assert_eq!(provider1.provide(), provider2.provide());
+        assert_eq!(provider1.provide(), provider2.provide());
+        assert_eq!(provider1.provide(), provider2.provide());
+
+        // outputs are different for the same randomness and different key
+        let mut provider1 = sub_randomness_with_key([0xA6; 32], "/my_namespace/ab");
+        let mut provider2 = sub_randomness_with_key([0xA6; 32], "/my_namespace/cd");
+        assert_ne!(provider1.provide(), provider2.provide());
+        assert_ne!(provider1.provide(), provider2.provide());
+        assert_ne!(provider1.provide(), provider2.provide());
+    }
 
     #[test]
     fn sub_randomness_works() {
@@ -45,6 +81,27 @@ mod tests {
         println!("v2 = {v2:?}");
         println!("v3 = {v3:?}");
         println!("v4 = {v4:?}");
+
+        // outputs are the same for the same randomness
+        let mut provider1 = sub_randomness([0xA6; 32]);
+        let mut provider2 = sub_randomness([0xA6; 32]);
+        assert_eq!(provider1.provide(), provider2.provide());
+        assert_eq!(provider1.provide(), provider2.provide());
+        assert_eq!(provider1.provide(), provider2.provide());
+
+        // outputs differ for different randomness
+        let mut provider1 = sub_randomness([0xA6; 32]);
+        let mut provider2 = sub_randomness([0xCF; 32]);
+        assert_ne!(provider1.provide(), provider2.provide());
+        assert_ne!(provider1.provide(), provider2.provide());
+        assert_ne!(provider1.provide(), provider2.provide());
+
+        // outputs are the same for the same as sub_randomness_with_key with "_^default^_"
+        let mut provider1 = sub_randomness([0xA6; 32]);
+        let mut provider2 = sub_randomness_with_key([0xA6; 32], "_^default^_");
+        assert_eq!(provider1.provide(), provider2.provide());
+        assert_eq!(provider1.provide(), provider2.provide());
+        assert_eq!(provider1.provide(), provider2.provide());
     }
 
     #[test]
