@@ -5,7 +5,7 @@ use cosmwasm_std::{
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError,
     StdResult, Storage, Timestamp,
 };
-use drand_verify::{derive_randomness, g1_from_variable, verify};
+use drand_verify::{derive_randomness, g1_from_fixed, verify};
 use nois_ibc_protocol::{
     check_order, check_version, Beacon, Data, DeliverBeaconPacket, DeliverBeaconPacketAck,
     RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
@@ -21,6 +21,17 @@ use crate::state::{Config, Job, BEACONS, CONFIG, DRAND_JOBS, TEST_MODE_NEXT_ROUN
 /// packets live one hour
 pub const PACKET_LIFETIME: u64 = 60 * 60;
 
+// $ node
+// > Uint8Array.from(Buffer.from("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31", "hex"))
+const DRAND_MAINNET_PUBKEY: [u8; 48] = [
+    134, 143, 0, 94, 184, 230, 228, 202, 10, 71, 200, 167, 124, 234, 165, 48, 154, 71, 151, 138,
+    124, 113, 188, 92, 206, 150, 54, 107, 93, 122, 86, 153, 55, 197, 41, 238, 218, 102, 199, 41,
+    55, 132, 169, 64, 40, 1, 175, 49,
+];
+const DRAND_CHAIN_HASH: &str = "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce"; // See https://drand.love/developer/
+const DRAND_GENESIS: Timestamp = Timestamp::from_seconds(1595431050);
+const DRAND_ROUND_LENGTH: u64 = 30_000_000_000; // in nanoseconds
+
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
@@ -29,7 +40,6 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     let config = Config {
-        drand_pubkey: msg.pubkey,
         test_mode: msg.test_mode,
     };
     CONFIG.save(deps.storage, &config)?;
@@ -219,11 +229,6 @@ enum NextRoundMode {
     Time { base: Timestamp },
 }
 
-/// See https://drand.love/developer/
-const DRAND_CHAIN_HASH: &str = "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce";
-const DRAND_GENESIS: Timestamp = Timestamp::from_seconds(1595431050);
-const DRAND_ROUND_LENGTH: u64 = 30_000_000_000; // in nanoseconds
-
 /// Calculates the next round in the future, i.e. publish time > base time.
 fn next_round(storage: &mut dyn Storage, mode: NextRoundMode) -> StdResult<(u64, String)> {
     match mode {
@@ -295,9 +300,7 @@ fn execute_add_round(
         return Err(StdError::generic_err(format!("Round already {} added", round)).into());
     };
 
-    let config = CONFIG.load(deps.storage)?;
-
-    let pk = g1_from_variable(&config.drand_pubkey).map_err(|_| ContractError::InvalidPubkey {})?;
+    let pk = g1_from_fixed(DRAND_MAINNET_PUBKEY).map_err(|_| ContractError::InvalidPubkey {})?;
     let is_valid = verify(&pk, round, &previous_signature, &signature).unwrap_or(false);
 
     if !is_valid {
@@ -344,10 +347,7 @@ mod tests {
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {
-            pubkey: pubkey_loe_mainnet(),
-            test_mode: true,
-        };
+        let msg = InstantiateMsg { test_mode: true };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -375,17 +375,6 @@ mod tests {
         );
     }
 
-    // $ node
-    // > Uint8Array.from(Buffer.from("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31", "hex"))
-    fn pubkey_loe_mainnet() -> Binary {
-        vec![
-            134, 143, 0, 94, 184, 230, 228, 202, 10, 71, 200, 167, 124, 234, 165, 48, 154, 71, 151,
-            138, 124, 113, 188, 92, 206, 150, 54, 107, 93, 122, 86, 153, 55, 197, 41, 238, 218,
-            102, 199, 41, 55, 132, 169, 64, 40, 1, 175, 49,
-        ]
-        .into()
-    }
-
     //
     // Instantiate tests
     //
@@ -394,10 +383,7 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg {
-            pubkey: pubkey_loe_mainnet(),
-            test_mode: true,
-        };
+        let msg = InstantiateMsg { test_mode: true };
         let info = mock_info("creator", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len())
@@ -412,10 +398,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            pubkey: pubkey_loe_mainnet(),
-            test_mode: true,
-        };
+        let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
@@ -438,41 +421,11 @@ mod tests {
     }
 
     #[test]
-    fn add_round_fails_when_pubkey_is_invalid() {
-        let mut deps = mock_dependencies();
-
-        let info = mock_info("creator", &[]);
-        let mut broken: Vec<u8> = pubkey_loe_mainnet().into();
-        broken.push(0xF9);
-        let msg = InstantiateMsg {
-            pubkey: broken.into(),
-            test_mode: true,
-        };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        let info = mock_info("anyone", &[]);
-        let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/public/72785 | jq
-            round: 72785,
-            previous_signature: hex::decode("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap().into(),
-            signature: hex::decode("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap().into(),
-        };
-        let result = execute(deps.as_mut(), mock_env(), info, msg);
-        match result.unwrap_err() {
-            ContractError::InvalidPubkey {} => {}
-            err => panic!("Unexpected error: {:?}", err),
-        }
-    }
-
-    #[test]
     fn add_round_fails_for_broken_signature() {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            pubkey: pubkey_loe_mainnet(),
-            test_mode: true,
-        };
+        let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
@@ -494,10 +447,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            pubkey: pubkey_loe_mainnet(),
-            test_mode: true,
-        };
+        let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
