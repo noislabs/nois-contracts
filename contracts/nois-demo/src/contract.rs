@@ -2,7 +2,7 @@ use cosmwasm_std::{
     entry_point, to_binary, CheckedFromRatioError, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
     QueryResponse, Response, StdResult, WasmMsg,
 };
-use nois_proxy::NoisCallbackMsg;
+use nois_proxy::{Data, NoisCallbackMsg};
 use nois_toolbox::{random_decimal, sub_randomness};
 
 use crate::error::ContractError;
@@ -61,12 +61,10 @@ pub fn execute_receive(
     _env: Env,
     _info: MessageInfo,
     callback_id: String,
-    randomness: String,
+    randomness: Data,
 ) -> Result<Response, ContractError> {
-    let randomness =
-        hex::decode(&randomness).map_err(|_from_hex_err| ContractError::InvalidRandomness)?;
     let randomness: [u8; 32] = randomness
-        .try_into()
+        .to_array()
         .map_err(|_| ContractError::InvalidRandomness)?;
 
     let mut provider = sub_randomness(randomness);

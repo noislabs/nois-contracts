@@ -1,4 +1,5 @@
 use cosmwasm_std::{to_binary, Binary, StdResult};
+use nois_ibc_protocol::Data;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +28,7 @@ pub enum QueryMsg {}
 pub struct NoisCallbackMsg {
     /// The ID chosen by the caller in the `callback_id`
     pub id: String,
-    pub randomness: String,
+    pub randomness: Data,
 }
 
 impl NoisCallbackMsg {

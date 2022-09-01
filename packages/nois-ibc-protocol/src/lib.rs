@@ -1,10 +1,12 @@
 mod checks;
+mod data;
 mod ibc_msg;
 
 use cosmwasm_std::IbcOrder;
 
-pub use crate::checks::{check_order, check_version, ChannelError};
-pub use crate::ibc_msg::{
+pub use checks::{check_order, check_version, ChannelError};
+pub use data::Data;
+pub use ibc_msg::{
     Beacon, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck,
 };

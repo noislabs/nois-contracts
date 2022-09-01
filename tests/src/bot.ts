@@ -1,5 +1,5 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { fromHex, toBase64, toUtf8 } from "@cosmjs/encoding";
+import { toUtf8 } from "@cosmjs/encoding";
 import { assertIsDeliverTxSuccess } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx";
@@ -84,8 +84,8 @@ export class Bot {
           JSON.stringify({
             add_round: {
               round: beacon.round,
-              signature: toBase64(fromHex(beacon.signature)),
-              previous_signature: toBase64(fromHex(beacon.previous_signature)),
+              signature: beacon.signature,
+              previous_signature: beacon.previous_signature,
             },
           })
         ),
