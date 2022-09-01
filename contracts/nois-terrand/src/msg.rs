@@ -1,4 +1,3 @@
-use cosmwasm_std::Binary;
 use nois_ibc_protocol::{Beacon, Data};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,8 +6,6 @@ use crate::state::Config;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
-    /// The public key of the drand network
-    pub pubkey: Binary,
     /// In test mode the next round calculation is detached from the clock.
     pub test_mode: bool,
 }

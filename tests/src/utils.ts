@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 
 import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/relayer";
 import { fromBinary } from "@cosmjs/cosmwasm-stargate";
-import { fromHex, fromUtf8, toBase64 } from "@cosmjs/encoding";
+import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import { ExecutionContext } from "ava";
 
@@ -11,9 +11,6 @@ const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingCosmWasmClient, 
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 export const NoisProtocolIbcVersion = "nois-v1";
-export const loeMainnetPubkey = toBase64(
-  fromHex("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31")
-);
 
 export async function setupContracts(
   t: ExecutionContext,

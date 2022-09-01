@@ -9,7 +9,6 @@ import { Bot } from "./bot";
 import {
   assertPacketsFromA,
   assertPacketsFromB,
-  loeMainnetPubkey,
   NoisProtocolIbcVersion,
   setupContracts,
   setupOsmosisClient,
@@ -47,7 +46,7 @@ test.serial("Bot can submit to Terrand", async (t) => {
   const { contractAddress: terrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
-    { pubkey: loeMainnetPubkey, test_mode: true },
+    { test_mode: true },
     "Terrand instance",
     "auto"
   );
@@ -87,7 +86,7 @@ test.serial("set up channel", async (t) => {
   const { contractAddress: terrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
-    { pubkey: loeMainnetPubkey, test_mode: true },
+    { test_mode: true },
     "Terrand instance",
     "auto"
   );
@@ -137,7 +136,7 @@ async function instantiateAndConnectIbc(): Promise<SetupInfo> {
   const { contractAddress: noisTerrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.terrand,
-    { pubkey: loeMainnetPubkey, test_mode: true },
+    { test_mode: true },
     "Terrand instance",
     "auto"
   );

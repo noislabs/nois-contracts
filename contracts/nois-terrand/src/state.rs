@@ -1,4 +1,3 @@
-use cosmwasm_std::Binary;
 use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,7 +6,6 @@ use nois_ibc_protocol::Beacon;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
-    pub drand_pubkey: Binary,
     /// In test mode the next round calculation is detached from the clock.
     pub test_mode: bool,
 }
