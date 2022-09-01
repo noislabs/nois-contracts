@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use drand_verify::{derive_randomness, g1_from_variable, verify};
 use nois_ibc_protocol::{
-    check_order, check_version, Beacon, DeliverBeaconPacket, DeliverBeaconPacketAck,
+    check_order, check_version, Beacon, Data, DeliverBeaconPacket, DeliverBeaconPacketAck,
     RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
@@ -280,8 +280,8 @@ fn execute_add_round(
     env: Env,
     info: MessageInfo,
     round: u64,
-    previous_signature: Binary,
-    signature: Binary,
+    previous_signature: Data,
+    signature: Data,
 ) -> Result<Response, ContractError> {
     // Handle sender is not sending funds
     if !info.funds.is_empty() {
@@ -304,11 +304,10 @@ fn execute_add_round(
         return Err(ContractError::InvalidSignature {});
     }
 
-    let randomness = derive_randomness(signature.as_slice());
-    let randomness_hex = hex::encode(&randomness);
+    let randomness: Data = derive_randomness(signature.as_slice()).into();
 
     let beacon = &Beacon {
-        randomness: randomness_hex.clone(),
+        randomness: randomness.clone(),
     };
     BEACONS.save(deps.storage, round, beacon)?;
 
@@ -326,7 +325,7 @@ fn execute_add_round(
     Ok(Response::new()
         .add_messages(msgs)
         .add_attribute("round", round.to_string())
-        .add_attribute("randomness", randomness_hex)
+        .add_attribute("randomness", randomness.to_hex())
         .add_attribute("worker", info.sender.to_string()))
 }
 
@@ -423,8 +422,8 @@ mod tests {
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
-            previous_signature: hex::decode("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap().into(),
-            signature: hex::decode("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap().into(),
+            previous_signature: Data::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -433,7 +432,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            response.beacon.unwrap().randomness,
+            response.beacon.unwrap().randomness.to_hex(),
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
     }

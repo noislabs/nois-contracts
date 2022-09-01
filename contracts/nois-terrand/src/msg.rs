@@ -1,5 +1,5 @@
 use cosmwasm_std::Binary;
-use nois_ibc_protocol::Beacon;
+use nois_ibc_protocol::{Beacon, Data};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -19,8 +19,8 @@ pub enum ExecuteMsg {
     /// Add drand beacon
     AddRound {
         round: u64,
-        previous_signature: Binary,
-        signature: Binary,
+        previous_signature: Data,
+        signature: Data,
     },
 }
 
@@ -43,7 +43,7 @@ pub struct BeaconReponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct LatestRandomResponse {
     pub round: u64,
-    pub randomness: String,
+    pub randomness: Data,
 }
 
 // We define a custom struct for each query response

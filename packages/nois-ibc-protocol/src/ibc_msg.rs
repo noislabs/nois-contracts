@@ -3,6 +3,8 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
+use crate::Data;
+
 /// This is the message we send over the IBC channel from proxy to Terrand
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -35,7 +37,7 @@ pub enum RequestBeaconPacketAck {
 pub struct DeliverBeaconPacket {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
     pub source_id: String,
-    pub randomness: String,
+    pub randomness: Data,
     pub sender: String,
     pub callback_id: Option<String>,
 }
@@ -91,5 +93,5 @@ impl StdAck {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Beacon {
     /// The sha256(signature) in lower case hex
-    pub randomness: String,
+    pub randomness: Data,
 }
