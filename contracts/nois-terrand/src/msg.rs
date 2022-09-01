@@ -1,8 +1,8 @@
-use nois_ibc_protocol::{Beacon, Data};
+use nois_ibc_protocol::Data;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::state::Config;
+use crate::state::{Config, VerifiedBeacon};
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct InstantiateMsg {
@@ -34,13 +34,13 @@ pub enum QueryMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema, Default)]
 pub struct BeaconReponse {
-    pub beacon: Option<Beacon>,
+    pub beacon: Option<VerifiedBeacon>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct LatestRandomResponse {
     pub round: u64,
-    pub randomness: Data,
+    pub beacon: VerifiedBeacon,
 }
 
 // We define a custom struct for each query response

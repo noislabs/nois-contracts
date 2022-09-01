@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use drand_verify::{derive_randomness, g1_from_fixed, verify};
 use nois_ibc_protocol::{
-    check_order, check_version, Beacon, Data, DeliverBeaconPacket, DeliverBeaconPacketAck,
+    check_order, check_version, Data, DeliverBeaconPacket, DeliverBeaconPacketAck,
     RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
@@ -15,7 +15,9 @@ use crate::error::ContractError;
 use crate::msg::{
     BeaconReponse, ConfigResponse, ExecuteMsg, InstantiateMsg, LatestRandomResponse, QueryMsg,
 };
-use crate::state::{Config, Job, BEACONS, CONFIG, DRAND_JOBS, TEST_MODE_NEXT_ROUND};
+use crate::state::{
+    Config, Job, VerifiedBeacon, BEACONS, CONFIG, DRAND_JOBS, TEST_MODE_NEXT_ROUND,
+};
 
 // TODO: make configurable?
 /// packets live one hour
@@ -92,7 +94,7 @@ fn query_latest(deps: Deps) -> StdResult<LatestRandomResponse> {
 
     Ok(LatestRandomResponse {
         round: key,
-        randomness: value.randomness,
+        beacon: value,
     })
 }
 
@@ -208,7 +210,11 @@ fn receive_get_beacon(
         .add_attribute("action", "receive_get_beacon"))
 }
 
-fn process_job(blocktime: Timestamp, job: Job, beacon: &Beacon) -> Result<IbcMsg, ContractError> {
+fn process_job(
+    blocktime: Timestamp,
+    job: Job,
+    beacon: &VerifiedBeacon,
+) -> Result<IbcMsg, ContractError> {
     let packet = DeliverBeaconPacket {
         sender: job.sender,
         callback_id: job.callback_id,
@@ -309,7 +315,10 @@ fn execute_add_round(
 
     let randomness: Data = derive_randomness(signature.as_slice()).into();
 
-    let beacon = &Beacon {
+    let beacon = &VerifiedBeacon {
+        // See TimeOfRound implementation: https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L30-L33
+        published: DRAND_GENESIS.plus_nanos((round - 1) * DRAND_ROUND_LENGTH),
+        verified: env.block.time,
         randomness: randomness.clone(),
     };
     BEACONS.save(deps.storage, round, beacon)?;
