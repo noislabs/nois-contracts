@@ -1,4 +1,4 @@
-import { MsgExecuteContractEncodeObject, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { fromHex, toBase64, toUtf8 } from "@cosmjs/encoding";
 import { assertIsDeliverTxSuccess } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
@@ -72,35 +72,26 @@ export class Bot {
   }
 
   public async submitRound(round: number): Promise<void> {
-    return this.submitRounds([round]);
-  }
+    const beacon = localDataSource.get(round);
+    assert(beacon, `No data source for round ${round} available`);
 
-  public async submitRounds(rounds: number[]): Promise<void> {
-    const beacons = rounds.map((round) => {
-      const beacon = localDataSource.get(round);
-      assert(beacon, `No data source for round ${round} available`);
-      return beacon;
-    });
-
-    // TODO: use executeMultiple after upgrading to CosmJS 0.29.
-    const msgs: MsgExecuteContractEncodeObject[] = beacons.map((beacon) => {
-      const msg = {
-        add_round: {
-          round: beacon.round,
-          signature: toBase64(fromHex(beacon.signature)),
-          previous_signature: toBase64(fromHex(beacon.previous_signature)),
-        },
-      };
-      return {
-        typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-        value: MsgExecuteContract.fromPartial({
-          sender: this.address,
-          contract: this.terrandAddress,
-          msg: toUtf8(JSON.stringify(msg)),
-        }),
-      };
-    });
-    const result = await this.client.signAndBroadcast(this.address, msgs, "auto");
+    const msg = {
+      typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+      value: MsgExecuteContract.fromPartial({
+        sender: this.address,
+        contract: this.terrandAddress,
+        msg: toUtf8(
+          JSON.stringify({
+            add_round: {
+              round: beacon.round,
+              signature: toBase64(fromHex(beacon.signature)),
+              previous_signature: toBase64(fromHex(beacon.previous_signature)),
+            },
+          })
+        ),
+      }),
+    };
+    const result = await this.client.signAndBroadcast(this.address, [msg], "auto");
     assertIsDeliverTxSuccess(result);
   }
 }
