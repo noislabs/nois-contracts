@@ -1,8 +1,9 @@
+use cosmwasm_std::Timestamp;
 use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use nois_ibc_protocol::Beacon;
+use nois_ibc_protocol::Data;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
@@ -12,8 +13,16 @@ pub struct Config {
 
 pub const CONFIG: Item<Config> = Item::new("config");
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+pub struct VerifiedBeacon {
+    pub published: Timestamp,
+    pub verified: Timestamp,
+    /// The sha256(signature) in lower case hex
+    pub randomness: Data,
+}
+
 // A map from round number to drand beacon
-pub const BEACONS: Map<u64, Beacon> = Map::new("beacons");
+pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
 
 pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
 
