@@ -228,9 +228,9 @@ dependencies = [
 
 [[package]]
 name = "drand-verify"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "171f5f28de35428160401de28a16ad3a4424757776a7f41975a767b6d54c360f"
+checksum = "88e022e0275ca7dd43df921c4bbefb2e65250bf9c1e450e3a7486fe246976293"
 dependencies = [
  "fff",
  "groupy",
@@ -301,22 +301,23 @@ dependencies = [
 
 [[package]]
 name = "fff"
-version = "0.2.3"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2544d325b4870bd803d371a7df3c6845e84dcfcb6ebe7ffcae0eac6d5d676133"
+checksum = "7edbba9b259baf4dea8d2167240013ca63a75f7719fc75145a906e9f2c6b3f7b"
 dependencies = [
  "byteorder",
  "cc",
  "fff_derive",
  "lazy_static",
  "rand_core 0.5.1",
+ "serde",
 ]
 
 [[package]]
 name = "fff_derive"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "844b389fbe323d3b35ed1b3b119e75b11dca536d291d31342acea5b4c8984558"
+checksum = "78dcbbfd77fe2bb6535a6ab35f643bf94d4c3ad30590dcbd0574fcc638747535"
 dependencies = [
  "num-bigint",
  "num-integer",
@@ -377,13 +378,14 @@ dependencies = [
 
 [[package]]
 name = "groupy"
-version = "0.3.1"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d38f1bec17d75a7c30b754cd74db6e7cb5927529021ced14fbd622411c04d8b"
+checksum = "7f6bb213b2bbd427227350f65bf092686dd2eb32aad337604e11b978881f1825"
 dependencies = [
  "fff",
  "rand 0.7.3",
  "rand_xorshift",
+ "serde",
  "thiserror",
 ]
 
@@ -560,9 +562,9 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "paired"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42fc2daf8d5a8e22a9833f798e72c0d6862b5f0288f0a2d289b37cd03fa5e283"
+checksum = "45c020887ea8ffb42b44be82835ed60de0653c1e39b2aedd9bee3ccfa046569e"
 dependencies = [
  "blake2b_simd",
  "byteorder",
@@ -571,6 +573,7 @@ dependencies = [
  "groupy",
  "hkdf",
  "rand_core 0.5.1",
+ "serde",
 ]
 
 [[package]]
