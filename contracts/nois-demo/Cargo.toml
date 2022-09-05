@@ -30,7 +30,8 @@ backtraces = ["cosmwasm-std/backtraces"]
 [dependencies]
 nois-proxy = { path = "../../contracts/nois-proxy", features = ["library"]}
 nois-toolbox = { path = "../../packages/nois-toolbox" }
-cosmwasm-std = { version = "1.0.0", features = ["iterator"] }
+cosmwasm-std = { version = "1.1.0", features = ["iterator"] }
+cosmwasm-schema = { version = "1.1.0" }
 cw-storage-plus = { version = "0.14.0" }
 hex = "0.4.3"
 schemars = "0.8.1"
@@ -38,4 +39,3 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }
 
 [dev-dependencies]
-cosmwasm-schema = { version = "1.0.0" }
