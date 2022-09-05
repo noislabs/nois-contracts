@@ -7,6 +7,9 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
+    #[error("Proxy address is not valid")]
+    InvalidProxyAddress,
+
     #[error("Received invalid randomness")]
     InvalidRandomness,
 }
