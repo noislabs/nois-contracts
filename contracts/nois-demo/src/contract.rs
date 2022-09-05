@@ -15,8 +15,12 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> StdResult<Response> {
-    NOIS_PROXY.save(deps.storage, &msg.nois_proxy)?;
+) -> Result<Response, ContractError> {
+    let nois_proxy_addr = deps
+        .api
+        .addr_validate(&msg.nois_proxy)
+        .map_err(|_| ContractError::InvalidProxyAddress)?;
+    NOIS_PROXY.save(deps.storage, &nois_proxy_addr)?;
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("nois_proxy", msg.nois_proxy))
@@ -47,7 +51,7 @@ pub fn execute_estimate_pi(
     let nois_proxy = NOIS_PROXY.load(deps.storage)?;
 
     let res = Response::new().add_message(WasmMsg::Execute {
-        contract_addr: nois_proxy,
+        contract_addr: nois_proxy.into(),
         msg: to_binary(&nois_proxy::ExecuteMsg::GetNextRandomness {
             callback_id: Some(job_id),
         })?,
@@ -132,5 +136,16 @@ mod tests {
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
+    }
+
+    #[test]
+    fn instantiate_fails_for_invalid_proxy_address() {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            nois_proxy: "".to_string(),
+        };
+        let info = mock_info(CREATOR, &[]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert_eq!(res, ContractError::InvalidProxyAddress);
     }
 }
