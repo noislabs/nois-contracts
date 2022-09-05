@@ -133,4 +133,15 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
     }
+
+    #[test]
+    fn instantiate_fails_for_invalid_proxy_address() {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            nois_proxy: "".to_string(),
+        };
+        let info = mock_info(CREATOR, &[]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert_eq!(res, ContractError::InvalidProxyAddress);
+    }
 }
