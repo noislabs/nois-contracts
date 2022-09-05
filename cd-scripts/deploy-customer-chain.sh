@@ -3,9 +3,10 @@
 set -ex
 #PREREQS
 # 1 You need to install the specific binary of the chain you want to deploy to.
-# 2 You need to create a key in your local key ring and add some tokens to it (faucet if testnet)
+# 2 Edit the CHAIN SPECIFIC PARAMS
+# 3 If the chain to deploy to is mainnet or no faucet can be provisioned in the params then you need to fill your key with some tokens
 
-
+#### CHAIN SPECIFIC PARAMS #######
 NODE_URL=https://rpc.uni.juno.deuslabs.fi:443
 CHAIN_ID=uni-3
 BINARY_NAME=junod
@@ -15,6 +16,7 @@ LOCAL_KEYRING_KEY=juno-key
 
 #Comment the FAUCET_URL declaration line if you don't want or cannot use a faucet
 FAUCET_URL="https://faucet.uni.juno.deuslabs.fi/credit"
+##################################
 
 
 if [ -z ${FAUCET_URL+x} ]; then echo "Info: Faucet is not relevant here";
