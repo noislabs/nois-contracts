@@ -6,7 +6,7 @@ chains:
     prefix: nois
     gas_price: 1unois
     hd_path: m/44'/118'/0'/0/0
-    ics20_port: 'wasm.nois17p9rzwnnfxcjp32un9ug7yhhzgtkhvl9jfksztgw5uh69wac2pgsve244d' 
+    ics20_port: 'wasm.nois1wn625s4jcmvk0szpl85rj5azkfc6suyvf75q6vrddscjdphtve8srfkxgy' 
     #estimated_block_time: 7000,
     #estimated_indexer_time: 250,
     faucet: http://5rh6rhqad1cgvei7qc96ia3n74.ingress.bigtractorplotting.com:80
@@ -17,17 +17,7 @@ chains:
     prefix: juno
     gas_price: 0.025ujunox
     hd_path: m/44'/118'/0'/0/0
-    ics20_port: 'wasm.juno1y2fw5nmrlt7zsatcjkar8cjgxypsjlmqdyz9t30jrxsd73ytgmqsdqkvwc' #junod query wasm contract  $NOIS_PROXY_CONTRACT_ADDRESS    --node=$NODE_URL
+    ics20_port: 'wasm.juno18zg8q8mx5yfhkrhwgfcpw3xspp7pg9qezs7d8mpga4u8ark6m55q2lqunq' #junod query wasm contract  $NOIS_PROXY_CONTRACT_ADDRESS    --node=$NODE_URL
     faucet: https://faucet.uni.juno.deuslabs.fi/credit
     rpc:
       - https://rpc.uni.juno.deuslabs.fi:443
-  osmosis:
-    chain_id: osmosis-1
-    prefix: osmo
-    gas_price: 0uosmo
-    hd_path: m/44'/118'/0'/0/0
-    ics20_port: 'transfer' 
-    #estimated_block_time: 7000,
-    #estimated_indexer_time: 250,
-    rpc:
-      - https://rpc-osmosis.blockapsis.com:443

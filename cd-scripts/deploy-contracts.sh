@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 #PREREQS
 # 0 You need Install yq and fetch
 # 1 For fetch to work, Get a github token and run export GITHUB_OAUTH_TOKEN=
@@ -12,6 +11,12 @@
 GIT_CONTRACTS_URL="https://github.com/noislabs/nois-contracts"
 GIT_CONTRACTS_TAG="v0.2.0"
 DOCKER_RELYER_IMAGE=noislabs/nois-relayer:0.0.1
+NOIS_NODE_URL=http://6553qqb75pb27eg2ff5lqvrpso.ingress.akash.pro:80
+NOIS_BINARY_NAME=wasmd
+NOIS_CHAIN_ID=nois-testnet-000
+NOIS_DENOM=unois
+NOIS_LOCAL_KEYRING_KEY=seondary
+NOIS_FAUCET_URL="http://5rh6rhqad1cgvei7qc96ia3n74.ingress.bigtractorplotting.com/credit"
 
 #### CHAIN SPECIFIC PARAMS #######
 NODE_URL=https://rpc.uni.juno.deuslabs.fi:443
@@ -37,17 +42,32 @@ fi
 echo "downloading contracts from $GIT_CONTRACTS_URL from release $GIT_CONTRACTS_TAG"
 fetch --repo="$GIT_CONTRACTS_URL" --tag="$GIT_CONTRACTS_TAG" --release-asset="nois_demo.wasm" artifacts
 fetch --repo="$GIT_CONTRACTS_URL" --tag="$GIT_CONTRACTS_TAG" --release-asset="nois_proxy.wasm" artifacts
+fetch --repo="$GIT_CONTRACTS_URL" --tag="$GIT_CONTRACTS_TAG" --release-asset="nois_terrand.wasm" artifacts
 
 if [ -z ${FAUCET_URL+x} ]; then echo "Info: Faucet is not relevant here";
-else echo "Trying to add credit with faucet '$FAUCET_URL'";
+else echo "Trying to add credit for chain '$CHAIN_ID' with faucet '$FAUCET_URL'";
   BECH_ADDR=$($BINARY_NAME keys show $LOCAL_KEYRING_KEY -a ) 
   curl -XPOST -H 'Content-type: application/json' -d "{\"address\":\"$BECH_ADDR\",\"denom\":\"$DENOM\"}" $FAUCET_URL
   echo "querying new balance ..."
   $BINARY_NAME query bank balances $BECH_ADDR --node=$NODE_URL | yq -r '.balances' 
+fi
 
+if [ -z ${NOIS_FAUCET_URL+x} ]; then echo "Info: Faucet is not relevant here";
+else echo "Trying to add credit for chain '$NOIS_CHAIN_ID' with faucet '$NOIS_FAUCET_URL'";
+  BECH_ADDR=$($NOIS_BINARY_NAME keys show $NOIS_LOCAL_KEYRING_KEY -a ) 
+  curl -XPOST -H 'Content-type: application/json' -d "{\"address\":\"$BECH_ADDR\",\"denom\":\"$NOIS_DENOM\"}" $NOIS_FAUCET_URL
+  echo "querying new balance ..."
+  $NOIS_BINARY_NAME query bank balances $BECH_ADDR --node=$NOIS_NODE_URL | yq -r '.balances' 
 fi
 
 echo "storing and instantiating contracts to $CHAIN_ID"
+
+echo "Store nois-drand"
+NOIS_DRAND_CODE_ID=$($NOIS_BINARY_NAME tx wasm store artifacts/nois_terrand.wasm --from $NOIS_LOCAL_KEYRING_KEY --chain-id $NOIS_CHAIN_ID   --gas=auto --gas-adjustment 1.4  --fees=$FEES$NOIS_DENOM --broadcast-mode=block --node=$NOIS_NODE_URL -y |yq -r ".logs[0].events[1].attributes[0].value")
+
+echo "Instantiate nois-drand"
+NOIS_DRAND_CONTRACT_ADDRESS=$($NOIS_BINARY_NAME tx wasm instantiate $NOIS_DRAND_CODE_ID '{"test_mode":false}'   --label=nois-drand --no-admin --from $NOIS_LOCAL_KEYRING_KEY --chain-id $NOIS_CHAIN_ID   --gas=auto --gas-adjustment 1.4  --fees=$FEES$NOIS_DENOM --broadcast-mode=block --node=$NOIS_NODE_URL  -y |yq -r '.logs[0].events[0].attributes[0].value' )
+echo "NOIS_DRAND_CONTRACT_ADDRESS: $NOIS_DRAND_CONTRACT_ADDRESS"
 
 echo "Store proxy"
 NOIS_PROXY_CODE_ID=$($BINARY_NAME tx wasm store artifacts/nois_proxy.wasm --from $LOCAL_KEYRING_KEY --chain-id $CHAIN_ID   --gas=auto --gas-adjustment 1.4  --fees=$FEES$DENOM --broadcast-mode=block --node=$NODE_URL -y |yq -r ".logs[0].events[1].attributes[0].value")
@@ -72,11 +92,12 @@ sed -i '' "s#TEMPLATE_CHAIN_DENOM#${DENOM}#" $SCRIPT_DIR/relayer/nois-relayer-co
 sed -i '' "s#TEMPLATE_NOIS_PROXY_CONTRACT_ADDRESS#${NOIS_PROXY_CONTRACT_ADDRESS}#" $SCRIPT_DIR/relayer/nois-relayer-config.yaml
 sed -i '' "s#TEMPLATE_CHAIN_FAUCET_URL#${FAUCET_URL}#" $SCRIPT_DIR/relayer/nois-relayer-config.yaml
 sed -i '' "s#TEMPLATE_CHAIN_NODE_URL#${NODE_URL}#" $SCRIPT_DIR/relayer/nois-relayer-config.yaml
+sed -i '' "s#TEMPLATE_NOIS_DRAND_CONTRACT_ADDRESS#${NOIS_DRAND_CONTRACT_ADDRESS}#" $SCRIPT_DIR/relayer/nois-relayer-config.yaml
 
 
 echo "building relayer docker and creating IBC connection"
 cd $SCRIPT_DIR/relayer
-docker build -t $DOCKER_RELYER_IMAGE . && docker run  -e RELAYER_MNEMONIC="$RELAYER_MNEMONIC" $DOCKER_RELYER_IMAGE ibc-setup connect
+docker build -t $DOCKER_RELYER_IMAGE . && docker run  -e RELAYER_MNEMONIC="$RELAYER_MNEMONIC" $DOCKER_RELYER_IMAGE ibc-setup ics20
 
 echo "pushing relayer docker so it is ready to be deployed"
 docker push $DOCKER_RELYER_IMAGE
