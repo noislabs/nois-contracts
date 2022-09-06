@@ -21,13 +21,3 @@ chains:
     faucet: TEMPLATE_CHAIN_FAUCET_URL
     rpc:
       - TEMPLATE_CHAIN_NODE_URL
-  osmosis:
-    chain_id: osmosis-1
-    prefix: osmo
-    gas_price: 0uosmo
-    hd_path: m/44'/118'/0'/0/0
-    ics20_port: 'transfer' 
-    #estimated_block_time: 7000,
-    #estimated_indexer_time: 250,
-    rpc:
-      - https://rpc-osmosis.blockapsis.com:443
