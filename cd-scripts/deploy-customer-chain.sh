@@ -1,10 +1,16 @@
 #!/bin/bash
 
-set -ex
+
 #PREREQS
-# 1 You need to install the specific binary of the chain you want to deploy to.
-# 2 Edit the CHAIN SPECIFIC PARAMS
-# 3 If the chain to deploy to is mainnet or no faucet can be provisioned in the params then you need to fill your key with some tokens
+# 0 You need Install yq and fetch
+# 1 Fro fetch to work, Get a github token and run export GITHUB_OAUTH_TOKEN=
+# 2 You need to install the specific binary of the chain you want to deploy to.
+# 3 Edit the CHAIN SPECIFIC PARAMS
+# 4 If the chain to deploy to is mainnet or no faucet can be provisioned in the params then you need to fill your key with some tokens
+
+### NOIS SPECIFIC PARAMS #########
+GIT_CONTRACTS_URL="https://github.com/noislabs/nois-contracts"
+GIT_CONTRACTS_TAG="v0.2.0"
 
 #### CHAIN SPECIFIC PARAMS #######
 NODE_URL=https://rpc.uni.juno.deuslabs.fi:443
@@ -18,6 +24,8 @@ LOCAL_KEYRING_KEY=juno-key
 FAUCET_URL="https://faucet.uni.juno.deuslabs.fi/credit"
 ##################################
 
+fetch --repo="$GIT_CONTRACTS_URL" --tag="$GIT_CONTRACTS_TAG" --release-asset="nois_demo.wasm" artifacts
+fetch --repo="$GIT_CONTRACTS_URL" --tag="$GIT_CONTRACTS_TAG" --release-asset="nois_proxy.wasm" artifacts
 
 if [ -z ${FAUCET_URL+x} ]; then echo "Info: Faucet is not relevant here";
 else echo "Trying to add credit with faucet '$FAUCET_URL'";
