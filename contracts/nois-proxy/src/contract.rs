@@ -4,7 +4,7 @@ use cosmwasm_std::{
     from_binary, to_binary, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, QueryResponse,
-    Response, StdResult, SubMsg, WasmMsg,
+    Response, StdResult, Storage, SubMsg, WasmMsg,
 };
 use nois_ibc_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
@@ -34,7 +34,12 @@ pub fn instantiate(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn execute(deps: DepsMut, env: Env, info: MessageInfo, msg: ExecuteMsg) -> StdResult<Response> {
+pub fn execute(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::GetNextRandomness { callback_id } => {
             execute_get_next_randomness(deps, env, info, callback_id)
@@ -47,7 +52,7 @@ pub fn execute_get_next_randomness(
     env: Env,
     info: MessageInfo,
     callback_id: Option<String>,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     let sender = info.sender.into();
 
     let safety_margin = 1_000000000; // ns
@@ -56,7 +61,7 @@ pub fn execute_get_next_randomness(
         sender,
         callback_id,
     };
-    let channel_id = TERRAND_CHANNEL.load(deps.storage)?;
+    let channel_id = get_terrand_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
@@ -67,6 +72,14 @@ pub fn execute_get_next_randomness(
         .add_message(msg)
         .add_attribute("action", "execute_get_next_randomness");
     Ok(res)
+}
+
+fn get_terrand_channel(storage: &dyn Storage) -> Result<String, ContractError> {
+    let data = TERRAND_CHANNEL.may_load(storage)?;
+    match data {
+        Some(d) => Ok(d),
+        None => Err(ContractError::UnsetChannel),
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -110,13 +123,14 @@ pub fn ibc_channel_connect(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-/// On closed channel, simply delete the account from our local store
 pub fn ibc_channel_close(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     msg: IbcChannelCloseMsg,
 ) -> StdResult<IbcBasicResponse> {
     let channel = msg.channel();
+
+    TERRAND_CHANNEL.remove(deps.storage);
 
     // remove the channel
     let channel_id = &channel.endpoint.channel_id;
