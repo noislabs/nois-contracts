@@ -9,6 +9,9 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
+    #[error("Channel is not stored. Channel not yet established or closed.")]
+    UnsetChannel,
+
     #[error("{0}")]
     ChannelError(#[from] ChannelError),
 
