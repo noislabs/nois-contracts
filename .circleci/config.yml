@@ -127,7 +127,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version; rustup target list --installed
       - restore_cache:
           keys:
-            - cargocache-v2-nois-protocol:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+            - cargocache-v2-nois-protocol:1.63.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Build library for native target
           command: cargo build --locked
@@ -138,7 +138,7 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: cargocache-v2-nois-protocol:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+          key: cargocache-v2-nois-protocol:1.63.0-{{ checksum "~/project/Cargo.lock" }}
 
   lint:
     docker:
