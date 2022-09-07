@@ -299,13 +299,6 @@ fn execute_add_round(
         return Err(StdError::generic_err("Do not send funds").into());
     }
 
-    // Sender is not adding new rounds.
-    // Unclear if this is supposed to be an error (i.e. fail/revert the whole transaction)
-    // but let's see.
-    if BEACONS.has(deps.storage, round) {
-        return Err(StdError::generic_err(format!("Round already {} added", round)).into());
-    };
-
     let pk = g1_from_fixed(DRAND_MAINNET_PUBKEY).map_err(|_| ContractError::InvalidPubkey {})?;
     let is_valid = verify(&pk, round, &previous_signature, &signature).unwrap_or(false);
 
@@ -321,24 +314,31 @@ fn execute_add_round(
         verified: env.block.time,
         randomness: randomness.clone(),
     };
-    BEACONS.save(deps.storage, round, beacon)?;
 
-    let mut msgs = Vec::<CosmosMsg>::new();
-    if let Some(jobs) = DRAND_JOBS.may_load(deps.storage, round)? {
-        DRAND_JOBS.remove(deps.storage, round);
+    if !BEACONS.has(deps.storage, round) {
+        // Round is new
+        BEACONS.save(deps.storage, round, beacon)?;
 
-        for job in jobs {
-            // Use IbcMsg::SendPacket to send packages to the proxies.
-            let msg = process_job(env.block.time, job, beacon)?;
-            msgs.push(msg.into());
+        let mut msgs = Vec::<CosmosMsg>::new();
+        if let Some(jobs) = DRAND_JOBS.may_load(deps.storage, round)? {
+            DRAND_JOBS.remove(deps.storage, round);
+
+            for job in jobs {
+                // Use IbcMsg::SendPacket to send packages to the proxies.
+                let msg = process_job(env.block.time, job, beacon)?;
+                msgs.push(msg.into());
+            }
         }
+        Ok(Response::new()
+            .add_messages(msgs)
+            .add_attribute("round", round.to_string())
+            .add_attribute("randomness", randomness.to_hex())
+            .add_attribute("worker", info.sender.to_string()))
+    } else {
+        // Round has already been verified and must not be overriden to not
+        // get a wrong `verified` timestamp.
+        Ok(Response::new())
     }
-
-    Ok(Response::new()
-        .add_messages(msgs)
-        .add_attribute("round", round.to_string())
-        .add_attribute("randomness", randomness.to_hex())
-        .add_attribute("worker", info.sender.to_string()))
 }
 
 #[cfg(test)]
@@ -471,6 +471,38 @@ mod tests {
             ContractError::InvalidSignature {} => {}
             err => panic!("Unexpected error: {:?}", err),
         }
+    }
+
+    #[test]
+    fn add_round_succeeds_multiple_times() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg { test_mode: true };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/72785
+            round: 72785,
+            previous_signature: Data::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+        };
+
+        // Execute 1
+        let info = mock_info("anyone", &[]);
+        execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let _response: BeaconReponse = from_binary(
+            &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72785 }).unwrap(),
+        )
+        .unwrap();
+
+        // Execute 2
+        let info = mock_info("someone else", &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let _response: BeaconReponse = from_binary(
+            &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72785 }).unwrap(),
+        )
+        .unwrap();
     }
 
     //
