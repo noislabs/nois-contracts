@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Binary, CosmosMsg, Deps, DepsMut, Env, Event,
-    Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
-    IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError,
-    StdResult, Storage, Timestamp,
+    entry_point, from_binary, from_slice, to_binary, Attribute, Binary, CosmosMsg, Deps, DepsMut,
+    Env, Event, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order,
+    QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
 };
 use drand_verify::{derive_randomness, g1_from_fixed, verify};
 use nois_ibc_protocol::{
@@ -315,6 +315,12 @@ fn execute_add_round(
         randomness: randomness.clone(),
     };
 
+    let attributes = vec![
+        Attribute::new("round", round.to_string()),
+        Attribute::new("randomness", randomness.to_hex()),
+        Attribute::new("worker", info.sender.to_string()),
+    ];
+
     if !BEACONS.has(deps.storage, round) {
         // Round is new
         BEACONS.save(deps.storage, round, beacon)?;
@@ -331,13 +337,11 @@ fn execute_add_round(
         }
         Ok(Response::new()
             .add_messages(msgs)
-            .add_attribute("round", round.to_string())
-            .add_attribute("randomness", randomness.to_hex())
-            .add_attribute("worker", info.sender.to_string()))
+            .add_attributes(attributes))
     } else {
         // Round has already been verified and must not be overriden to not
         // get a wrong `verified` timestamp.
-        Ok(Response::new())
+        Ok(Response::new().add_attributes(attributes))
     }
 }
 
@@ -490,19 +494,29 @@ mod tests {
 
         // Execute 1
         let info = mock_info("anyone", &[]);
-        execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
-        let _response: BeaconReponse = from_binary(
-            &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72785 }).unwrap(),
-        )
-        .unwrap();
+        let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let randomness_attr = response
+            .attributes
+            .iter()
+            .find(|Attribute { key, .. }| key == "randomness")
+            .unwrap();
+        assert_eq!(
+            randomness_attr.value,
+            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
+        );
 
         // Execute 2
         let info = mock_info("someone else", &[]);
-        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        let _response: BeaconReponse = from_binary(
-            &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72785 }).unwrap(),
+        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let randomness_attr = response
+            .attributes
+            .iter()
+            .find(|Attribute { key, .. }| key == "randomness")
+            .unwrap();
+        assert_eq!(
+            randomness_attr.value,
+            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         )
-        .unwrap();
     }
 
     //
