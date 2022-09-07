@@ -136,6 +136,7 @@ generate_post_data()
       {
         "name": "drand-nois",
         "address": "$NOIS_DRAND_CONTRACT_ADDRESS",
+        "code_version": "$GIT_CONTRACTS_TAG",
         "code_id": "$NOIS_DRAND_CODE_ID"
       }
     ],
@@ -151,11 +152,13 @@ generate_post_data()
       {
         "contract_name": "nois-proxy",
         "address": "$NOIS_PROXY_CONTRACT_ADDRESS",
+        "code_version": "$GIT_CONTRACTS_TAG",
         "code_id": "$NOIS_PROXY_CODE_ID"
       },
       {
         "contract_name": "nois-demo",
         "address": "$NOIS_DEMO_CONTRACT_ADDRESS",
+        "code_version": "$GIT_CONTRACTS_TAG",
         "code_id": "$NOIS_DEMO_CODE_ID"
       }
       
