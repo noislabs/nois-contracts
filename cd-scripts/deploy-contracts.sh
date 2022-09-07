@@ -167,12 +167,12 @@ generate_post_data()
 EOF
 }
 generated_data=$(generate_post_data)
-echo $generated_data | jq -r . >  generated_data.json
+echo $generated_data | jq -r . >  ../generated_data.json
 message=$(echo $generated_data | jq -R .)
 
 curl  -H "Content-Type: application/json" \
 -H "Content-Type:application/json" \
-X POST -d "{\"content\":$message}" \
+-XPOST -d "{\"content\":$message}" \
 $DISCORD_WEBHOOK; 
 fi
 
