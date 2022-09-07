@@ -6,7 +6,7 @@ chains:
     prefix: nois
     gas_price: 1unois
     hd_path: m/44'/118'/0'/0/0
-    ics20_port: 'wasm.nois17p9rzwnnfxcjp32un9ug7yhhzgtkhvl9jfksztgw5uh69wac2pgsve244d' 
+    ics20_port: 'wasm.TEMPLATE_NOIS_DRAND_CONTRACT_ADDRESS' 
     #estimated_block_time: 7000,
     #estimated_indexer_time: 250,
     faucet: http://5rh6rhqad1cgvei7qc96ia3n74.ingress.bigtractorplotting.com:80
