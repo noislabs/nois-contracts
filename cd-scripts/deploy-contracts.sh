@@ -136,6 +136,7 @@ generate_post_data()
       {
         "name": "drand-nois",
         "address": "$NOIS_DRAND_CONTRACT_ADDRESS",
+        "code_version": "$GIT_CONTRACTS_TAG",
         "code_id": "$NOIS_DRAND_CODE_ID"
       }
     ],
@@ -151,11 +152,13 @@ generate_post_data()
       {
         "contract_name": "nois-proxy",
         "address": "$NOIS_PROXY_CONTRACT_ADDRESS",
+        "code_version": "$GIT_CONTRACTS_TAG",
         "code_id": "$NOIS_PROXY_CODE_ID"
       },
       {
         "contract_name": "nois-demo",
         "address": "$NOIS_DEMO_CONTRACT_ADDRESS",
+        "code_version": "$GIT_CONTRACTS_TAG",
         "code_id": "$NOIS_DEMO_CODE_ID"
       }
       
@@ -164,12 +167,12 @@ generate_post_data()
 EOF
 }
 generated_data=$(generate_post_data)
-echo $generated_data | jq -r . >  generated_data.json
+echo $generated_data | jq -r . >  ../generated_data.json
 message=$(echo $generated_data | jq -R .)
 
 curl  -H "Content-Type: application/json" \
 -H "Content-Type:application/json" \
-X POST -d "{\"content\":$message}" \
+-XPOST -d "{\"content\":$message}" \
 $DISCORD_WEBHOOK; 
 fi
 

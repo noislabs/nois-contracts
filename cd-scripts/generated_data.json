@@ -1,0 +1,32 @@
+{
+  "nois-testnet-000": [
+    {
+      "name": "drand-nois",
+      "address": "nois1s66zhks8v3fm24974crzxufh7w6ktt69jq8e3zt8q7cyvr52vlqqg5eym6",
+      "code_version": "v0.2.0",
+      "code_id": "17"
+    }
+  ],
+  "ibc": {
+    "relayer_docker_image": "noislabs/nois-relayer:0.0.1",
+    "ibc_src_connection": "connection-268",
+    "ibc_dest_connection": "connection-5",
+    "ibc_src_port": "wasm.juno1rf7c8m8dgl3rhkkw8agj6xqr05p93uv53l8fl83zxps9wqgl90cqj927yj",
+    "ibc_dest_port": "wasm.nois1s66zhks8v3fm24974crzxufh7w6ktt69jq8e3zt8q7cyvr52vlqqg5eym6",
+    "ibc_version": "nois-v1"
+  },
+  "uni-3": [
+    {
+      "contract_name": "nois-proxy",
+      "address": "juno1rf7c8m8dgl3rhkkw8agj6xqr05p93uv53l8fl83zxps9wqgl90cqj927yj",
+      "code_version": "v0.2.0",
+      "code_id": "3654"
+    },
+    {
+      "contract_name": "nois-demo",
+      "address": "juno1y690haqd4hkgz487krxhuydzghuqf5kkke8mcetayg9f4vche3xqt7q4tn",
+      "code_version": "v0.2.0",
+      "code_id": "3655"
+    }
+  ]
+}
