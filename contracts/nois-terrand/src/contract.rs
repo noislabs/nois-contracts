@@ -6,7 +6,7 @@ use cosmwasm_std::{
     QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
 };
 use drand_verify::{derive_randomness, g1_from_fixed, verify};
-use nois_ibc_protocol::{
+use nois_protocol::{
     check_order, check_version, Data, DeliverBeaconPacket, DeliverBeaconPacketAck,
     RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
@@ -354,7 +354,7 @@ mod tests {
         MockStorage,
     };
     use cosmwasm_std::{coin, from_binary, OwnedDeps};
-    use nois_ibc_protocol::{APP_ORDER, BAD_APP_ORDER};
+    use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
 

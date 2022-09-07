@@ -1,5 +1,5 @@
 use cosmwasm_std::{to_binary, Binary, StdResult};
-use nois_ibc_protocol::Data;
+use nois_protocol::Data;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

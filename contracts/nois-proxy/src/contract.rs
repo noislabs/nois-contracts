@@ -6,7 +6,7 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, QueryResponse,
     Response, StdResult, Storage, SubMsg, WasmMsg,
 };
-use nois_ibc_protocol::{
+use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck,
 };
@@ -218,7 +218,7 @@ mod tests {
         },
         OwnedDeps,
     };
-    use nois_ibc_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
+    use nois_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
 
     const CREATOR: &str = "creator";
 

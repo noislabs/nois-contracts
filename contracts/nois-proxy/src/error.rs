@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use cosmwasm_std::StdError;
 
-use nois_ibc_protocol::ChannelError;
+use nois_protocol::ChannelError;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
