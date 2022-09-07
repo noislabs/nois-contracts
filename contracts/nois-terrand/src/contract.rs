@@ -11,6 +11,9 @@ use nois_protocol::{
     RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
+use crate::drand::{
+    time_of_round, DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_ROUND_LENGTH,
+};
 use crate::error::ContractError;
 use crate::msg::{
     BeaconReponse, ConfigResponse, ExecuteMsg, InstantiateMsg, LatestRandomResponse, QueryMsg,
@@ -22,17 +25,6 @@ use crate::state::{
 // TODO: make configurable?
 /// packets live one hour
 pub const PACKET_LIFETIME: u64 = 60 * 60;
-
-// $ node
-// > Uint8Array.from(Buffer.from("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31", "hex"))
-const DRAND_MAINNET_PUBKEY: [u8; 48] = [
-    134, 143, 0, 94, 184, 230, 228, 202, 10, 71, 200, 167, 124, 234, 165, 48, 154, 71, 151, 138,
-    124, 113, 188, 92, 206, 150, 54, 107, 93, 122, 86, 153, 55, 197, 41, 238, 218, 102, 199, 41,
-    55, 132, 169, 64, 40, 1, 175, 49,
-];
-const DRAND_CHAIN_HASH: &str = "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce"; // See https://drand.love/developer/
-const DRAND_GENESIS: Timestamp = Timestamp::from_seconds(1595431050);
-const DRAND_ROUND_LENGTH: u64 = 30_000_000_000; // in nanoseconds
 
 #[entry_point]
 pub fn instantiate(
@@ -309,8 +301,7 @@ fn execute_add_round(
     let randomness: Data = derive_randomness(signature.as_slice()).into();
 
     let beacon = &VerifiedBeacon {
-        // See TimeOfRound implementation: https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L30-L33
-        published: DRAND_GENESIS.plus_nanos((round - 1) * DRAND_ROUND_LENGTH),
+        published: time_of_round(round),
         verified: env.block.time,
         randomness: randomness.clone(),
     };
