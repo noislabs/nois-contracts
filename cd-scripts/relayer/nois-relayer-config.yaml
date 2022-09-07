@@ -6,7 +6,7 @@ chains:
     prefix: nois
     gas_price: 1unois
     hd_path: m/44'/118'/0'/0/0
-    ics20_port: 'wasm.nois1uvt40rsp68wtas0y75w34qdn5h0g5eyefy5gmvzftdnupyv7q7vqg4vut2' 
+    ics20_port: 'wasm.nois1m74wv3xew5dsy2thf3jp0xadg8pdrk4h8ym70z0ehfwxl8a547as7q0kpc' 
     #estimated_block_time: 7000,
     #estimated_indexer_time: 250,
     faucet: http://5rh6rhqad1cgvei7qc96ia3n74.ingress.bigtractorplotting.com:80
@@ -17,7 +17,7 @@ chains:
     prefix: juno
     gas_price: 0.025ujunox
     hd_path: m/44'/118'/0'/0/0
-    ics20_port: 'wasm.juno1w9gzv42kjlj80cj3ezfmt275mh0yv70p80c7hufj8ksak82qsdkq32yzkc' #junod query wasm contract  $NOIS_PROXY_CONTRACT_ADDRESS    --node=$NODE_URL
+    ics20_port: 'wasm.juno17zqan3zjqu0rnc7j90zee8u9nm8dx6kttnrsdr6mrma43l03z78sd8cg5x' #junod query wasm contract  $NOIS_PROXY_CONTRACT_ADDRESS    --node=$NODE_URL
     faucet: https://faucet.uni.juno.deuslabs.fi/credit
     rpc:
       - https://rpc.uni.juno.deuslabs.fi:443
