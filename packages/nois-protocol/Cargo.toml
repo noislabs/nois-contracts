@@ -1,5 +1,5 @@
 [package]
-name = "nois-ibc-protocol"
+name = "nois-protocol"
 version = "0.1.0"
 edition = "2021"
 

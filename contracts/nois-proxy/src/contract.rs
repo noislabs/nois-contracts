@@ -6,7 +6,7 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, QueryResponse,
     Response, StdResult, Storage, SubMsg, WasmMsg,
 };
-use nois_ibc_protocol::{
+use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck,
 };
@@ -19,6 +19,8 @@ use crate::NoisCallbackMsg;
 // TODO: make configurable?
 /// packets live one hour
 pub const PACKET_LIFETIME: u64 = 60 * 60;
+
+pub const SAFETY_MARGIN: u64 = 3; // seconds
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -55,9 +57,8 @@ pub fn execute_get_next_randomness(
 ) -> Result<Response, ContractError> {
     let sender = info.sender.into();
 
-    let safety_margin = 1_000000000; // ns
     let packet = RequestBeaconPacket {
-        after: env.block.time.plus_nanos(safety_margin),
+        after: env.block.time.plus_seconds(SAFETY_MARGIN),
         sender,
         callback_id,
     };
@@ -217,7 +218,7 @@ mod tests {
         },
         OwnedDeps,
     };
-    use nois_ibc_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
+    use nois_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
 
     const CREATOR: &str = "creator";
 

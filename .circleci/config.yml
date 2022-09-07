@@ -7,7 +7,7 @@ workflows:
       - contract_nois_demo
       - contract_nois_proxy
       - contract_nois_terrand
-      - package_nois_ibc_protocol
+      - package_nois_protocol
       - lint
       - wasm-build
       - ts-build
@@ -115,10 +115,10 @@ jobs:
             - target
           key: cargocache-nois-terrand-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
 
-  package_nois_ibc_protocol:
+  package_nois_protocol:
     docker:
       - image: rust:1.63.0
-    working_directory: ~/project/packages/nois-ibc-protocol
+    working_directory: ~/project/packages/nois-protocol
     steps:
       - checkout:
           path: ~/project
@@ -127,7 +127,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version; rustup target list --installed
       - restore_cache:
           keys:
-            - cargocache-v2-nois-ibc-protocol:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+            - cargocache-v2-nois-protocol:1.63.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Build library for native target
           command: cargo build --locked
@@ -138,7 +138,7 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: cargocache-v2-nois-ibc-protocol:1.58.1-{{ checksum "~/project/Cargo.lock" }}
+          key: cargocache-v2-nois-protocol:1.63.0-{{ checksum "~/project/Cargo.lock" }}
 
   lint:
     docker:

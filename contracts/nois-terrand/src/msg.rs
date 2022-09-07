@@ -1,4 +1,4 @@
-use nois_ibc_protocol::Data;
+use nois_protocol::Data;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
