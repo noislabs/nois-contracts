@@ -1,3 +1,4 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{from_slice, to_binary, Binary, Timestamp};
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
@@ -6,8 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::Data;
 
 /// This is the message we send over the IBC channel from proxy to Terrand
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub struct RequestBeaconPacket {
     /// Beacon publish time must be > `after`
     pub after: Timestamp,
@@ -16,8 +16,7 @@ pub struct RequestBeaconPacket {
     pub callback_id: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum RequestBeaconPacketAck {
     /// Beacon already exists and this request can be processed immediately.
     Processed {
@@ -32,8 +31,7 @@ pub enum RequestBeaconPacketAck {
 }
 
 /// This is the message we send over the IBC channel from Terrand to proxy
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub struct DeliverBeaconPacket {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
     pub source_id: String,

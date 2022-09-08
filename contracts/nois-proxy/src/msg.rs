@@ -1,15 +1,11 @@
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{to_binary, Binary, StdResult};
 use nois_protocol::Data;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
-/// This needs no info. Owner of the contract is whoever signed the InstantiateMsg.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub struct InstantiateMsg {}
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum ExecuteMsg {
     /// Get's the next randomness.
     GetNextRandomness {
@@ -18,13 +14,12 @@ pub enum ExecuteMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
+#[derive(QueryResponses)]
 pub enum QueryMsg {}
 
 /// This hould be de/serialized under `Receive()` variant in a ExecuteMsg
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub struct NoisCallbackMsg {
     /// The ID chosen by the caller in the `callback_id`
     pub id: String,
@@ -41,8 +36,7 @@ impl NoisCallbackMsg {
 
 /// This is just a helper to properly serialize the above message.
 /// The actual receiver should include this variant in the larger ExecuteMsg enum
-#[derive(Serialize, Deserialize, Clone, PartialEq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 enum ReceiverExecuteMsg {
     Receive(NoisCallbackMsg),
 }

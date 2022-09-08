@@ -1,3 +1,4 @@
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use nois_protocol::Data;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -10,8 +11,7 @@ pub struct InstantiateMsg {
     pub test_mode: bool,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum ExecuteMsg {
     /// Add drand beacon
     AddRound {
@@ -21,16 +21,22 @@ pub enum ExecuteMsg {
     },
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
+#[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Get the config state
+    #[returns(ConfigResponse)]
     Config {},
-    /// Get the last randomness
-    LatestDrand {},
     /// Get a specific drand round
+    #[returns(BeaconReponse)]
     Beacon { round: u64 },
+    /// Get the last randomness
+    #[returns(LatestRandomResponse)]
+    LatestDrand {},
 }
+
+// We define a custom struct for each query response
+pub type ConfigResponse = Config;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema, Default)]
 pub struct BeaconReponse {
@@ -42,6 +48,3 @@ pub struct LatestRandomResponse {
     pub round: u64,
     pub beacon: VerifiedBeacon,
 }
-
-// We define a custom struct for each query response
-pub type ConfigResponse = Config;
