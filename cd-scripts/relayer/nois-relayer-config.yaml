@@ -12,12 +12,12 @@ chains:
     faucet: http://5rh6rhqad1cgvei7qc96ia3n74.ingress.bigtractorplotting.com:80
     rpc:
       - http://6553qqb75pb27eg2ff5lqvrpso.ingress.akash.pro:80 
-  elgafar-1:
-    chain_id: elgafar-1
-    prefix: stars
-    gas_price: 0.025ustars
+  uni-3:
+    chain_id: uni-3
+    prefix: juno
+    gas_price: 0.025ujunox
     hd_path: m/44'/118'/0'/0/0
-    ics20_port: 'wasm.stars1lpyy7m08jq6f7z5dxelpkn6k2mckyg9stla78vf2z4ss8a6s0quq4smn42' #junod query wasm contract  $NOIS_PROXY_CONTRACT_ADDRESS    --node=$NODE_URL
-    faucet: 
+    ics20_port: 'wasm.juno1epku5g3zfney77xzt7v680lw3nnx4wwkwhhk3mp3de8wh8la43es2lphke' #junod query wasm contract  $NOIS_PROXY_CONTRACT_ADDRESS    --node=$NODE_URL
+    faucet: https://faucet.uni.juno.deuslabs.fi/credit
     rpc:
-      - https://rpc.elgafar-1.stargaze-apis.com:443
+      - https://rpc.uni.juno.deuslabs.fi:443
