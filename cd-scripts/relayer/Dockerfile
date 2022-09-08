@@ -5,9 +5,10 @@
 FROM node:latest
 
 ARG CHAIN_NAME
+ARG NOIS_CHAIN_NAME
 
 RUN npm i -g @confio/relayer
 COPY nois-relayer-config.yaml /root/.ibc-setup/registry.yaml 
-RUN ibc-setup init --src $CHAIN_NAME --dest nois
+RUN ibc-setup init --src $CHAIN_NAME --dest $NOIS_CHAIN_NAME
 
 CMD ["ibc-relayer", "start", "--src=uni", "--dest=nois", "--src-connection=connection-262", "--dest-connection=connection-1"]
