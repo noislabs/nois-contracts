@@ -712,7 +712,7 @@ mod tests {
             signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
         let info = mock_info("anyone", &[]);
-        execute(deps.branch(), mock_env(), info, msg.clone()).unwrap();
+        execute(deps.branch(), mock_env(), info, msg).unwrap();
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72786
             round: 72786,
@@ -720,7 +720,7 @@ mod tests {
             signature: Data::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
         };
         let info = mock_info("anyone", &[]);
-        execute(deps.branch(), mock_env(), info, msg.clone()).unwrap();
+        execute(deps.branch(), mock_env(), info, msg).unwrap();
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72787
             round: 72787,
@@ -728,7 +728,7 @@ mod tests {
             signature: Data::from_hex("8ceee95d523f54a752807f4705ce0f89e69911dd3dce330a337b9409905a881a2f879d48fce499bfeeb3b12e7f83ab7d09b42f31fa729af4c19adfe150075b2f3fe99c8fbcd7b0b5f0bb91ac8ad8715bfe52e3fb12314fddb76d4e42461f6ea4").unwrap(),
         };
         let info = mock_info("anyone", &[]);
-        execute(deps.branch(), mock_env(), info, msg.clone()).unwrap();
+        execute(deps.branch(), mock_env(), info, msg).unwrap();
     }
 
     //
