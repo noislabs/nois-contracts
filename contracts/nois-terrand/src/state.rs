@@ -1,9 +1,12 @@
+use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Timestamp;
 use cw_storage_plus::{Item, Map};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use nois_protocol::Data;
+
+use crate::drand::time_of_round;
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
 pub struct Config {
@@ -13,12 +16,32 @@ pub struct Config {
 
 pub const CONFIG: Item<Config> = Item::new("config");
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[cw_serde]
 pub struct VerifiedBeacon {
+    pub verified: Timestamp,
+    /// The sha256(signature) in lower case hex
+    pub randomness: Data,
+}
+
+/// Like VerifiedBeacon but plus round
+#[cw_serde]
+pub struct QueriedBeacon {
+    pub round: u64,
     pub published: Timestamp,
     pub verified: Timestamp,
     /// The sha256(signature) in lower case hex
     pub randomness: Data,
+}
+
+impl QueriedBeacon {
+    pub fn make(beacon: VerifiedBeacon, round: u64) -> Self {
+        Self {
+            round,
+            published: time_of_round(round),
+            verified: beacon.verified,
+            randomness: beacon.randomness,
+        }
+    }
 }
 
 // A map from round number to drand beacon
