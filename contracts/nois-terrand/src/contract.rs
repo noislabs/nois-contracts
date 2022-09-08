@@ -15,8 +15,7 @@ use nois_protocol::{
 use crate::drand::{DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_ROUND_LENGTH};
 use crate::error::ContractError;
 use crate::msg::{
-    BeaconResponse, BeaconsResponse, ConfigResponse, ExecuteMsg, InstantiateMsg,
-    LatestRandomResponse, QueryMsg,
+    BeaconResponse, BeaconsResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 use crate::state::{
     Config, Job, QueriedBeacon, VerifiedBeacon, BEACONS, CONFIG, DRAND_JOBS, TEST_MODE_NEXT_ROUND,
@@ -61,7 +60,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
         QueryMsg::Beacon { round } => to_binary(&query_beacon(deps, round)?)?,
-        QueryMsg::LatestDrand {} => to_binary(&query_latest(deps)?)?,
         QueryMsg::BeaconsAsc { start_after, limit } => {
             to_binary(&query_beacons(deps, start_after, limit, Order::Ascending)?)?
         }
@@ -82,19 +80,6 @@ fn query_beacon(deps: Deps, round: u64) -> StdResult<BeaconResponse> {
     let beacon = BEACONS.may_load(deps.storage, round)?;
     Ok(BeaconResponse {
         beacon: beacon.map(|b| QueriedBeacon::make(b, round)),
-    })
-}
-
-// Query latest beacon
-fn query_latest(deps: Deps) -> StdResult<LatestRandomResponse> {
-    let mut iter = BEACONS.range(deps.storage, None, None, Order::Descending);
-    let (key, value) = iter
-        .next()
-        .ok_or_else(|| StdError::generic_err("Not found"))??;
-
-    Ok(LatestRandomResponse {
-        round: key,
-        beacon: QueriedBeacon::make(value, key),
     })
 }
 

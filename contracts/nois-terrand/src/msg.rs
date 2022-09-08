@@ -30,9 +30,6 @@ pub enum QueryMsg {
     /// Get a specific drand round
     #[returns(BeaconResponse)]
     Beacon { round: u64 },
-    /// Get the last randomness
-    #[returns(LatestRandomResponse)]
-    LatestDrand {},
     /// Gets beacons in ascending order (old to new)
     #[returns(BeaconsResponse)]
     BeaconsAsc {
@@ -59,12 +56,6 @@ pub type ConfigResponse = Config;
 #[cw_serde]
 pub struct BeaconResponse {
     pub beacon: Option<QueriedBeacon>,
-}
-
-#[cw_serde]
-pub struct LatestRandomResponse {
-    pub round: u64,
-    pub beacon: QueriedBeacon,
 }
 
 #[cw_serde]
