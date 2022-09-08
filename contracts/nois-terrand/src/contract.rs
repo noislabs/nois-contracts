@@ -5,21 +5,20 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order,
     QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
 };
+use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed, verify};
 use nois_protocol::{
     check_order, check_version, Data, DeliverBeaconPacket, DeliverBeaconPacketAck,
     RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
-use crate::drand::{
-    time_of_round, DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_ROUND_LENGTH,
-};
+use crate::drand::{DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_ROUND_LENGTH};
 use crate::error::ContractError;
 use crate::msg::{
-    BeaconReponse, ConfigResponse, ExecuteMsg, InstantiateMsg, LatestRandomResponse, QueryMsg,
+    BeaconResponse, BeaconsResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
 };
 use crate::state::{
-    Config, Job, VerifiedBeacon, BEACONS, CONFIG, DRAND_JOBS, TEST_MODE_NEXT_ROUND,
+    Config, Job, QueriedBeacon, VerifiedBeacon, BEACONS, CONFIG, DRAND_JOBS, TEST_MODE_NEXT_ROUND,
 };
 
 // TODO: make configurable?
@@ -61,7 +60,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
         QueryMsg::Beacon { round } => to_binary(&query_beacon(deps, round)?)?,
-        QueryMsg::LatestDrand {} => to_binary(&query_latest(deps)?)?,
+        QueryMsg::BeaconsAsc { start_after, limit } => {
+            to_binary(&query_beacons(deps, start_after, limit, Order::Ascending)?)?
+        }
+        QueryMsg::BeaconsDesc { start_after, limit } => {
+            to_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
+        }
     };
     Ok(response)
 }
@@ -72,22 +76,30 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 }
 
 // Query beacon by round
-fn query_beacon(deps: Deps, round: u64) -> StdResult<BeaconReponse> {
+fn query_beacon(deps: Deps, round: u64) -> StdResult<BeaconResponse> {
     let beacon = BEACONS.may_load(deps.storage, round)?;
-    Ok(BeaconReponse { beacon })
+    Ok(BeaconResponse {
+        beacon: beacon.map(|b| QueriedBeacon::make(b, round)),
+    })
 }
 
-// Query latest beacon
-fn query_latest(deps: Deps) -> StdResult<LatestRandomResponse> {
-    let mut iter = BEACONS.range(deps.storage, None, None, Order::Descending);
-    let (key, value) = iter
-        .next()
-        .ok_or_else(|| StdError::generic_err("Not found"))??;
-
-    Ok(LatestRandomResponse {
-        round: key,
-        beacon: value,
-    })
+fn query_beacons(
+    deps: Deps,
+    start_after: Option<u64>,
+    limit: Option<u32>,
+    order: Order,
+) -> StdResult<BeaconsResponse> {
+    let limit: usize = limit.unwrap_or(100) as usize;
+    let (low_bound, top_bound) = match order {
+        Order::Ascending => (start_after.map(Bound::exclusive), None),
+        Order::Descending => (None, start_after.map(Bound::exclusive)),
+    };
+    let beacons: Vec<QueriedBeacon> = BEACONS
+        .range(deps.storage, low_bound, top_bound, order)
+        .take(limit)
+        .map(|c| c.map(|(round, beacon)| QueriedBeacon::make(beacon, round)))
+        .collect::<Result<_, _>>()?;
+    Ok(BeaconsResponse { beacons })
 }
 
 #[entry_point]
@@ -301,7 +313,6 @@ fn execute_add_round(
     let randomness: Data = derive_randomness(signature.as_slice()).into();
 
     let beacon = &VerifiedBeacon {
-        published: time_of_round(round),
         verified: env.block.time,
         randomness: randomness.clone(),
     };
@@ -414,7 +425,7 @@ mod tests {
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let response: BeaconReponse = from_binary(
+        let response: BeaconResponse = from_binary(
             &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72785 }).unwrap(),
         )
         .unwrap();
@@ -508,6 +519,216 @@ mod tests {
             randomness_attr.value,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         )
+    }
+
+    #[test]
+    fn query_beacons_asc_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg { test_mode: true };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        add_test_rounds(deps.as_mut());
+
+        // Unlimited
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsAsc {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, [72785, 72786, 72787]);
+
+        // Limit 2
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsAsc {
+                    start_after: None,
+                    limit: Some(2),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, [72785, 72786]);
+
+        // After 0
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsAsc {
+                    start_after: Some(0),
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, [72785, 72786, 72787]);
+
+        // After 72785
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsAsc {
+                    start_after: Some(72785),
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, [72786, 72787]);
+
+        // After 72787
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsAsc {
+                    start_after: Some(72787),
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, Vec::<u64>::new());
+    }
+
+    #[test]
+    fn query_beacons_desc_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg { test_mode: true };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        add_test_rounds(deps.as_mut());
+
+        // Unlimited
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsDesc {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, [72787, 72786, 72785]);
+
+        // Limit 2
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsDesc {
+                    start_after: None,
+                    limit: Some(2),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, [72787, 72786]);
+
+        // After 99999
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsDesc {
+                    start_after: Some(99999),
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, [72787, 72786, 72785]);
+
+        // After 72787
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsDesc {
+                    start_after: Some(72787),
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, [72786, 72785]);
+
+        // After 72785
+        let BeaconsResponse { beacons } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::BeaconsDesc {
+                    start_after: Some(72785),
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
+        assert_eq!(response_rounds, Vec::<u64>::new());
+    }
+
+    // Adds round 72785, 72786, 72787
+    fn add_test_rounds(mut deps: DepsMut) {
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/72785
+            round: 72785,
+            previous_signature: Data::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+        };
+        let info = mock_info("anyone", &[]);
+        execute(deps.branch(), mock_env(), info, msg).unwrap();
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/72786
+            round: 72786,
+            previous_signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            signature: Data::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
+        };
+        let info = mock_info("anyone", &[]);
+        execute(deps.branch(), mock_env(), info, msg).unwrap();
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/72787
+            round: 72787,
+            previous_signature: Data::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
+            signature: Data::from_hex("8ceee95d523f54a752807f4705ce0f89e69911dd3dce330a337b9409905a881a2f879d48fce499bfeeb3b12e7f83ab7d09b42f31fa729af4c19adfe150075b2f3fe99c8fbcd7b0b5f0bb91ac8ad8715bfe52e3fb12314fddb76d4e42461f6ea4").unwrap(),
+        };
+        let info = mock_info("anyone", &[]);
+        execute(deps.branch(), mock_env(), info, msg).unwrap();
     }
 
     //

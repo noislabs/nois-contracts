@@ -1,18 +1,14 @@
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use cosmwasm_schema::{cw_serde, QueryResponses};
 
 use nois_proxy::NoisCallbackMsg;
 
-/// This needs no info. Owner of the contract is whoever signed the InstantiateMsg.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub struct InstantiateMsg {
     /// Address of the Nois proxy contract
     pub nois_proxy: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum ExecuteMsg {
     EstimatePi {
         /// An ID for this job which allows for gathering the results.
@@ -21,11 +17,13 @@ pub enum ExecuteMsg {
     Receive(NoisCallbackMsg),
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
+#[derive(QueryResponses)]
 pub enum QueryMsg {
     // Get all results
+    #[returns(Vec<String>)]
     Results {},
     // Get a result
+    #[returns(Option<cosmwasm_std::Decimal>)]
     Result { job_id: String },
 }
