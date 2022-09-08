@@ -19,7 +19,7 @@ do
    timestamp=$(date +%s)
    result="null"
    echo "$timestamp"
-   $BINARY_NAME tx wasm execute $NOIS_DEMO_CONTRACT_ADDRESS  '{"estimate_pi": {"job_id": "'"$timestamp"'"}}'  --from $LOCAL_KEYRING_KEY --chain-id $CHAIN_ID   --gas=auto --gas-adjustment 1.4  --fees=$FEES$DENOM --broadcast-mode=block --node=$NODE_URL -y >/dev/null
+   $BINARY_NAME tx wasm execute $NOIS_DEMO_CONTRACT_ADDRESS  '{"estimate_pi": {"job_id": "'"$timestamp"'"}}'  --from $LOCAL_KEYRING_KEY --chain-id $CHAIN_ID   --gas=auto --gas-adjustment 1.4  --gas-prices=$GAS_PRICES$DENOM --broadcast-mode=block --node=$NODE_URL -y >/dev/null
    SECONDS=0
    i=0
    while [ "$result" == "null" ] && [ "$i" -lt "$TTL" ] 
