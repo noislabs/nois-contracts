@@ -8,7 +8,7 @@ cd $SCRIPT_DIR
 . config.sh
 
 
-NOIS_DEMO_CONTRACT_ADDRESS=$(cat generated_data.json |jq -r '."'"$CHAIN_ID"'"[]| select(.contract_name=="nois-demo").address ' )
+NOIS_DEMO_CONTRACT_ADDRESS=$(cat generated_$CHAIN_ID.json |jq -r '."'"$CHAIN_ID"'"[]| select(.contract_name=="nois-demo").address ' )
 
 #$BINARY_NAME tx wasm execute artifacts/nois_demo.wasm --from $LOCAL_KEYRING_KEY --chain-id $CHAIN_ID   --gas=auto --gas-adjustment 1.4  --fees=$FEES$DENOM --broadcast-mode=block --node=$NODE_URL -y
 declare -i TTL

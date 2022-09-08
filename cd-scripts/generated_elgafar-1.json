@@ -1,0 +1,32 @@
+{
+  "nois-testnet-000": [
+    {
+      "name": "drand-nois",
+      "address": "nois1s66zhks8v3fm24974crzxufh7w6ktt69jq8e3zt8q7cyvr52vlqqg5eym6",
+      "code_version": "v0.2.0",
+      "code_id": ""
+    }
+  ],
+  "ibc": {
+    "relayer_docker_image": "noislabs/nois-relayer:elgafar-1",
+    "ibc_src_connection": "connection-0",
+    "ibc_dest_connection": "connection-11",
+    "ibc_src_port": "wasm.stars1lpyy7m08jq6f7z5dxelpkn6k2mckyg9stla78vf2z4ss8a6s0quq4smn42",
+    "ibc_dest_port": "wasm.nois1s66zhks8v3fm24974crzxufh7w6ktt69jq8e3zt8q7cyvr52vlqqg5eym6",
+    "ibc_version": "nois-v1"
+  },
+  "elgafar-1": [
+    {
+      "contract_name": "nois-proxy",
+      "address": "stars1lpyy7m08jq6f7z5dxelpkn6k2mckyg9stla78vf2z4ss8a6s0quq4smn42",
+      "code_version": "v0.2.0",
+      "code_id": "88"
+    },
+    {
+      "contract_name": "nois-demo",
+      "address": "stars1twfl2xlxxwwxq6744ljk82g4x2smzhprjzmeavz5xve5d6kapzaqcnhqzk",
+      "code_version": "v0.2.0",
+      "code_id": "89"
+    }
+  ]
+}
