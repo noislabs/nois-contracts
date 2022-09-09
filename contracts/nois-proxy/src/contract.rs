@@ -13,7 +13,7 @@ use nois_protocol::{
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG, TERRAND_CHANNEL};
+use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 use crate::NoisCallbackMsg;
 
 // TODO: make configurable?
@@ -62,7 +62,7 @@ pub fn execute_get_next_randomness(
         sender,
         callback_id,
     };
-    let channel_id = get_terrand_channel(deps.storage)?;
+    let channel_id = get_oracle_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
@@ -75,8 +75,8 @@ pub fn execute_get_next_randomness(
     Ok(res)
 }
 
-fn get_terrand_channel(storage: &dyn Storage) -> Result<String, ContractError> {
-    let data = TERRAND_CHANNEL.may_load(storage)?;
+fn get_oracle_channel(storage: &dyn Storage) -> Result<String, ContractError> {
+    let data = ORACLE_CHANNEL.may_load(storage)?;
     match data {
         Some(d) => Ok(d),
         None => Err(ContractError::UnsetChannel),
@@ -116,7 +116,7 @@ pub fn ibc_channel_connect(
     let channel = msg.channel();
     let channel_id = &channel.endpoint.channel_id;
 
-    TERRAND_CHANNEL.save(deps.storage, channel_id)?;
+    ORACLE_CHANNEL.save(deps.storage, channel_id)?;
 
     Ok(IbcBasicResponse::new()
         .add_attribute("action", "ibc_connect")
@@ -131,7 +131,7 @@ pub fn ibc_channel_close(
 ) -> StdResult<IbcBasicResponse> {
     let channel = msg.channel();
 
-    TERRAND_CHANNEL.remove(deps.storage);
+    ORACLE_CHANNEL.remove(deps.storage);
 
     // remove the channel
     let channel_id = &channel.endpoint.channel_id;

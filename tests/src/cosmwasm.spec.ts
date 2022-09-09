@@ -32,7 +32,7 @@ test.before(async (t) => {
 
   t.log("Upload contracts to osmosis...");
   const osmosisContracts = {
-    terrand: "./internal/nois_terrand.wasm",
+    oracle: "./internal/nois_oracle.wasm",
   };
   const osmosisSign = await setupOsmosisClient();
   osmosisCodeIds = await setupContracts(t, osmosisSign, osmosisContracts);
@@ -40,27 +40,27 @@ test.before(async (t) => {
   t.pass();
 });
 
-test.serial("Bot can submit to Terrand", async (t) => {
-  // Instantiate Terrand on osmosis
+test.serial("Bot can submit to Oracle", async (t) => {
+  // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
-  const { contractAddress: terrandAddress } = await osmoClient.sign.instantiate(
+  const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisCodeIds.terrand,
+    osmosisCodeIds.oracle,
     { test_mode: true },
-    "Terrand instance",
+    "Oracle instance",
     "auto"
   );
-  t.truthy(terrandAddress);
+  t.truthy(oracleAddress);
 
-  const before = await osmoClient.sign.queryContractSmart(terrandAddress, {
+  const before = await osmoClient.sign.queryContractSmart(oracleAddress, {
     beacon: { round: 2183666 },
   });
   t.deepEqual(before, { beacon: null });
 
-  const bot = await Bot.connect(terrandAddress);
+  const bot = await Bot.connect(oracleAddress);
   await bot.submitRound(2183666);
 
-  const after = await osmoClient.sign.queryContractSmart(terrandAddress, {
+  const after = await osmoClient.sign.queryContractSmart(oracleAddress, {
     beacon: { round: 2183666 },
   });
   t.regex(after.beacon.published, /^1660941000000000000$/);
@@ -83,23 +83,23 @@ test.serial("set up channel", async (t) => {
   t.log(`Proxy port: ${proxyPort}`);
   assert(proxyPort);
 
-  // Instantiate Terrand on osmosis
+  // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
-  const { contractAddress: terrandAddress } = await osmoClient.sign.instantiate(
+  const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisCodeIds.terrand,
+    osmosisCodeIds.oracle,
     { test_mode: true },
-    "Terrand instance",
+    "Oracle instance",
     "auto"
   );
-  t.truthy(terrandAddress);
-  const { ibcPortId: terrandPort } = await osmoClient.sign.getContract(terrandAddress);
-  t.log(`Terrand port: ${terrandPort}`);
-  assert(terrandPort);
+  t.truthy(oracleAddress);
+  const { ibcPortId: oraclePort } = await osmoClient.sign.getContract(oracleAddress);
+  t.log(`Oracle port: ${oraclePort}`);
+  assert(oraclePort);
 
   const [src, dest] = await setup(wasmd, osmosis);
   const link = await Link.createWithNewConnections(src, dest);
-  await link.createChannel("A", proxyPort, terrandPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
+  await link.createChannel("A", proxyPort, oraclePort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
 });
 
 interface SetupInfo {
@@ -110,7 +110,7 @@ interface SetupInfo {
   /// Address on app chain (wasmd)
   noisDemoAddress: string;
   /// Address on randomness chain (osmosis)
-  noisTerrandAddress: string;
+  noisOracleAddress: string;
   link: Link;
   noisChannel: {
     wasmChannelId: string;
@@ -134,30 +134,30 @@ async function instantiateAndConnectIbc(): Promise<SetupInfo> {
     "auto"
   );
 
-  // Instantiate Terrand on Osmosis
-  const { contractAddress: noisTerrandAddress } = await osmoClient.sign.instantiate(
+  // Instantiate Oracle on Osmosis
+  const { contractAddress: noisOracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisCodeIds.terrand,
+    osmosisCodeIds.oracle,
     { test_mode: true },
-    "Terrand instance",
+    "Oracle instance",
     "auto"
   );
 
-  const [noisProxyInfo, noisTerrandInfo] = await Promise.all([
+  const [noisProxyInfo, noisOracleInfo] = await Promise.all([
     wasmClient.sign.getContract(noisProxyAddress),
-    osmoClient.sign.getContract(noisTerrandAddress),
+    osmoClient.sign.getContract(noisOracleAddress),
   ]);
   const { ibcPortId: proxyPort } = noisProxyInfo;
   assert(proxyPort);
-  const { ibcPortId: terrandPort } = noisTerrandInfo;
-  assert(terrandPort);
+  const { ibcPortId: oraclePort } = noisOracleInfo;
+  assert(oraclePort);
 
   // Create a connection between the chains
   const [src, dest] = await setup(wasmd, osmosis);
   const link = await Link.createWithNewConnections(src, dest);
 
   // Create a channel for nois-v1
-  const info = await link.createChannel("A", proxyPort, terrandPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
+  const info = await link.createChannel("A", proxyPort, oraclePort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
   const noisChannel = {
     wasmChannelId: info.src.channelId,
     osmoChannelId: info.dest.channelId,
@@ -184,7 +184,7 @@ async function instantiateAndConnectIbc(): Promise<SetupInfo> {
     osmoClient,
     noisProxyAddress,
     noisDemoAddress,
-    noisTerrandAddress,
+    noisOracleAddress,
     link,
     noisChannel,
     ics20Channel,
@@ -192,8 +192,8 @@ async function instantiateAndConnectIbc(): Promise<SetupInfo> {
 }
 
 test.serial("proxy works", async (t) => {
-  const { wasmClient, noisProxyAddress, link, noisTerrandAddress } = await instantiateAndConnectIbc();
-  const bot = await Bot.connect(noisTerrandAddress);
+  const { wasmClient, noisProxyAddress, link, noisOracleAddress: noisOracleAddress } = await instantiateAndConnectIbc();
+  const bot = await Bot.connect(noisOracleAddress);
 
   // Query round 1 (existing)
   {
@@ -228,8 +228,8 @@ test.serial("proxy works", async (t) => {
 });
 
 test.serial("demo contract can be used", async (t) => {
-  const { wasmClient, noisDemoAddress, link, noisTerrandAddress } = await instantiateAndConnectIbc();
-  const bot = await Bot.connect(noisTerrandAddress);
+  const { wasmClient, noisDemoAddress, link, noisOracleAddress: noisOracleAddress } = await instantiateAndConnectIbc();
+  const bot = await Bot.connect(noisOracleAddress);
 
   // Correct round submitted before request
   {

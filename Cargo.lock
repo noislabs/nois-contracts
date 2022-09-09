@@ -519,6 +519,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nois-oracle"
+version = "0.1.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "drand-verify",
+ "hex",
+ "nois-protocol",
+ "schemars",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "nois-protocol"
 version = "0.1.0"
 dependencies = [
@@ -537,21 +552,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
- "nois-protocol",
- "schemars",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "nois-terrand"
-version = "0.1.0"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-storage-plus",
- "drand-verify",
- "hex",
  "nois-protocol",
  "schemars",
  "serde",

@@ -49,20 +49,20 @@ const localDataSource: Map<number, Beacon> = new Map(
 );
 
 export class Bot {
-  public static async connect(terrandAddress: string): Promise<Bot> {
+  public static async connect(oracleAddress: string): Promise<Bot> {
     const signer = await setupOsmosisClient();
-    return new Bot(signer.senderAddress, signer.sign, terrandAddress);
+    return new Bot(signer.senderAddress, signer.sign, oracleAddress);
   }
 
   private readonly address: string;
   private readonly client: SigningCosmWasmClient;
-  private readonly terrandAddress: string;
+  private readonly oracleAddress: string;
   private nextRound = 2183660;
 
-  private constructor(address: string, client: SigningCosmWasmClient, terrandAddress: string) {
+  private constructor(address: string, client: SigningCosmWasmClient, oracleAddress: string) {
     this.address = address;
     this.client = client;
-    this.terrandAddress = terrandAddress;
+    this.oracleAddress = oracleAddress;
   }
 
   public async submitNext(): Promise<void> {
@@ -79,7 +79,7 @@ export class Bot {
       typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
       value: MsgExecuteContract.fromPartial({
         sender: this.address,
-        contract: this.terrandAddress,
+        contract: this.oracleAddress,
         msg: toUtf8(
           JSON.stringify({
             add_round: {
