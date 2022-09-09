@@ -505,7 +505,7 @@ checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
 
 [[package]]
 name = "nois-demo"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -520,7 +520,7 @@ dependencies = [
 
 [[package]]
 name = "nois-oracle"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -535,7 +535,7 @@ dependencies = [
 
 [[package]]
 name = "nois-protocol"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -547,7 +547,7 @@ dependencies = [
 
 [[package]]
 name = "nois-proxy"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -560,7 +560,7 @@ dependencies = [
 
 [[package]]
 name = "nois-toolbox"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "cosmwasm-std",
  "rand 0.8.5",
