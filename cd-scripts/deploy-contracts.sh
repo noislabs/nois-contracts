@@ -1,11 +1,21 @@
 #!/bin/bash
 
+set -ex
 #PREREQS
 # 0 You need Install yq and fetch
 # 1 For fetch to work, Get a github token and run export GITHUB_OAUTH_TOKEN=
 # 2 You need to install the specific binary of the chain you want to deploy to.
 # 3 Edit the CHAIN SPECIFIC PARAMS
 # 4 If the chain to deploy to is mainnet or no faucet can be provisioned in the params then you need to fill your key with some tokens
+
+discord_notify () {
+  echo "$2 : notify on discord"
+  curl  -H "Content-Type: application/json" \
+        -H "Content-Type:application/json" \
+        -XPOST -d '{"content": "'"_________________\n**$2** - **$3** :\n Version: **$4**\n Address:  **$5** "'"}' \
+        $1; 
+}
+
 SCRIPT_DIR="cd-scripts"
 KEYRING_KEY_NAME="deployment-key"
 
@@ -78,6 +88,12 @@ do
           CONTRACT_ADDRESS=$($BINARY_NAME tx wasm instantiate $CODE_ID $CONTRACT_INSTATIATION_MSG   --label=$contract --no-admin --from $KEYRING_KEY_NAME --chain-id $CHAIN_ID   --gas=auto --gas-adjustment 1.9  --gas-prices=$GAS_PRICES$DENOM --broadcast-mode=block --node=$NODE_URL  -y |yq -r '.logs[0].events[0].attributes[0].value' )
           yq -i '(.chains[]| select(.name=="'"$chain"'").wasm.contracts[]| select(.name=="'"$contract"'").address) = "'"$CONTRACT_ADDRESS"'"' config.yaml 
           echo "$chain - $contract : CONTRACT_ADDRESS: $CONTRACT_ADDRESS"
+
+          if [ -z ${DISCORD_WEBHOOK+x} ] ; 
+          then echo "WARN: Skipping notification because DISCORD_WEBHOOK is not set ";
+          else discord_notify $DISCORD_WEBHOOK $chain $contract $GIT_CONTRACTS_TAG $CONTRACT_ADDRESS
+          fi
+          
         else
           echo "$chain - $contract : Skipping deployment because contract address is already set to $CONTRACTS_ADDRESS";
         fi
@@ -126,17 +142,12 @@ do
         echo "$chain : pushing relayer docker so it is ready to be deployed"
         docker push $RELAYER_DOCKER_IMAGE:$CHAIN_ID
         cd ../
-set -ex
-        if [ -z ${DISCORD_WEBHOOK+x} ] ; 
-        then echo "WARN: Skipping notification because DISCORD_WEBHOOK is not set ";
-        else 
-            echo "notify on discord"
-            curl  -H "Content-Type: application/json" \
-            -H "Content-Type:application/json" \
-            -XPOST -d '{"content": "'"just deployed $CHAIN_ID"'"}' \
-            $DISCORD_WEBHOOK; 
-        fi
     fi
+    
 done
+
+
+
+
 
 

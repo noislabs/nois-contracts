@@ -14,9 +14,9 @@ chains:
       - "http://6553qqb75pb27eg2ff5lqvrpso.ingress.akash.pro:80"
     wasm:
       contracts:
-        - address: "nois12xazrllyqg80s0grxjf9pkzssyqh966chz9wspl8k6je2j8qgmcqsk7gkn"
-          code_id: "23"
-          git_asset_name: nois-oracle
+        - address: nois1sdemraklrp97xgccuertrc6fq5fv7fpksggdzffqhd24nupz7p7s7q240w
+          code_id: "26"
+          git_asset_name: nois_oracle
           instantiation_msg: '{"test_mode":false}'
           name: nois-oracle
           url: "https://github.com/noislabs/nois-contracts"
@@ -38,15 +38,15 @@ chains:
       - "https://rpc.elgafar-1.stargaze-apis.com:443"
     wasm:
       contracts:
-        - address: stars143zx7j0dfttq9a7luap4slfppvkldgpwuyks8zca2hlchcrtg2ys6r2nww
-          code_id: "111"
+        - address: stars1kshrj9hupvyfsfe0s5ucznhjg8jparxtjfm8gdmcc7at3rkw222qdeals3
+          code_id: "117"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.3.0
-        - address: stars1c6fdjvnzj7qpps87pr60dcdwchwm20d559ueqpwcm5rfs9lm4clq0vad7m
-          code_id: "112"
+        - address: stars16re7y6rfua2u4tz3qm6wjck6lhjzluqwheq5upxfqclu6qqcsapqjlz2m2
+          code_id: "118"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
@@ -69,15 +69,15 @@ chains:
       - "https://rpc.uni.juno.deuslabs.fi:443"
     wasm:
       contracts:
-        - address: juno15n0qgggtay84pnwylxy88rkj5mzs9j4ar375v8tjlr99jemwqwtscxtg46
-          code_id: "3733"
+        - address: juno1empakr6y0selc5zvq48549daq4had5cqlslrxqtpj52udvv3yqysf6868a
+          code_id: "3762"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.3.0
-        - address: juno1zw0nlw9g2vkkvykaa66769p2clsr4pv96mk5jw9x4rjsyhz70mrqvqheh5
-          code_id: "3734"
+        - address: juno12hyvxlqt02erxpp3q03pzdexn4jt4tl5nrsdf7n292fhl4es5xjsq2f8d2
+          code_id: "3763"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
