@@ -11,7 +11,7 @@ pub use ibc_msg::{
     StdAck,
 };
 
-pub const IBC_APP_VERSION: &str = "nois-v1";
+pub const IBC_APP_VERSION: &str = "nois-v2";
 pub const APP_ORDER: IbcOrder = IbcOrder::Unordered;
 // we use this for tests to ensure it is rejected
 pub const BAD_APP_ORDER: IbcOrder = IbcOrder::Ordered;

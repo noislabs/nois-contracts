@@ -10,7 +10,7 @@ const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingCosmWasmClient, 
 
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
-export const NoisProtocolIbcVersion = "nois-v1";
+export const NoisProtocolIbcVersion = "nois-v2";
 
 export async function setupContracts(
   t: ExecutionContext,
