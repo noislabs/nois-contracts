@@ -86,4 +86,4 @@ chains:
 ibc:
   relayer:
     docker_image: noislabs/nois-relayer
-  version: nois-v1
+  version: nois-v2
