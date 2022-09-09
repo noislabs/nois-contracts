@@ -7,4 +7,4 @@ pub struct Config {}
 
 pub const CONFIG: Item<Config> = Item::new("config");
 
-pub const TERRAND_CHANNEL: Item<String> = Item::new("terrand_channel");
+pub const ORACLE_CHANNEL: Item<String> = Item::new("oracle_channel");

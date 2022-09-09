@@ -16,11 +16,11 @@ There are two CosmWasm-enabled blockchains running locally.
 
 ## The contracts
 
-- nois-terrand (runs on the randomness chain; one instance globally)
+- nois-oracle (runs on the randomness chain; one instance globally)
 - nois-proxy (runs on the app chain; one instance per app chain)
 - nois-demo (runs on the app chain; a demo app)
 
-The IBC interaction is only between nois-terrand and nois-proxy, such that
+The IBC interaction is only between nois-oracle and nois-proxy, such that
 the user (nois-demo) does not need to worry about that part.
 
 ## Development

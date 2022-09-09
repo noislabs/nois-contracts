@@ -6,7 +6,7 @@ workflows:
     jobs:
       - contract_nois_demo
       - contract_nois_proxy
-      - contract_nois_terrand
+      - contract_nois_oracle
       - package_nois_protocol
       - lint
       - wasm-build
@@ -17,7 +17,7 @@ workflows:
             - ts-build
             - contract_nois_demo
             - contract_nois_proxy
-            - contract_nois_terrand
+            - contract_nois_oracle
   deploy:
     jobs:
       - build_and_upload_contracts:
@@ -88,10 +88,10 @@ jobs:
             - target
           key: cargocache-nois-proxy-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
 
-  contract_nois_terrand:
+  contract_nois_oracle:
     docker:
       - image: rust:1.63.0
-    working_directory: ~/project/contracts/nois-terrand
+    working_directory: ~/project/contracts/nois-oracle
     steps:
       - checkout:
           path: ~/project
@@ -100,7 +100,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-nois-terrand-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+            - cargocache-nois-oracle-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Unit Tests
           environment:
@@ -113,7 +113,7 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: cargocache-nois-terrand-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+          key: cargocache-nois-oracle-rust:1.63.0-{{ checksum "~/project/Cargo.lock" }}
 
   package_nois_protocol:
     docker:
@@ -209,7 +209,7 @@ jobs:
           paths:
             - nois_demo.wasm
             - nois_proxy.wasm
-            - nois_terrand.wasm
+            - nois_oracle.wasm
 
   ts-build:
     docker:

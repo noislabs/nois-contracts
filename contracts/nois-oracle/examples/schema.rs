@@ -1,6 +1,6 @@
 use cosmwasm_schema::write_api;
 
-use nois_terrand::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use nois_oracle::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
     write_api! {

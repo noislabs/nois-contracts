@@ -6,10 +6,6 @@ resolver = "2"
 codegen-units = 1
 incremental = false
 
-[profile.release.package.nois-terrand]
-codegen-units = 1
-incremental = false
-
 [profile.release]
 rpath = false
 lto = true

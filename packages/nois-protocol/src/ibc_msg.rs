@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Data;
 
-/// This is the message we send over the IBC channel from proxy to Terrand
+/// This is the message we send over the IBC channel from nois-proxy to nois-oracle
 #[cw_serde]
 pub struct RequestBeaconPacket {
     /// Beacon publish time must be > `after`
@@ -30,7 +30,7 @@ pub enum RequestBeaconPacketAck {
     },
 }
 
-/// This is the message we send over the IBC channel from Terrand to proxy
+/// This is the message we send over the IBC channel from nois-oracle to nois-proxy
 #[cw_serde]
 pub struct DeliverBeaconPacket {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
