@@ -85,9 +85,3 @@ impl StdAck {
         }
     }
 }
-
-#[cw_serde]
-pub struct Beacon {
-    /// The sha256(signature) in lower case hex
-    pub randomness: Data,
-}
