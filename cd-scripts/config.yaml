@@ -16,11 +16,11 @@ chains:
       contracts:
         - address: "nois12xazrllyqg80s0grxjf9pkzssyqh966chz9wspl8k6je2j8qgmcqsk7gkn"
           code_id: "23"
-          git_asset_name: nois_terrand
+          git_asset_name: nois-oracle
           instantiation_msg: '{"test_mode":false}'
-          name: nois-drand
+          name: nois-oracle
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.2.0
+          version: v0.3.0
   - binary_name: starsd
     chain_id: elgafar-1
     denom: ustars
@@ -31,7 +31,7 @@ chains:
       src: connection-0
       counterpart:
         chain: nois-testnet-000
-        contract_name: nois-drand
+        contract_name: nois-oracle
     name: elgafar-1
     prefix: stars
     rpc:
@@ -44,14 +44,14 @@ chains:
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.2.0
+          version: v0.3.0
         - address: stars1c6fdjvnzj7qpps87pr60dcdwchwm20d559ueqpwcm5rfs9lm4clq0vad7m
           code_id: "112"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.2.0
+          version: v0.3.0
   - binary_name: junod
     chain_id: uni-3
     denom: ujunox
@@ -62,7 +62,7 @@ chains:
       src: connection-268
       counterpart:
         chain: nois-testnet-000
-        contract_name: nois-drand
+        contract_name: nois-oracle
     name: uni-3
     prefix: juno
     rpc:
@@ -75,15 +75,15 @@ chains:
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.2.0
+          version: v0.3.0
         - address: juno1zw0nlw9g2vkkvykaa66769p2clsr4pv96mk5jw9x4rjsyhz70mrqvqheh5
           code_id: "3734"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.2.0
+          version: v0.3.0
 ibc:
   relayer:
     docker_image: noislabs/nois-relayer
-  version: nois-v1
+  version: nois-v2
