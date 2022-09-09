@@ -1,14 +1,12 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Timestamp;
 use cw_storage_plus::{Item, Map};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 use nois_protocol::Data;
 
 use crate::drand::time_of_round;
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[cw_serde]
 pub struct Config {
     /// In test mode the next round calculation is detached from the clock.
     pub test_mode: bool,
@@ -49,7 +47,7 @@ pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
 
 pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[cw_serde]
 pub struct Job {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
     pub source_id: String,

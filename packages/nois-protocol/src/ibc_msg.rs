@@ -1,8 +1,7 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{from_slice, to_binary, Binary, Timestamp};
-use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::Data;
 
@@ -40,14 +39,13 @@ pub struct DeliverBeaconPacket {
     pub callback_id: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[cw_serde]
 pub struct DeliverBeaconPacketAck {}
 
 /// This is a generic ICS acknowledgement format.
 /// Proto defined here: https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147
 /// If ibc_receive_packet returns Err(), then x/wasm runtime will rollback the state and return an error message in this format
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-#[serde(rename_all = "snake_case")]
+#[cw_serde]
 pub enum StdAck {
     Result(Binary),
     Error(String),
@@ -88,7 +86,7 @@ impl StdAck {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[cw_serde]
 pub struct Beacon {
     /// The sha256(signature) in lower case hex
     pub randomness: Data,
