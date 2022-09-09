@@ -1,11 +1,9 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use nois_protocol::Data;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 use crate::state::{Config, QueriedBeacon};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, JsonSchema)]
+#[cw_serde]
 pub struct InstantiateMsg {
     /// In test mode the next round calculation is detached from the clock.
     pub test_mode: bool,
