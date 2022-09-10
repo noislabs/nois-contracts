@@ -27,12 +27,28 @@ use crate::prng::make_prng;
 /// ```
 pub fn int_in_range<T, R>(randomness: [u8; 32], range: R) -> T
 where
-    T: SampleUniform + PartialOrd,
+    T: SampleUniform + Int,
     R: SampleRange<T>,
 {
     let mut rng = make_prng(randomness);
     rng.gen_range(range)
 }
+
+/// A trait to restrict int types for [`int_in_range`]
+pub trait Int: PartialOrd {}
+
+impl Int for u8 {}
+impl Int for u16 {}
+impl Int for u32 {}
+impl Int for u64 {}
+impl Int for u128 {}
+impl Int for usize {}
+impl Int for i8 {}
+impl Int for i16 {}
+impl Int for i32 {}
+impl Int for i64 {}
+impl Int for i128 {}
+impl Int for isize {}
 
 #[cfg(test)]
 mod tests {
