@@ -3,7 +3,7 @@ use cosmwasm_std::{from_slice, to_binary, Binary, Timestamp};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use crate::Data;
+use nois::Data;
 
 /// This is the message we send over the IBC channel from nois-proxy to nois-oracle
 #[cw_serde]

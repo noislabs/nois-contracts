@@ -1,6 +1,7 @@
 use cosmwasm_schema::write_api;
 
-use nois_proxy::msg::{ExecuteMsg, InstantiateMsg};
+use nois::proxy::ExecuteMsg;
+use nois_proxy::msg::InstantiateMsg;
 
 fn main() {
     write_api! {

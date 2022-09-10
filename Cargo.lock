@@ -504,6 +504,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
 
 [[package]]
+name = "nois"
+version = "0.3.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "hex",
+ "rand 0.8.5",
+ "rand_xoshiro",
+ "schemars",
+ "serde",
+ "thiserror",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "nois-demo"
 version = "0.3.0"
 dependencies = [
@@ -511,8 +526,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-storage-plus",
  "hex",
- "nois-proxy",
- "nois-toolbox",
+ "nois",
  "schemars",
  "serde",
  "thiserror",
@@ -527,6 +541,7 @@ dependencies = [
  "cw-storage-plus",
  "drand-verify",
  "hex",
+ "nois",
  "nois-protocol",
  "schemars",
  "serde",
@@ -539,7 +554,7 @@ version = "0.3.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
- "hex",
+ "nois",
  "schemars",
  "serde",
  "thiserror",
@@ -552,23 +567,11 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
+ "nois",
  "nois-protocol",
  "schemars",
  "serde",
  "thiserror",
-]
-
-[[package]]
-name = "nois-toolbox"
-version = "0.3.0"
-dependencies = [
- "cosmwasm-std",
- "rand 0.8.5",
- "rand_xoshiro",
- "schemars",
- "serde",
- "thiserror",
- "xxhash-rust",
 ]
 
 [[package]]

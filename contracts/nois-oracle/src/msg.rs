@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use nois_protocol::Data;
+use nois::Data;
 
 use crate::state::{Config, QueriedBeacon};
 

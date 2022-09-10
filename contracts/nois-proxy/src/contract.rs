@@ -6,15 +6,15 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, QueryResponse,
     Response, StdResult, Storage, SubMsg, WasmMsg,
 };
+use nois::proxy::{ExecuteMsg, NoisCallbackMsg};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck,
 };
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{InstantiateMsg, QueryMsg, ReceiverExecuteMsg};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
-use crate::NoisCallbackMsg;
 
 // TODO: make configurable?
 /// packets live one hour
@@ -161,11 +161,10 @@ pub fn ibc_packet_receive(
             // Send IBC packet ack message to another contract
             let msg = SubMsg::new(WasmMsg::Execute {
                 contract_addr: sender,
-                msg: NoisCallbackMsg {
+                msg: to_binary(&ReceiverExecuteMsg::Receive(NoisCallbackMsg {
                     id: callback_id.clone(),
                     randomness,
-                }
-                .into_wrapped_binary()?,
+                }))?,
                 funds: vec![],
             })
             .with_gas_limit(2_000_000);
