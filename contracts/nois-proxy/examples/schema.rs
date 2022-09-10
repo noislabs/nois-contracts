@@ -1,12 +1,11 @@
 use cosmwasm_schema::write_api;
 
-use nois_proxy::msg::{ExecuteMsg, InstantiateMsg};
+use nois_proxy::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
     write_api! {
         instantiate: InstantiateMsg,
-        // Currently broken (https://github.com/CosmWasm/cosmwasm/issues/1411)
-        // query: QueryMsg,
+        query: QueryMsg,
         execute: ExecuteMsg,
     }
 }
