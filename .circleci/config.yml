@@ -8,6 +8,7 @@ workflows:
       - contract_nois_proxy
       - contract_nois_oracle
       - package_nois_protocol
+      - package_nois
       - lint
       - wasm-build
       - ts-build
@@ -139,6 +140,31 @@ jobs:
             - /usr/local/cargo/registry
             - target
           key: cargocache-v2-nois-protocol:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+
+  package_nois:
+    docker:
+      - image: rust:1.63.0
+    working_directory: ~/project/packages/nois
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version; rustup target list --installed
+      - restore_cache:
+          keys:
+            - cargocache-v2-nois:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+      - run:
+          name: Build library for native target
+          command: cargo build --locked
+      - run:
+          name: Run unit tests
+          command: cargo test --locked
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - target
+          key: cargocache-v2-nois:1.63.0-{{ checksum "~/project/Cargo.lock" }}
 
   lint:
     docker:
