@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Timestamp;
 use cw_storage_plus::{Item, Map};
 
-use nois_protocol::Data;
+use nois::Data;
 
 use crate::drand::time_of_round;
 

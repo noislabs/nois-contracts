@@ -1,11 +1,9 @@
 mod checks;
-mod data;
 mod ibc_msg;
 
 use cosmwasm_std::IbcOrder;
 
 pub use checks::{check_order, check_version, ChannelError};
-pub use data::Data;
 pub use ibc_msg::{
     DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket, RequestBeaconPacketAck,
     StdAck,

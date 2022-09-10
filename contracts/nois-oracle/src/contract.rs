@@ -7,9 +7,10 @@ use cosmwasm_std::{
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed, verify};
+use nois::Data;
 use nois_protocol::{
-    check_order, check_version, Data, DeliverBeaconPacket, DeliverBeaconPacketAck,
-    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
+    RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
 use crate::drand::{DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_ROUND_LENGTH};

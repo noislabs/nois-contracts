@@ -2,8 +2,7 @@ use cosmwasm_std::{
     entry_point, to_binary, CheckedFromRatioError, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
     QueryResponse, Response, StdResult, WasmMsg,
 };
-use nois_proxy::{Data, NoisCallbackMsg};
-use nois_toolbox::{random_decimal, sub_randomness};
+use nois::{random_decimal, sub_randomness, Data, NoisCallbackMsg, ProxyExecuteMsg};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -52,7 +51,7 @@ pub fn execute_estimate_pi(
 
     let res = Response::new().add_message(WasmMsg::Execute {
         contract_addr: nois_proxy.into(),
-        msg: to_binary(&nois_proxy::ExecuteMsg::GetNextRandomness {
+        msg: to_binary(&ProxyExecuteMsg::GetNextRandomness {
             callback_id: Some(job_id),
         })?,
         funds: vec![],
