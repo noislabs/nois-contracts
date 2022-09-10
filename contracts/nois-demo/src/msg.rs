@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
-use nois::proxy::NoisCallbackMsg;
+use nois::NoisCallbackMsg;
 
 #[cw_serde]
 pub struct InstantiateMsg {

@@ -3,7 +3,7 @@ use cosmwasm_schema::cw_serde;
 use crate::Data;
 
 #[cw_serde]
-pub enum ExecuteMsg {
+pub enum ProxyExecuteMsg {
     /// Get's the next randomness.
     GetNextRandomness {
         // A callback ID chosen by the caller

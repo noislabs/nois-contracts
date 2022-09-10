@@ -6,14 +6,14 @@ use cosmwasm_std::{
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, QueryResponse,
     Response, StdResult, Storage, SubMsg, WasmMsg,
 };
-use nois::proxy::{ExecuteMsg, NoisCallbackMsg};
+use nois::NoisCallbackMsg;
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck,
 };
 
 use crate::error::ContractError;
-use crate::msg::{InstantiateMsg, QueryMsg, ReceiverExecuteMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiverExecuteMsg};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 
 // TODO: make configurable?

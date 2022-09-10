@@ -1,8 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use nois::proxy::NoisCallbackMsg;
+use nois::{NoisCallbackMsg, ProxyExecuteMsg};
 
 #[cw_serde]
 pub struct InstantiateMsg {}
+
+pub type ExecuteMsg = ProxyExecuteMsg;
 
 #[cw_serde]
 #[derive(QueryResponses)]
