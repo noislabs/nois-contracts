@@ -23,6 +23,12 @@ There are two CosmWasm-enabled blockchains running locally.
 The IBC interaction is only between nois-oracle and nois-proxy, such that
 the user (nois-demo) does not need to worry about that part.
 
+## Packages
+
+- nois (standard library for interacting with Nois)
+  [![nois on crates.io](https://img.shields.io/crates/v/nois.svg)](https://crates.io/crates/nois)
+- nois-protocol (the Nois IBC protocol)
+
 ## Development
 
 Follow all those steps to test things.
