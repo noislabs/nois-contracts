@@ -5,8 +5,8 @@ use rand::{
 
 use crate::prng::make_prng;
 
-/// Derives a random integer in the given range. Internally this takes masurements to
-/// avoid a modulo bias.
+/// Derives a random integer in the given range.
+/// Use this method to avoid a modulo bias.
 ///
 /// ## Example
 ///
