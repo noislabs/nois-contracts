@@ -60,8 +60,8 @@ where
     let mut rng = make_prng(randomness);
     let uniform: Uniform<T> = range.into();
     let mut out = [T::default(); LENGTH];
-    for i in 0..LENGTH {
-        out[i] = uniform.sample(&mut rng);
+    for o in out.iter_mut() {
+        *o = uniform.sample(&mut rng);
     }
     out
 }
