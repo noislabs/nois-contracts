@@ -1,5 +1,8 @@
 use rand::{
-    distributions::uniform::{SampleRange, SampleUniform},
+    distributions::{
+        uniform::{SampleRange, SampleUniform},
+        Distribution, Uniform,
+    },
     Rng,
 };
 
@@ -34,8 +37,37 @@ where
     rng.gen_range(range)
 }
 
+/// Derives random integers in the given range.
+/// Use this method to avoid a modulo bias.
+/// Using this is potentially more efficient than multiple calls of [`int_in_range`].
+///
+/// ## Example
+///
+/// ```
+/// use nois::ints_in_range;
+///
+/// # let randomness: [u8; 32] = [0x77; 32];
+///
+/// let [dice1, dice2] = ints_in_range(randomness, 1..=6);
+/// assert!(dice1 >= 1 && dice1 <= 6);
+/// assert!(dice2 >= 1 && dice2 <= 6);
+/// ```
+pub fn ints_in_range<T, const LENGTH: usize, R>(randomness: [u8; 32], range: R) -> [T; LENGTH]
+where
+    T: SampleUniform + Int,
+    R: Into<Uniform<T>>,
+{
+    let mut rng = make_prng(randomness);
+    let uniform: Uniform<T> = range.into();
+    let mut out = [T::default(); LENGTH];
+    for i in 0..LENGTH {
+        out[i] = uniform.sample(&mut rng);
+    }
+    out
+}
+
 /// A trait to restrict int types for [`int_in_range`]
-pub trait Int: PartialOrd {}
+pub trait Int: PartialOrd + Default + Copy {}
 
 impl Int for u8 {}
 impl Int for u16 {}
@@ -143,5 +175,28 @@ mod tests {
             4..4,
         );
         assert_eq!(result, 5);
+    }
+
+    #[test]
+    fn ints_in_range_works() {
+        // One output
+        let result = ints_in_range(
+            [
+                88, 85, 86, 91, 61, 64, 60, 71, 234, 24, 246, 200, 35, 73, 38, 187, 54, 59, 96, 9,
+                237, 27, 215, 103, 148, 230, 28, 48, 51, 114, 203, 219,
+            ],
+            4..19,
+        );
+        assert_eq!(result, [11]);
+
+        // Two outputs
+        let result = ints_in_range(
+            [
+                88, 85, 86, 91, 61, 64, 60, 71, 234, 24, 246, 200, 35, 73, 38, 187, 54, 59, 96, 9,
+                237, 27, 215, 103, 148, 230, 28, 48, 51, 114, 203, 219,
+            ],
+            4..19,
+        );
+        assert_eq!(result, [11, 16]);
     }
 }
