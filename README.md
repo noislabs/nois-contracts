@@ -25,7 +25,7 @@ the user (nois-demo) does not need to worry about that part.
 
 ## Packages
 
-- nois (standard library for interacting with Nois)
+- nois (standard library for interacting with Nois)<br />
   [![nois on crates.io](https://img.shields.io/crates/v/nois.svg)](https://crates.io/crates/nois)
 - nois-protocol (the Nois IBC protocol)
 
