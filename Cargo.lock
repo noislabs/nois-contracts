@@ -525,7 +525,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
- "hex",
  "nois",
  "schemars",
  "serde",
