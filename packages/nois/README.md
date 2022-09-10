@@ -1,4 +1,4 @@
-# Nois Standard library
+# Nois standard library
 
 Use this library to integrate your app with the a nois proxy.
 
@@ -26,6 +26,8 @@ pub fn instantiate(
 ## Sending a request
 
 ```rust
+use nois::ProxyExecuteMsg;
+
 pub fn execute_estimate_pi(
     deps: DepsMut,
     _env: Env,
