@@ -31,10 +31,10 @@ library = []
 
 [dependencies]
 nois-protocol = { path = "../../packages/nois-protocol"}
-nois = { path = "../../packages/nois"}
 cosmwasm-std = { version = "1.1.0", features = ["iterator", "ibc3"] }
 cosmwasm-schema = { version = "1.1.0" }
 cw-storage-plus = { version = "0.14.0" }
+nois = { git = "https://github.com/noislabs/nois.git", branch = "main" }
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }
