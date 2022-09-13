@@ -4,18 +4,16 @@ chains:
   TEMPLATE_RELAYER_NOIS_NAME:
     chain_id: nois-testnet-000
     prefix: nois
-    gas_price: 1unois
+    gas_price: 0.1unois
     hd_path: m/44'/118'/0'/0/0
     ics20_port: 'wasm.TEMPLATE_NOIS_DRAND_CONTRACT_ADDRESS' 
-    #estimated_block_time: 7000,
-    #estimated_indexer_time: 250,
-    faucet: http://5rh6rhqad1cgvei7qc96ia3n74.ingress.bigtractorplotting.com:80
+    faucet: TEMPLATE_NOIS_FAUCET
     rpc:
-      - http://6553qqb75pb27eg2ff5lqvrpso.ingress.akash.pro:80 
+      - TEMPLATE_NOIS_RPC
   TEMPLATE_RELAYER_CHAIN_NAME:
     chain_id: TEMPLATE_CHAIN_ID
     prefix: TEMPLATE_CHAIN_PREFIX
-    gas_price: 0.025TEMPLATE_CHAIN_DENOM
+    gas_price: 0.04TEMPLATE_CHAIN_DENOM
     hd_path: m/44'/118'/0'/0/0
     ics20_port: 'wasm.TEMPLATE_NOIS_PROXY_CONTRACT_ADDRESS' #junod query wasm contract  $NOIS_PROXY_CONTRACT_ADDRESS    --node=$NODE_URL
     faucet: TEMPLATE_CHAIN_FAUCET_URL

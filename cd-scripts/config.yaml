@@ -14,13 +14,44 @@ chains:
       - "http://6553qqb75pb27eg2ff5lqvrpso.ingress.akash.pro:80"
     wasm:
       contracts:
-        - address: nois1sdemraklrp97xgccuertrc6fq5fv7fpksggdzffqhd24nupz7p7s7q240w
-          code_id: "26"
+        - address: nois1tqtywg3c8sguj6rmlmkzr50l66glcqxp8rzlpjtk50lgua6psp5ss7y3qg
+          code_id: "28"
           git_asset_name: nois_oracle
           instantiation_msg: '{"test_mode":false}'
           name: nois-oracle
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.3.0
+          version: v0.4.1
+  - binary_name: osmosisd
+    chain_id: osmo-test-4
+    denom: uosmo
+    faucet: ~
+    gas_price: 0.04
+    ibc_connection:
+      dest:
+      src:
+      counterpart:
+        chain: nois-testnet-000
+        contract_name: nois-oracle
+    name: osmo-test-4
+    prefix: osmo
+    rpc:
+      - "https://rpc-test.osmosis.zone:443"
+    wasm:
+      contracts:
+        - address: osmo1x3al5p4r9u3e46kzr5qxgsm9yqpg34uwuzk7nl2q3yuf2qzleh3qum048k
+          code_id: "1390"
+          git_asset_name: nois_proxy
+          instantiation_msg: "{}"
+          name: nois-proxy
+          url: "https://github.com/noislabs/nois-contracts"
+          version: v0.4.1
+        - address: osmo1qh5ugvn3wxjtfrdjej2ell2em5x84tj46nzvln8uhpnl2436fvwsg0kzrv
+          code_id: "1391"
+          git_asset_name: nois_demo
+          instantiation_msg: defined-in-deployment-script-nois-demo
+          name: nois-demo
+          url: "https://github.com/noislabs/nois-contracts"
+          version: v0.4.1
   - binary_name: starsd
     chain_id: elgafar-1
     denom: ustars
@@ -38,20 +69,20 @@ chains:
       - "https://rpc.elgafar-1.stargaze-apis.com:443"
     wasm:
       contracts:
-        - address: stars1kshrj9hupvyfsfe0s5ucznhjg8jparxtjfm8gdmcc7at3rkw222qdeals3
-          code_id: "117"
+        - address: stars1fp5kh6w6l734ayx3c9da3yasza37pllktlgv3lh0jjyrjpwu6p0s3g2d2n
+          code_id: "126"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.3.0
-        - address: stars16re7y6rfua2u4tz3qm6wjck6lhjzluqwheq5upxfqclu6qqcsapqjlz2m2
-          code_id: "118"
+          version: v0.4.1
+        - address: stars1qep48xdycuhysprxx8zdjdwqhkam50v9zg5fhvtn2e0rjccm0sssr76zyl
+          code_id: "127"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.3.0
+          version: v0.4.1
   - binary_name: junod
     chain_id: uni-3
     denom: ujunox
@@ -69,20 +100,20 @@ chains:
       - "https://rpc.uni.juno.deuslabs.fi:443"
     wasm:
       contracts:
-        - address: juno1empakr6y0selc5zvq48549daq4had5cqlslrxqtpj52udvv3yqysf6868a
-          code_id: "3762"
+        - address: juno188gc6sc6nj9jfs8y3kysawhe6ehnjh0puejgqdzezjfqhfpwdydqs9t6jl
+          code_id: "3780"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.3.0
-        - address: juno12hyvxlqt02erxpp3q03pzdexn4jt4tl5nrsdf7n292fhl4es5xjsq2f8d2
-          code_id: "3763"
+          version: v0.4.1
+        - address: juno1598a3zasrf07pmfku0rd40t9m5eha7zk0424gc2peysy9ff05d0qw5rdap
+          code_id: "3781"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.3.0
+          version: v0.4.1
 ibc:
   relayer:
     docker_image: noislabs/nois-relayer
