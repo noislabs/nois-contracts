@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+
 #PREREQS
 # 0 You need Install yq and fetch
 # 1 For fetch to work, Get a github token and run export GITHUB_OAUTH_TOKEN=
@@ -128,16 +128,35 @@ do
         echo "$chain : building relayer docker"
         cd relayer
         docker build --build-arg CHAIN_NAME=$CHAIN_ID --build-arg NOIS_CHAIN_NAME=$COUNTER_PART_CHAIN -t $RELAYER_DOCKER_IMAGE:$CHAIN_ID-$NOIS_PROXY_CONTRACT_ADDRESS .
+        docker run  -e RELAYER_MNEMONIC="$RELAYER_MNEMONIC" $RELAYER_DOCKER_IMAGE:$CHAIN_ID-$NOIS_PROXY_CONTRACT_ADDRESS ibc-setup keys list
         
+        
+
+
         if [ ${#RELAYER_IBC_SRC_CONNECTION} -le 10 ] || [ ${#RELAYER_IBC_DEST_CONNECTION} -le 10 ] ; 
         then echo "$chain : WARN: RELAYER_IBC_SRC_CONNECTION or RELAYER_IBC_DEST_CONNECTION are not defined ";
              echo "$chain : Creating a connection... please note the src and connection ids and define those variables accordingly"
+             
              docker run  -e RELAYER_MNEMONIC="$RELAYER_MNEMONIC" $RELAYER_DOCKER_IMAGE:$CHAIN_ID-$NOIS_PROXY_CONTRACT_ADDRESS ibc-setup connect
+             #RELAYER_IBC_SRC_CONNECTION=$($BINARY_NAME query ibc channel channels  --node=$NODE_URL   --limit=100000 |yq -r '.channels[]|select(.version=="'"$RELAYER_IBC_VERSION"'")|.connection_hops[0]'|head -n 1)
+             #yq -i '(.chains[]| select(.name=="'"$chain"'").ibc_connection.src) = "'"$RELAYER_IBC_SRC_CONNECTION"'"' config.yaml
         else echo "$chain : Info: RELAYER_IBC_SRC_CONNECTION and RELAYER_IBC_DEST_CONNECTION are set, skipping connection creation"; 
         fi
         
-        echo "$chain : creating IBC channel"
-        docker run  -e RELAYER_MNEMONIC="$RELAYER_MNEMONIC" $RELAYER_DOCKER_IMAGE:$CHAIN_ID-$NOIS_PROXY_CONTRACT_ADDRESS ibc-setup channel --src-connection=$RELAYER_IBC_SRC_CONNECTION --dest-connection=$RELAYER_IBC_DEST_CONNECTION --src-port=wasm.$NOIS_PROXY_CONTRACT_ADDRESS --dest-port=wasm.$NOIS_DRAND_CONTRACT_ADDRESS --version=$RELAYER_IBC_VERSION
+        
+        echo "$chain : check if channel exists"
+        channel_exists=true
+        $BINARY_NAME query ibc channel channels  --node=$NODE_URL   --limit=100000 |yq -r '.channels[]|select(.version=="'"$RELAYER_IBC_VERSION"'")| select(.port_id=="'"wasm.$NOIS_PROXY_CONTRACT_ADDRESS"'").channel_id |length' -e || channel_exists=false
+        if [ "$channel_exists" = true ];
+        then
+            echo "$chain : channel already exists. skipping channel creation"
+        else
+            echo "$chain : creating IBC channel"
+            docker run  -e RELAYER_MNEMONIC="$RELAYER_MNEMONIC" $RELAYER_DOCKER_IMAGE:$CHAIN_ID-$NOIS_PROXY_CONTRACT_ADDRESS ibc-setup channel --src-connection=$RELAYER_IBC_SRC_CONNECTION --dest-connection=$RELAYER_IBC_DEST_CONNECTION --src-port=wasm.$NOIS_PROXY_CONTRACT_ADDRESS --dest-port=wasm.$NOIS_DRAND_CONTRACT_ADDRESS --version=$RELAYER_IBC_VERSION
+        fi
+
+        
+        
         
         echo "$chain : pushing relayer docker so it is ready to be deployed"
         docker push $RELAYER_DOCKER_IMAGE:$CHAIN_ID-$NOIS_PROXY_CONTRACT_ADDRESS
