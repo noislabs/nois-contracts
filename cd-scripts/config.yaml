@@ -27,8 +27,8 @@ chains:
     faucet: ~ # use https://explore-dorado.fetch.ai/
     gas_price: 1000000000
     ibc_connection:
-      dest:
-      src:
+      dest: ~
+      src: ~
       counterpart:
         chain: nois-testnet-001
         contract_name: nois-oracle
@@ -58,8 +58,8 @@ chains:
     faucet: ~
     gas_price: 0.04
     ibc_connection:
-      dest: connection-2
-      src: connection-4
+      dest: ~
+      src: ~
       counterpart:
         chain: nois-testnet-001
         contract_name: nois-oracle
@@ -89,8 +89,8 @@ chains:
           #    faucet: ~
           #    gas_price: 0.04
           #    ibc_connection:
-          #      dest:
-          #      src:
+          #      dest: ~
+          #      src: ~
           #      counterpart:
           #        chain: nois-testnet-001
           #        contract_name: nois-oracle
@@ -120,8 +120,8 @@ chains:
     faucet: ~
     gas_price: 0.025
     ibc_connection:
-      dest: connection-1
-      src: connection-2
+      dest: ~
+      src: ~
       counterpart:
         chain: nois-testnet-001
         contract_name: nois-oracle
@@ -151,8 +151,8 @@ chains:
     faucet: "https://faucet.uni.juno.deuslabs.fi/credit"
     gas_price: 0.025
     ibc_connection:
-      dest: connection-0
-      src: connection-279
+      dest: ~
+      src: ~
       counterpart:
         chain: nois-testnet-001
         contract_name: nois-oracle
