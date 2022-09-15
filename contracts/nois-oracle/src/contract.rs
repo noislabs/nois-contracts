@@ -7,7 +7,7 @@ use cosmwasm_std::{
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed, verify};
-use nois::Data;
+use nois::HexBinary;
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
@@ -165,7 +165,7 @@ pub fn ibc_packet_receive(
     // which local channel did this packet come on
     let channel = packet.dest.channel_id;
     let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-    receive_get_beacon(deps, env, channel, msg.after, msg.sender, msg.callback_id)
+    receive_get_beacon(deps, env, channel, msg.after, msg.sender, msg.job_id)
 }
 
 fn receive_get_beacon(
@@ -174,7 +174,7 @@ fn receive_get_beacon(
     channel: String,
     after: Timestamp,
     sender: String,
-    callback_id: Option<String>,
+    job_id: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let Config { test_mode, .. } = CONFIG.load(deps.storage)?;
     let mode = if test_mode {
@@ -188,7 +188,7 @@ fn receive_get_beacon(
         source_id: source_id.clone(),
         channel,
         sender,
-        callback_id,
+        job_id,
     };
 
     let beacon = BEACONS.may_load(deps.storage, round)?;
@@ -222,7 +222,7 @@ fn process_job(
 ) -> Result<IbcMsg, ContractError> {
     let packet = DeliverBeaconPacket {
         sender: job.sender,
-        callback_id: job.callback_id,
+        job_id: job.job_id,
         randomness: beacon.randomness.clone(),
         source_id: job.source_id,
     };
@@ -296,8 +296,8 @@ fn execute_add_round(
     env: Env,
     info: MessageInfo,
     round: u64,
-    previous_signature: Data,
-    signature: Data,
+    previous_signature: HexBinary,
+    signature: HexBinary,
 ) -> Result<Response, ContractError> {
     // Handle sender is not sending funds
     if !info.funds.is_empty() {
@@ -311,7 +311,7 @@ fn execute_add_round(
         return Err(ContractError::InvalidSignature {});
     }
 
-    let randomness: Data = derive_randomness(signature.as_slice()).into();
+    let randomness: HexBinary = derive_randomness(signature.as_slice()).into();
 
     let beacon = &VerifiedBeacon {
         verified: env.block.time,
@@ -421,8 +421,8 @@ mod tests {
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
-            previous_signature: Data::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
-            signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -491,8 +491,8 @@ mod tests {
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
-            previous_signature: Data::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
-            signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
 
         // Execute 1
@@ -709,24 +709,24 @@ mod tests {
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
-            previous_signature: Data::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
-            signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
         let info = mock_info("anyone", &[]);
         execute(deps.branch(), mock_env(), info, msg).unwrap();
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72786
             round: 72786,
-            previous_signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
-            signature: Data::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
+            previous_signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            signature: HexBinary::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
         };
         let info = mock_info("anyone", &[]);
         execute(deps.branch(), mock_env(), info, msg).unwrap();
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72787
             round: 72787,
-            previous_signature: Data::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
-            signature: Data::from_hex("8ceee95d523f54a752807f4705ce0f89e69911dd3dce330a337b9409905a881a2f879d48fce499bfeeb3b12e7f83ab7d09b42f31fa729af4c19adfe150075b2f3fe99c8fbcd7b0b5f0bb91ac8ad8715bfe52e3fb12314fddb76d4e42461f6ea4").unwrap(),
+            previous_signature: HexBinary::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
+            signature: HexBinary::from_hex("8ceee95d523f54a752807f4705ce0f89e69911dd3dce330a337b9409905a881a2f879d48fce499bfeeb3b12e7f83ab7d09b42f31fa729af4c19adfe150075b2f3fe99c8fbcd7b0b5f0bb91ac8ad8715bfe52e3fb12314fddb76d4e42461f6ea4").unwrap(),
         };
         let info = mock_info("anyone", &[]);
         execute(deps.branch(), mock_env(), info, msg).unwrap();

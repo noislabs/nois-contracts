@@ -2,7 +2,7 @@ use cosmwasm_std::{
     entry_point, to_binary, CheckedFromRatioError, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
     QueryResponse, Response, StdResult, WasmMsg,
 };
-use nois::{random_decimal, sub_randomness, Data, NoisCallbackMsg, ProxyExecuteMsg};
+use nois::{random_decimal, sub_randomness, NoisCallback, ProxyExecuteMsg};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -34,10 +34,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::EstimatePi { job_id } => execute_estimate_pi(deps, env, info, job_id),
-        ExecuteMsg::Receive(NoisCallbackMsg {
-            id: callback_id,
-            randomness,
-        }) => execute_receive(deps, env, info, callback_id, randomness),
+        ExecuteMsg::Receive { callback } => execute_receive(deps, env, info, callback),
     }
 }
 
@@ -51,9 +48,7 @@ pub fn execute_estimate_pi(
 
     let res = Response::new().add_message(WasmMsg::Execute {
         contract_addr: nois_proxy.into(),
-        msg: to_binary(&ProxyExecuteMsg::GetNextRandomness {
-            callback_id: Some(job_id),
-        })?,
+        msg: to_binary(&ProxyExecuteMsg::GetNextRandomness { job_id })?,
         funds: vec![],
     });
     Ok(res)
@@ -63,9 +58,9 @@ pub fn execute_receive(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    callback_id: String,
-    randomness: Data,
+    callback: NoisCallback,
 ) -> Result<Response, ContractError> {
+    let NoisCallback { job_id, randomness } = callback;
     let randomness: [u8; 32] = randomness
         .to_array()
         .map_err(|_| ContractError::InvalidRandomness)?;
@@ -93,7 +88,7 @@ pub fn execute_receive(
     let four = Decimal::from_atomics(4u32, 0).unwrap();
     let estimated_pi = in_circle_ratio * four;
 
-    RESULTS.save(deps.storage, &callback_id, &estimated_pi)?;
+    RESULTS.save(deps.storage, &job_id, &estimated_pi)?;
 
     Ok(Response::default())
 }

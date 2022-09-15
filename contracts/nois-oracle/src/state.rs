@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Timestamp;
 use cw_storage_plus::{Item, Map};
 
-use nois::Data;
+use nois::HexBinary;
 
 use crate::drand::time_of_round;
 
@@ -18,7 +18,7 @@ pub const CONFIG: Item<Config> = Item::new("config");
 pub struct VerifiedBeacon {
     pub verified: Timestamp,
     /// The sha256(signature) in lower case hex
-    pub randomness: Data,
+    pub randomness: HexBinary,
 }
 
 /// Like VerifiedBeacon but plus round
@@ -28,7 +28,7 @@ pub struct QueriedBeacon {
     pub published: Timestamp,
     pub verified: Timestamp,
     /// The sha256(signature) in lower case hex
-    pub randomness: Data,
+    pub randomness: HexBinary,
 }
 
 impl QueriedBeacon {
@@ -55,8 +55,8 @@ pub struct Job {
     pub channel: String,
     // contract address on the app chain
     pub sender: String,
-    // contract address on the app chain
-    pub callback_id: Option<String>,
+    /// A job ID assigned by the caller
+    pub job_id: String,
 }
 
 // Unprocessed drand jobs that are waiting for the correct round to come in

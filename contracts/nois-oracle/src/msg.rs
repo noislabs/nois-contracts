@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use nois::Data;
+use nois::HexBinary;
 
 use crate::state::{Config, QueriedBeacon};
 
@@ -14,8 +14,8 @@ pub enum ExecuteMsg {
     /// Add drand beacon
     AddRound {
         round: u64,
-        previous_signature: Data,
-        signature: Data,
+        previous_signature: HexBinary,
+        signature: HexBinary,
     },
 }
 

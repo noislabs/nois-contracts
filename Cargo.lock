@@ -505,8 +505,8 @@ checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
 
 [[package]]
 name = "nois"
-version = "0.4.1"
-source = "git+https://github.com/noislabs/nois.git?branch=main#5eb7fa5e393790348980053494d81bbc599cf6bb"
+version = "0.4.2"
+source = "git+https://github.com/noislabs/nois.git?branch=0.5-dev#3dcbd74fe6350658944f3e4f35d4e0b5e470b5c1"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",

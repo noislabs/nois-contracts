@@ -201,7 +201,7 @@ test.serial("proxy works", async (t) => {
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_next_randomness: { callback_id: null } },
+      { get_next_randomness: { job_id: "eins" } },
       "auto"
     );
 
@@ -216,7 +216,7 @@ test.serial("proxy works", async (t) => {
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_next_randomness: { callback_id: null } },
+      { get_next_randomness: { job_id: "zwei" } },
       "auto"
     );
 
