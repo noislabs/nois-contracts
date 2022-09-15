@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -ex
 
 #PREREQS
 # 0 You need Install yq and fetch
