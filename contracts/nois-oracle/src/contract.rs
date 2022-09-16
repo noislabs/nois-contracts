@@ -255,8 +255,9 @@ fn next_round(storage: &mut dyn Storage, mode: NextRoundMode) -> StdResult<(u64,
                 1
             } else {
                 let from_genesis = base.nanos() - DRAND_GENESIS.nanos();
-                let next_round = (from_genesis / DRAND_ROUND_LENGTH) + 1;
-                next_round + 1
+                let periods_since_genesis = from_genesis / DRAND_ROUND_LENGTH;
+                let next_period_index = periods_since_genesis + 1;
+                next_period_index + 1 // Convert 0-based counting to 1-based counting
             };
             let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
             Ok((round, source_id))
