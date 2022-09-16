@@ -122,7 +122,7 @@ interface SetupInfo {
   };
 }
 
-async function instantiateAndConnectIbc(): Promise<SetupInfo> {
+async function instantiateAndConnectIbc(testMode = true): Promise<SetupInfo> {
   const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
 
   // Instantiate proxy on appchain
@@ -138,7 +138,7 @@ async function instantiateAndConnectIbc(): Promise<SetupInfo> {
   const { contractAddress: noisOracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,
-    { test_mode: true },
+    { test_mode: testMode },
     "Oracle instance",
     "auto"
   );
@@ -248,6 +248,85 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183662" } }) });
+  }
+});
+
+test.serial("proxy works for get_randomness_after", async (t) => {
+  const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(false);
+  const bot = await Bot.connect(noisOracleAddress);
+
+  t.log("Executing get_randomness_after time between 3nd and 4rd round");
+  {
+    await wasmClient.sign.execute(
+      wasmClient.senderAddress,
+      noisProxyAddress,
+      { get_randomness_after: { after: "1660940884222222222", job_id: "first jobs" } },
+      "auto"
+    );
+
+    t.log("Relaying RequestBeacon");
+    const info = await link.relayAll();
+    assertPacketsFromA(info, 1, true);
+    assertPacketsFromB(info, 0, true);
+    const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183663" },
+      }),
+    });
+  }
+
+  t.log("Executing get_randomness_after time between 1nd and 2rd round");
+  {
+    await wasmClient.sign.execute(
+      wasmClient.senderAddress,
+      noisProxyAddress,
+      { get_randomness_after: { after: "1660940820000000000", job_id: "second job" } },
+      "auto"
+    );
+
+    t.log("Relaying RequestBeacon");
+    const info = await link.relayAll();
+    assertPacketsFromA(info, 1, true);
+    assertPacketsFromB(info, 0, true);
+    const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+      }),
+    });
+  }
+
+  {
+    t.log("Submit 1st round and check for no DeliverBeacon");
+    await bot.submitNext();
+    const info = await link.relayAll();
+    assertPacketsFromB(info, 0, true);
+  }
+
+  {
+    t.log("Submit 2nd round and check DeliverBeacon");
+    await bot.submitNext();
+    const info = await link.relayAll();
+    assertPacketsFromB(info, 1, true);
+    const stdAck2 = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
+    t.deepEqual(stdAck2, { result: toBinary({ aye: {} }) });
+  }
+
+  {
+    t.log("Submit 3nd round and check for no DeliverBeacon");
+    await bot.submitNext();
+    const info = await link.relayAll();
+    assertPacketsFromB(info, 0, true);
+  }
+
+  {
+    t.log("Submit 4th round and check DeliverBeacon");
+    await bot.submitNext();
+    const info = await link.relayAll();
+    assertPacketsFromB(info, 1, true);
+    const stdAck2 = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
+    t.deepEqual(stdAck2, { result: toBinary({ aye: {} }) });
   }
 });
 
