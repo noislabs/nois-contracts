@@ -1,8 +1,5 @@
 import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { toUtf8 } from "@cosmjs/encoding";
-import { assertIsDeliverTxSuccess } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
-import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx";
 
 import { setupOsmosisClient } from "./utils";
 
@@ -98,23 +95,17 @@ export class Bot {
     const beacon = localDataSource.get(round);
     assert(beacon, `No data source for round ${round} available`);
 
-    const msg = {
-      typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-      value: MsgExecuteContract.fromPartial({
-        sender: this.address,
-        contract: this.oracleAddress,
-        msg: toUtf8(
-          JSON.stringify({
-            add_round: {
-              round: beacon.round,
-              signature: beacon.signature,
-              previous_signature: beacon.previous_signature,
-            },
-          })
-        ),
-      }),
-    };
-    const result = await this.client.signAndBroadcast(this.address, [msg], "auto");
-    assertIsDeliverTxSuccess(result);
+    await this.client.execute(
+      this.address,
+      this.oracleAddress,
+      {
+        add_round: {
+          round: beacon.round,
+          signature: beacon.signature,
+          previous_signature: beacon.previous_signature,
+        },
+      },
+      "auto"
+    );
   }
 }
