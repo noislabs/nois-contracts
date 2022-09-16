@@ -14,7 +14,7 @@ chains:
       - "http://rpc-0.noislabs.com:80"
     wasm:
       contracts:
-        - address:
+        - address: nois14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sch3j70
           code_id: "1"
           git_asset_name: nois_oracle
           instantiation_msg: '{"test_mode":false}'
@@ -27,8 +27,8 @@ chains:
     faucet: ~ # use https://explore-dorado.fetch.ai/
     gas_price: 1000000000
     ibc_connection:
-      dest: ~
-      src: ~
+      dest: connection-5
+      src: connection-10
       counterpart:
         chain: nois-testnet-001
         contract_name: nois-oracle
@@ -38,15 +38,15 @@ chains:
       - "https://rpc-dorado.fetch.ai:443"
     wasm:
       contracts:
-        - address:
-          code_id: "3209"
+        - address: fetch1ndknpgxeme9qaj8qa2vvjyvs50ufdqd3mmezdyvrdhfpwjfhr5cszxntpj
+          code_id: "3219"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.4.1
-        - address:
-          code_id: "3210"
+        - address: fetch1ydc5ugrgmempg39q7rjvzxqey2cver9j36v9prfdgjy7kwerts3shgps02
+          code_id: "3220"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
@@ -58,8 +58,8 @@ chains:
     faucet: ~
     gas_price: 0.04
     ibc_connection:
-      dest: ~
-      src: ~
+      dest: connection-0
+      src: connection-5
       counterpart:
         chain: nois-testnet-001
         contract_name: nois-oracle
@@ -69,15 +69,15 @@ chains:
       - "https://rpc.euphoria.aura.network:443"
     wasm:
       contracts:
-        - address:
-          code_id: "18"
+        - address: aura1dvhtedfg5l3ah59g4uszzcsu7rgz4hgxgteuqmhv3c4z42dhk64sqk60zk
+          code_id: "24"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.4.1
-        - address:
-          code_id: "19"
+        - address: aura1wjknamef24t4s7wpgjxtkst8y0ft8rsxeymnqtyw50wu2h83h32q74qu2a
+          code_id: "25"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
@@ -120,8 +120,8 @@ chains:
     faucet: ~
     gas_price: 0.025
     ibc_connection:
-      dest: ~
-      src: ~
+      dest: connection-1
+      src: connection-3
       counterpart:
         chain: nois-testnet-001
         contract_name: nois-oracle
@@ -131,15 +131,15 @@ chains:
       - "https://rpc.elgafar-1.stargaze-apis.com:443"
     wasm:
       contracts:
-        - address:
-          code_id: "135"
+        - address: stars1zxjq5nyr70zrg22rg23pza80ps0xp3mmagaks7uk420xjxjnw50sl2wsc3
+          code_id: "137"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.4.1
-        - address:
-          code_id: "136"
+        - address: stars195fl5lvm306sgy4wjkz0v5hrhpy4k2ynw2py76fp4s8phjq0txcqqtq50f
+          code_id: "138"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
@@ -151,8 +151,8 @@ chains:
     faucet: "https://faucet.uni.juno.deuslabs.fi/credit"
     gas_price: 0.025
     ibc_connection:
-      dest: ~
-      src: ~
+      dest: connection-2
+      src: connection-282
       counterpart:
         chain: nois-testnet-001
         contract_name: nois-oracle
@@ -162,15 +162,15 @@ chains:
       - "https://rpc.uni.juno.deuslabs.fi:443"
     wasm:
       contracts:
-        - address:
-          code_id: "3881"
+        - address: juno1gnv2jmw68f7pnq2t4d3knlsxav4q383v7559x3966gs030g45mzscygkxt
+          code_id: "3948"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.4.1
-        - address:
-          code_id: "3882"
+        - address: juno1ffc6y78v4luenz7plgccdgqttl66q9eshjvvcpvee675ghrymdxsswfwkf
+          code_id: "3949"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
