@@ -1,10 +1,10 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, QueryResponse,
-    Response, StdResult, Storage, SubMsg, WasmMsg,
+    from_binary, to_binary, Attribute, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse,
+    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
+    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
+    QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, WasmMsg,
 };
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
@@ -19,6 +19,7 @@ use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 // TODO: make configurable?
 /// packets live one hour
 pub const PACKET_LIFETIME: u64 = 60 * 60;
+pub const CALLBACK_ID: u64 = 456;
 
 pub const SAFETY_MARGIN: u64 = 3; // seconds
 
@@ -80,6 +81,25 @@ fn get_oracle_channel(storage: &dyn Storage) -> Result<String, ContractError> {
     match data {
         Some(d) => Ok(d),
         None => Err(ContractError::UnsetChannel),
+    }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
+    match reply.id {
+        CALLBACK_ID => {
+            let mut attributes = vec![];
+            match reply.result {
+                SubMsgResult::Ok(_) => attributes.push(Attribute::new("success", "true")),
+                SubMsgResult::Err(err) => {
+                    attributes.push(Attribute::new("success", "false"));
+                    attributes.push(Attribute::new("log", err));
+                }
+            };
+            let callback_event = Event::new("nois-callback").add_attributes(attributes);
+            Ok(Response::new().add_event(callback_event))
+        }
+        _ => Err(StdError::generic_err("invalid reply id or result")),
     }
 }
 
@@ -154,21 +174,28 @@ pub fn ibc_packet_receive(
         job_id,
     } = from_binary(&packet.packet.data)?;
 
-    let acknowledgement = StdAck::success(&DeliverBeaconPacketAck {});
-
-    // Create the message for executing the callback
-    let msg = SubMsg::new(WasmMsg::Execute {
-        contract_addr: sender,
-        msg: to_binary(&ReceiverExecuteMsg::Receive {
-            callback: NoisCallback {
-                job_id: job_id.clone(),
-                randomness,
-            },
-        })?,
-        funds: vec![],
-    })
+    // Create the message for executing the callback.
+    // This can fail for various reasons, like
+    // - `sender` not being a contract
+    // - the contract does not provide the Receive {} interface
+    // - out of gas
+    // - any other processing error in the callback implementation
+    let msg = SubMsg::reply_on_error(
+        WasmMsg::Execute {
+            contract_addr: sender,
+            msg: to_binary(&ReceiverExecuteMsg::Receive {
+                callback: NoisCallback {
+                    job_id: job_id.clone(),
+                    randomness,
+                },
+            })?,
+            funds: vec![],
+        },
+        CALLBACK_ID,
+    )
     .with_gas_limit(2_000_000);
 
+    let acknowledgement = StdAck::success(&DeliverBeaconPacketAck::Aye {});
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
         .add_attribute("action", "acknowledge_ibc_query")

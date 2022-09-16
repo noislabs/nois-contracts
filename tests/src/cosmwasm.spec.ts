@@ -195,7 +195,7 @@ test.serial("proxy works", async (t) => {
   const { wasmClient, noisProxyAddress, link, noisOracleAddress: noisOracleAddress } = await instantiateAndConnectIbc();
   const bot = await Bot.connect(noisOracleAddress);
 
-  // Query round 1 (existing)
+  t.log("Executing get_next_randomness for a round that already exists");
   {
     await bot.submitNext();
     await wasmClient.sign.execute(
@@ -205,13 +205,20 @@ test.serial("proxy works", async (t) => {
       "auto"
     );
 
-    const info = await link.relayAll();
-    assertPacketsFromA(info, 1, true);
-    const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
+    t.log("Relaying RequestBeacon");
+    const info1 = await link.relayAll();
+    assertPacketsFromA(info1, 1, true);
+    const stdAck1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck1, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
+
+    t.log("Relaying DeliverBeacon");
+    const info2 = await link.relayAll();
+    assertPacketsFromB(info2, 1, true);
+    const stdAck2 = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
+    t.deepEqual(stdAck2, { result: toBinary({ aye: {} }) });
   }
 
-  // Query round 3 (non-existing)
+  t.log("Executing get_next_randomness for a round that does not yet exists");
   {
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
@@ -220,6 +227,7 @@ test.serial("proxy works", async (t) => {
       "auto"
     );
 
+    t.log("Relaying RequestBeacon");
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
