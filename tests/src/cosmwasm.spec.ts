@@ -208,14 +208,14 @@ test.serial("proxy works", async (t) => {
     t.log("Relaying RequestBeacon");
     const info1 = await link.relayAll();
     assertPacketsFromA(info1, 1, true);
-    const stdAck1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck1, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
+    const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
+    t.deepEqual(ack1, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
     assertPacketsFromB(info2, 1, true);
-    const stdAck2 = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
-    t.deepEqual(stdAck2, { result: toBinary({ aye: {} }) });
+    const ack2 = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
+    t.deepEqual(ack2, { result: toBinary({ delivered: { job_id: "eins" } }) });
   }
 
   t.log("Executing get_next_randomness for a round that does not yet exists");
@@ -260,7 +260,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_randomness_after: { after: "1660940884222222222", job_id: "first jobs" } },
+      { get_randomness_after: { after: "1660940884222222222", job_id: "first job" } },
       "auto"
     );
 
@@ -309,8 +309,8 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     await bot.submitNext();
     const info = await link.relayAll();
     assertPacketsFromB(info, 1, true);
-    const stdAck2 = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
-    t.deepEqual(stdAck2, { result: toBinary({ aye: {} }) });
+    const ack = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
+    t.deepEqual(ack, { result: toBinary({ delivered: { job_id: "second job" } }) });
   }
 
   {
@@ -325,8 +325,8 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     await bot.submitNext();
     const info = await link.relayAll();
     assertPacketsFromB(info, 1, true);
-    const stdAck2 = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
-    t.deepEqual(stdAck2, { result: toBinary({ aye: {} }) });
+    const ack = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
+    t.deepEqual(ack, { result: toBinary({ delivered: { job_id: "first job" } }) });
   }
 });
 

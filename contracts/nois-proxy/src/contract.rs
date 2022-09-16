@@ -226,7 +226,9 @@ pub fn ibc_packet_receive(
     )
     .with_gas_limit(2_000_000);
 
-    let acknowledgement = StdAck::success(&DeliverBeaconPacketAck::Aye {});
+    let acknowledgement = StdAck::success(&DeliverBeaconPacketAck::Delivered {
+        job_id: job_id.clone(),
+    });
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
         .add_attribute("action", "acknowledge_ibc_query")

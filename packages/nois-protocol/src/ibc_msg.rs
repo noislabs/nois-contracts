@@ -41,7 +41,7 @@ pub struct DeliverBeaconPacket {
 
 #[cw_serde]
 pub enum DeliverBeaconPacketAck {
-    Aye {},
+    Delivered { job_id: String },
 }
 
 /// This is a generic ICS acknowledgement format.
