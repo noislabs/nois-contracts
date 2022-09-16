@@ -1,5 +1,6 @@
 #!/bin/bash
 
+set -ex
 
 #PREREQS
 # 0 You need Install yq and fetch
@@ -123,7 +124,8 @@ do
         sed -i '' "s#TEMPLATE_CHAIN_NODE_URL#${NODE_URL}#" relayer/nois-relayer-config.yaml
         sed -i '' "s#TEMPLATE_NOIS_DRAND_CONTRACT_ADDRESS#${NOIS_DRAND_CONTRACT_ADDRESS}#" relayer/nois-relayer-config.yaml
         sed -i '' "s#TEMPLATE_NOIS_RPC#${TEMPLATE_NOIS_RPC}#" relayer/nois-relayer-config.yaml
-        sed -i '' "s#TEMPLATE_NOIS_FAUCET#${TEMPLATE_NOIS_FAUCET}#" relayer/nois-relayer-config.yaml        
+        sed -i '' "s#TEMPLATE_NOIS_FAUCET#${TEMPLATE_NOIS_FAUCET}#" relayer/nois-relayer-config.yaml 
+        sed -i '' "s#TEMPLATE_GAS_PRICES#${GAS_PRICES}#" relayer/nois-relayer-config.yaml        
         
         echo "$chain : building relayer docker"
         cd relayer
@@ -138,8 +140,6 @@ do
              echo "$chain : Creating a connection... please note the src and connection ids and define those variables accordingly"
              
              docker run  -e RELAYER_MNEMONIC="$RELAYER_MNEMONIC" $RELAYER_DOCKER_IMAGE:$CHAIN_ID-$NOIS_PROXY_CONTRACT_ADDRESS ibc-setup connect
-             #RELAYER_IBC_SRC_CONNECTION=$($BINARY_NAME query ibc channel channels  --node=$NODE_URL   --limit=100000 |yq -r '.channels[]|select(.version=="'"$RELAYER_IBC_VERSION"'")|.connection_hops[0]'|head -n 1)
-             #yq -i '(.chains[]| select(.name=="'"$chain"'").ibc_connection.src) = "'"$RELAYER_IBC_SRC_CONNECTION"'"' config.yaml
         else echo "$chain : Info: RELAYER_IBC_SRC_CONNECTION and RELAYER_IBC_DEST_CONNECTION are set, skipping connection creation"; 
         fi
         
