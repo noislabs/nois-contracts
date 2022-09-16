@@ -233,6 +233,22 @@ test.serial("proxy works", async (t) => {
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183661" } }) });
   }
+
+  t.log("Executing get_randomness_after for a round that does not yet exists");
+  {
+    await wasmClient.sign.execute(
+      wasmClient.senderAddress,
+      noisProxyAddress,
+      { get_randomness_after: { after: "1663357574000000000", job_id: "drei" } },
+      "auto"
+    );
+
+    t.log("Relaying RequestBeacon");
+    const info = await link.relayAll();
+    assertPacketsFromA(info, 1, true);
+    const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183662" } }) });
+  }
 });
 
 test.serial("demo contract can be used", async (t) => {

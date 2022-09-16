@@ -4,7 +4,8 @@ use cosmwasm_std::{
     from_binary, to_binary, Attribute, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse,
     IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, WasmMsg,
+    QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
+    WasmMsg,
 };
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
@@ -47,6 +48,9 @@ pub fn execute(
         ExecuteMsg::GetNextRandomness { job_id } => {
             execute_get_next_randomness(deps, env, info, job_id)
         }
+        ExecuteMsg::GetRandomnessAfter { after, job_id } => {
+            execute_get_randomness_after(deps, env, info, after, job_id)
+        }
     }
 }
 
@@ -73,6 +77,33 @@ pub fn execute_get_next_randomness(
     let res = Response::new()
         .add_message(msg)
         .add_attribute("action", "execute_get_next_randomness");
+    Ok(res)
+}
+
+pub fn execute_get_randomness_after(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    after: Timestamp,
+    job_id: String,
+) -> Result<Response, ContractError> {
+    let sender = info.sender.into();
+
+    let packet = RequestBeaconPacket {
+        after,
+        sender,
+        job_id,
+    };
+    let channel_id = get_oracle_channel(deps.storage)?;
+    let msg = IbcMsg::SendPacket {
+        channel_id,
+        data: to_binary(&packet)?,
+        timeout: env.block.time.plus_seconds(PACKET_LIFETIME).into(),
+    };
+
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "execute_get_randomness_after");
     Ok(res)
 }
 
