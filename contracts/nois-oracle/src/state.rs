@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Timestamp;
+use cosmwasm_std::{Addr, Timestamp};
 use cw_storage_plus::{Item, Map};
 
 use nois::HexBinary;
@@ -44,6 +44,13 @@ impl QueriedBeacon {
 
 // A map from round number to drand beacon
 pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
+
+#[cw_serde]
+pub struct StoredSubmission {
+    pub time: Timestamp,
+}
+
+pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissions");
 
 pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
 

@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::{Addr, Timestamp};
 use nois::HexBinary;
 
 use crate::state::{Config, QueriedBeacon};
@@ -46,6 +47,8 @@ pub enum QueryMsg {
         /// When unset, an implementation defined default will be used.
         limit: Option<u32>,
     },
+    #[returns(SubmissionsResponse)]
+    Submissions { round: u64 },
 }
 
 // We define a custom struct for each query response
@@ -59,4 +62,18 @@ pub struct BeaconResponse {
 #[cw_serde]
 pub struct BeaconsResponse {
     pub beacons: Vec<QueriedBeacon>,
+}
+
+#[cw_serde]
+pub struct Submission {
+    /// Address of the bot
+    pub bot: Addr,
+    /// Submission time
+    pub time: Timestamp,
+}
+
+#[cw_serde]
+pub struct SubmissionsResponse {
+    pub round: u64,
+    pub submissions: Vec<Submission>,
 }
