@@ -43,13 +43,15 @@ test.before(async (t) => {
 test.serial("Bot can submit to Oracle", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
+  const msg = { test_mode: true };
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,
-    { test_mode: true },
+    msg,
     "Oracle instance",
     "auto"
   );
+  t.log(`Instantiated oracle at ${oracleAddress} with msg ${JSON.stringify(msg)}`);
   t.truthy(oracleAddress);
 
   const before = await osmoClient.sign.queryContractSmart(oracleAddress, {
