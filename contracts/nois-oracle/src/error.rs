@@ -26,4 +26,7 @@ pub enum ContractError {
 
     #[error("Foreign error: {err}")]
     ForeignError { err: String },
+
+    #[error("A submission for the same round from the same bot exists already")]
+    SubmissionExists,
 }

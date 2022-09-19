@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 
-use nois::NoisCallbackMsg;
+use nois::NoisCallback;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -14,7 +14,9 @@ pub enum ExecuteMsg {
         /// An ID for this job which allows for gathering the results.
         job_id: String,
     },
-    Receive(NoisCallbackMsg),
+    Receive {
+        callback: NoisCallback,
+    },
 }
 
 #[cw_serde]

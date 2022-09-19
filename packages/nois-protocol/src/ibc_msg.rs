@@ -1,9 +1,7 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{from_slice, to_binary, Binary, Timestamp};
+use cosmwasm_std::{from_slice, to_binary, Binary, HexBinary, Timestamp};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-
-use nois::Data;
 
 /// This is the message we send over the IBC channel from nois-proxy to nois-oracle
 #[cw_serde]
@@ -12,7 +10,7 @@ pub struct RequestBeaconPacket {
     pub after: Timestamp,
     /// The address from which the proxy was executed, i.e. the randomness consumer
     pub sender: String,
-    pub callback_id: Option<String>,
+    pub job_id: String,
 }
 
 #[cw_serde]
@@ -34,13 +32,15 @@ pub enum RequestBeaconPacketAck {
 pub struct DeliverBeaconPacket {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
     pub source_id: String,
-    pub randomness: Data,
+    pub randomness: HexBinary,
     pub sender: String,
-    pub callback_id: Option<String>,
+    pub job_id: String,
 }
 
 #[cw_serde]
-pub struct DeliverBeaconPacketAck {}
+pub enum DeliverBeaconPacketAck {
+    Delivered { job_id: String },
+}
 
 /// This is a generic ICS acknowledgement format.
 /// Proto defined here: https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147

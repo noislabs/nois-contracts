@@ -1,8 +1,8 @@
 use cosmwasm_std::{
-    entry_point, to_binary, CheckedFromRatioError, Decimal, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryResponse, Response, StdResult, WasmMsg,
+    ensure_eq, entry_point, to_binary, CheckedFromRatioError, Decimal, Deps, DepsMut, Env,
+    MessageInfo, Order, QueryResponse, Response, StdResult, WasmMsg,
 };
-use nois::{random_decimal, sub_randomness, Data, NoisCallbackMsg, ProxyExecuteMsg};
+use nois::{random_decimal, sub_randomness, NoisCallback, ProxyExecuteMsg};
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -34,10 +34,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::EstimatePi { job_id } => execute_estimate_pi(deps, env, info, job_id),
-        ExecuteMsg::Receive(NoisCallbackMsg {
-            id: callback_id,
-            randomness,
-        }) => execute_receive(deps, env, info, callback_id, randomness),
+        ExecuteMsg::Receive { callback } => execute_receive(deps, env, info, callback),
     }
 }
 
@@ -51,9 +48,7 @@ pub fn execute_estimate_pi(
 
     let res = Response::new().add_message(WasmMsg::Execute {
         contract_addr: nois_proxy.into(),
-        msg: to_binary(&ProxyExecuteMsg::GetNextRandomness {
-            callback_id: Some(job_id),
-        })?,
+        msg: to_binary(&ProxyExecuteMsg::GetNextRandomness { job_id })?,
         funds: vec![],
     });
     Ok(res)
@@ -62,10 +57,13 @@ pub fn execute_estimate_pi(
 pub fn execute_receive(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
-    callback_id: String,
-    randomness: Data,
+    info: MessageInfo,
+    callback: NoisCallback,
 ) -> Result<Response, ContractError> {
+    let proxy = NOIS_PROXY.load(deps.storage)?;
+    ensure_eq!(info.sender, proxy, ContractError::UnauthorizedReceive);
+
+    let NoisCallback { job_id, randomness } = callback;
     let randomness: [u8; 32] = randomness
         .to_array()
         .map_err(|_| ContractError::InvalidRandomness)?;
@@ -93,7 +91,7 @@ pub fn execute_receive(
     let four = Decimal::from_atomics(4u32, 0).unwrap();
     let estimated_pi = in_circle_ratio * four;
 
-    RESULTS.save(deps.storage, &callback_id, &estimated_pi)?;
+    RESULTS.save(deps.storage, &job_id, &estimated_pi)?;
 
     Ok(Response::default())
 }
@@ -122,9 +120,13 @@ fn query_result(deps: Deps, job_id: String) -> StdResult<Option<Decimal>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::{
+        testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
+        Empty, HexBinary, OwnedDeps,
+    };
 
     const CREATOR: &str = "creator";
+    const PROXY_ADDRESS: &str = "the proxy of choice";
 
     #[test]
     fn instantiate_works() {
@@ -146,5 +148,61 @@ mod tests {
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(res, ContractError::InvalidProxyAddress);
+    }
+
+    fn instantiate_proxy() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            nois_proxy: PROXY_ADDRESS.to_string(),
+        };
+        let info = mock_info(CREATOR, &[]);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        deps
+    }
+
+    #[test]
+    fn execute_estimate_pi_works() {
+        let mut deps = instantiate_proxy();
+
+        let msg = ExecuteMsg::EstimatePi {
+            job_id: "123".to_owned(),
+        };
+        let info = mock_info("guest", &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    }
+
+    #[test]
+    fn execute_receive_works() {
+        let mut deps = instantiate_proxy();
+
+        let msg = ExecuteMsg::Receive {
+            callback: NoisCallback {
+                job_id: "123".to_string(),
+                randomness: HexBinary::from_hex(
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                )
+                .unwrap(),
+            },
+        };
+        let info = mock_info(PROXY_ADDRESS, &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+    }
+
+    #[test]
+    fn execute_receive_fails_for_wrong_sender() {
+        let mut deps = instantiate_proxy();
+
+        let msg = ExecuteMsg::Receive {
+            callback: NoisCallback {
+                job_id: "123".to_string(),
+                randomness: HexBinary::from_hex(
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                )
+                .unwrap(),
+            },
+        };
+        let info = mock_info("guest", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::UnauthorizedReceive));
     }
 }

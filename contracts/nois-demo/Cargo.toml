@@ -1,6 +1,6 @@
 [package]
 name = "nois-demo"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Simon Warta <webmaster128@users.noreply.github.com>"]
 edition = "2021"
 publish = false
@@ -31,7 +31,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 cosmwasm-std = { version = "1.1.0", features = ["iterator"] }
 cosmwasm-schema = { version = "1.1.0" }
 cw-storage-plus = { version = "0.14.0" }
-nois = { git = "https://github.com/noislabs/nois.git", branch = "main" }
+nois = "0.5.0"
 schemars = "0.8.1"
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }

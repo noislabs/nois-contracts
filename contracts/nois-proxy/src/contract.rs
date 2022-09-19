@@ -1,24 +1,26 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Deps, DepsMut, Env, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, QueryResponse,
-    Response, StdResult, Storage, SubMsg, WasmMsg,
+    from_binary, to_binary, Attribute, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse,
+    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
+    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
+    QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
+    WasmMsg,
 };
-use nois::NoisCallbackMsg;
+use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck,
 };
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ReceiverExecuteMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 
 // TODO: make configurable?
 /// packets live one hour
 pub const PACKET_LIFETIME: u64 = 60 * 60;
+pub const CALLBACK_ID: u64 = 456;
 
 pub const SAFETY_MARGIN: u64 = 3; // seconds
 
@@ -43,8 +45,11 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::GetNextRandomness { callback_id } => {
-            execute_get_next_randomness(deps, env, info, callback_id)
+        ExecuteMsg::GetNextRandomness { job_id } => {
+            execute_get_next_randomness(deps, env, info, job_id)
+        }
+        ExecuteMsg::GetRandomnessAfter { after, job_id } => {
+            execute_get_randomness_after(deps, env, info, after, job_id)
         }
     }
 }
@@ -53,14 +58,14 @@ pub fn execute_get_next_randomness(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    callback_id: Option<String>,
+    job_id: String,
 ) -> Result<Response, ContractError> {
     let sender = info.sender.into();
 
     let packet = RequestBeaconPacket {
         after: env.block.time.plus_seconds(SAFETY_MARGIN),
         sender,
-        callback_id,
+        job_id,
     };
     let channel_id = get_oracle_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
@@ -75,11 +80,57 @@ pub fn execute_get_next_randomness(
     Ok(res)
 }
 
+pub fn execute_get_randomness_after(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    after: Timestamp,
+    job_id: String,
+) -> Result<Response, ContractError> {
+    let sender = info.sender.into();
+
+    let packet = RequestBeaconPacket {
+        after,
+        sender,
+        job_id,
+    };
+    let channel_id = get_oracle_channel(deps.storage)?;
+    let msg = IbcMsg::SendPacket {
+        channel_id,
+        data: to_binary(&packet)?,
+        timeout: env.block.time.plus_seconds(PACKET_LIFETIME).into(),
+    };
+
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "execute_get_randomness_after");
+    Ok(res)
+}
+
 fn get_oracle_channel(storage: &dyn Storage) -> Result<String, ContractError> {
     let data = ORACLE_CHANNEL.may_load(storage)?;
     match data {
         Some(d) => Ok(d),
         None => Err(ContractError::UnsetChannel),
+    }
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
+    match reply.id {
+        CALLBACK_ID => {
+            let mut attributes = vec![];
+            match reply.result {
+                SubMsgResult::Ok(_) => attributes.push(Attribute::new("success", "true")),
+                SubMsgResult::Err(err) => {
+                    attributes.push(Attribute::new("success", "false"));
+                    attributes.push(Attribute::new("log", err));
+                }
+            };
+            let callback_event = Event::new("nois-callback").add_attributes(attributes);
+            Ok(Response::new().add_event(callback_event))
+        }
+        _ => Err(StdError::generic_err("invalid reply id or result")),
     }
 }
 
@@ -151,33 +202,38 @@ pub fn ibc_packet_receive(
         source_id: _,
         randomness,
         sender,
-        callback_id,
+        job_id,
     } = from_binary(&packet.packet.data)?;
 
-    let acknowledgement = StdAck::success(&DeliverBeaconPacketAck {});
-
-    match callback_id {
-        Some(callback_id) => {
-            // Send IBC packet ack message to another contract
-            let msg = SubMsg::new(WasmMsg::Execute {
-                contract_addr: sender,
-                msg: to_binary(&ReceiverExecuteMsg::Receive(NoisCallbackMsg {
-                    id: callback_id.clone(),
+    // Create the message for executing the callback.
+    // This can fail for various reasons, like
+    // - `sender` not being a contract
+    // - the contract does not provide the Receive {} interface
+    // - out of gas
+    // - any other processing error in the callback implementation
+    let msg = SubMsg::reply_on_error(
+        WasmMsg::Execute {
+            contract_addr: sender,
+            msg: to_binary(&ReceiverExecuteMsg::Receive {
+                callback: NoisCallback {
+                    job_id: job_id.clone(),
                     randomness,
-                }))?,
-                funds: vec![],
-            })
-            .with_gas_limit(2_000_000);
-            Ok(IbcReceiveResponse::new()
-                .set_ack(acknowledgement)
-                .add_attribute("action", "acknowledge_ibc_query")
-                .add_attribute("callback_id", callback_id)
-                .add_submessage(msg))
-        }
-        None => Ok(IbcReceiveResponse::new()
-            .set_ack(acknowledgement)
-            .add_attribute("action", "acknowledge_ibc_query")),
-    }
+                },
+            })?,
+            funds: vec![],
+        },
+        CALLBACK_ID,
+    )
+    .with_gas_limit(2_000_000);
+
+    let acknowledgement = StdAck::success(&DeliverBeaconPacketAck::Delivered {
+        job_id: job_id.clone(),
+    });
+    Ok(IbcReceiveResponse::new()
+        .set_ack(acknowledgement)
+        .add_attribute("action", "acknowledge_ibc_query")
+        .add_attribute("job_id", job_id)
+        .add_submessage(msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

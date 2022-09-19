@@ -1,13 +1,12 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Attribute, Binary, CosmosMsg, Deps, DepsMut,
-    Env, Event, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, Binary, CosmosMsg, Deps,
+    DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order,
     QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed, verify};
-use nois::Data;
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
@@ -17,9 +16,11 @@ use crate::drand::{DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_
 use crate::error::ContractError;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
+    Submission, SubmissionsResponse,
 };
 use crate::state::{
-    Config, Job, QueriedBeacon, VerifiedBeacon, BEACONS, CONFIG, DRAND_JOBS, TEST_MODE_NEXT_ROUND,
+    Config, Job, QueriedBeacon, StoredSubmission, VerifiedBeacon, BEACONS, CONFIG, DRAND_JOBS,
+    SUBMISSIONS, TEST_MODE_NEXT_ROUND,
 };
 
 // TODO: make configurable?
@@ -67,6 +68,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::BeaconsDesc { start_after, limit } => {
             to_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
         }
+        QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
     };
     Ok(response)
 }
@@ -101,6 +103,24 @@ fn query_beacons(
         .map(|c| c.map(|(round, beacon)| QueriedBeacon::make(beacon, round)))
         .collect::<Result<_, _>>()?;
     Ok(BeaconsResponse { beacons })
+}
+
+// Query submissions by round
+fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
+    let min_addr = Addr::unchecked("\0"); // NULL: lower than all printable ASCII
+    let max_addr = Addr::unchecked("\x7f"); // DEL: larger than all printable ASCII
+    let from = Some(Bound::inclusive((round, &min_addr)));
+    let to = Some(Bound::exclusive((round, &max_addr)));
+    let submissions = SUBMISSIONS.range(deps.storage, from, to, Order::Ascending);
+    let submissions: Vec<Submission> = submissions
+        .map(|item| {
+            item.map(|((_round, bot), submission)| Submission {
+                bot,
+                time: submission.time,
+            })
+        })
+        .collect::<Result<_, _>>()?;
+    Ok(SubmissionsResponse { round, submissions })
 }
 
 #[entry_point]
@@ -165,7 +185,7 @@ pub fn ibc_packet_receive(
     // which local channel did this packet come on
     let channel = packet.dest.channel_id;
     let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-    receive_get_beacon(deps, env, channel, msg.after, msg.sender, msg.callback_id)
+    receive_get_beacon(deps, env, channel, msg.after, msg.sender, msg.job_id)
 }
 
 fn receive_get_beacon(
@@ -174,7 +194,7 @@ fn receive_get_beacon(
     channel: String,
     after: Timestamp,
     sender: String,
-    callback_id: Option<String>,
+    job_id: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let Config { test_mode, .. } = CONFIG.load(deps.storage)?;
     let mode = if test_mode {
@@ -188,7 +208,7 @@ fn receive_get_beacon(
         source_id: source_id.clone(),
         channel,
         sender,
-        callback_id,
+        job_id,
     };
 
     let beacon = BEACONS.may_load(deps.storage, round)?;
@@ -222,7 +242,7 @@ fn process_job(
 ) -> Result<IbcMsg, ContractError> {
     let packet = DeliverBeaconPacket {
         sender: job.sender,
-        callback_id: job.callback_id,
+        job_id: job.job_id,
         randomness: beacon.randomness.clone(),
         source_id: job.source_id,
     };
@@ -255,8 +275,9 @@ fn next_round(storage: &mut dyn Storage, mode: NextRoundMode) -> StdResult<(u64,
                 1
             } else {
                 let from_genesis = base.nanos() - DRAND_GENESIS.nanos();
-                let next_round = (from_genesis / DRAND_ROUND_LENGTH) + 1;
-                next_round + 1
+                let periods_since_genesis = from_genesis / DRAND_ROUND_LENGTH;
+                let next_period_index = periods_since_genesis + 1;
+                next_period_index + 1 // Convert 0-based counting to 1-based counting
             };
             let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
             Ok((round, source_id))
@@ -296,8 +317,8 @@ fn execute_add_round(
     env: Env,
     info: MessageInfo,
     round: u64,
-    previous_signature: Data,
-    signature: Data,
+    previous_signature: HexBinary,
+    signature: HexBinary,
 ) -> Result<Response, ContractError> {
     // Handle sender is not sending funds
     if !info.funds.is_empty() {
@@ -311,7 +332,7 @@ fn execute_add_round(
         return Err(ContractError::InvalidSignature {});
     }
 
-    let randomness: Data = derive_randomness(signature.as_slice()).into();
+    let randomness: HexBinary = derive_randomness(signature.as_slice()).into();
 
     let beacon = &VerifiedBeacon {
         verified: env.block.time,
@@ -323,6 +344,19 @@ fn execute_add_round(
         Attribute::new("randomness", randomness.to_hex()),
         Attribute::new("worker", info.sender.to_string()),
     ];
+
+    let submissions_key = (round, &info.sender);
+
+    if SUBMISSIONS.has(deps.storage, submissions_key) {
+        return Err(ContractError::SubmissionExists);
+    }
+    SUBMISSIONS.save(
+        deps.storage,
+        submissions_key,
+        &StoredSubmission {
+            time: env.block.time,
+        },
+    )?;
 
     if !BEACONS.has(deps.storage, round) {
         // Round is new
@@ -402,7 +436,7 @@ mod tests {
         let msg = InstantiateMsg { test_mode: true };
         let info = mock_info("creator", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len())
+        assert_eq!(0, res.messages.len());
     }
 
     //
@@ -421,8 +455,8 @@ mod tests {
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
-            previous_signature: Data::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
-            signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -455,7 +489,7 @@ mod tests {
         match result.unwrap_err() {
             ContractError::InvalidSignature {} => {}
             err => panic!("Unexpected error: {:?}", err),
-        }
+        };
     }
 
     #[test]
@@ -477,7 +511,7 @@ mod tests {
         match result.unwrap_err() {
             ContractError::InvalidSignature {} => {}
             err => panic!("Unexpected error: {:?}", err),
-        }
+        };
     }
 
     #[test]
@@ -491,8 +525,8 @@ mod tests {
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
-            previous_signature: Data::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
-            signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
 
         // Execute 1
@@ -519,7 +553,39 @@ mod tests {
         assert_eq!(
             randomness_attr.value,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
-        )
+        );
+    }
+
+    #[test]
+    fn add_round_fails_when_same_bot_submits_multiple_times() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg { test_mode: true };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/72785
+            round: 72785,
+            previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+        };
+
+        // Execute A1
+        let info = mock_info("bot_alice", &[]);
+        execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        // Execute B1
+        let info = mock_info("bot_bob", &[]);
+        execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+
+        // Execute A2
+        let info = mock_info("bot_alice", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+        assert!(matches!(err, ContractError::SubmissionExists));
+        // Execute B2
+        let info = mock_info("bot_alice", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::SubmissionExists));
     }
 
     #[test]
@@ -530,7 +596,7 @@ mod tests {
         let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        add_test_rounds(deps.as_mut());
+        add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
         let BeaconsResponse { beacons } = from_binary(
@@ -621,7 +687,7 @@ mod tests {
         let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        add_test_rounds(deps.as_mut());
+        add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
         let BeaconsResponse { beacons } = from_binary(
@@ -704,31 +770,101 @@ mod tests {
         assert_eq!(response_rounds, Vec::<u64>::new());
     }
 
-    // Adds round 72785, 72786, 72787
-    fn add_test_rounds(mut deps: DepsMut) {
+    #[test]
+    fn query_submissions_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg { test_mode: true };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        add_test_rounds(deps.as_mut(), "bot1");
+
+        // No submissions
+        let response: SubmissionsResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Submissions { round: 72777 },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.round, 72777);
+        assert_eq!(response.submissions, Vec::<_>::new());
+
+        // One submission
+        let response: SubmissionsResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Submissions { round: 72785 },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.round, 72785);
+        assert_eq!(
+            response.submissions,
+            [Submission {
+                bot: Addr::unchecked("bot1"),
+                time: Timestamp::from_nanos(1571797419879305533),
+            }]
+        );
+
+        add_test_rounds(deps.as_mut(), "bot2");
+
+        // Two submissions
+        let response: SubmissionsResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Submissions { round: 72785 },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.round, 72785);
+        assert_eq!(
+            response.submissions,
+            [
+                Submission {
+                    bot: Addr::unchecked("bot1"),
+                    time: Timestamp::from_nanos(1571797419879305533),
+                },
+                Submission {
+                    bot: Addr::unchecked("bot2"),
+                    time: Timestamp::from_nanos(1571797419879305533),
+                }
+            ]
+        );
+    }
+
+    /// Adds round 72785, 72786, 72787
+    fn add_test_rounds(mut deps: DepsMut, bot_addr: &str) {
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
-            previous_signature: Data::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
-            signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+            signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
-        let info = mock_info("anyone", &[]);
+        let info = mock_info(bot_addr, &[]);
         execute(deps.branch(), mock_env(), info, msg).unwrap();
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72786
             round: 72786,
-            previous_signature: Data::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
-            signature: Data::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
+            previous_signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            signature: HexBinary::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
         };
-        let info = mock_info("anyone", &[]);
+        let info = mock_info(bot_addr, &[]);
         execute(deps.branch(), mock_env(), info, msg).unwrap();
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72787
             round: 72787,
-            previous_signature: Data::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
-            signature: Data::from_hex("8ceee95d523f54a752807f4705ce0f89e69911dd3dce330a337b9409905a881a2f879d48fce499bfeeb3b12e7f83ab7d09b42f31fa729af4c19adfe150075b2f3fe99c8fbcd7b0b5f0bb91ac8ad8715bfe52e3fb12314fddb76d4e42461f6ea4").unwrap(),
+            previous_signature: HexBinary::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
+            signature: HexBinary::from_hex("8ceee95d523f54a752807f4705ce0f89e69911dd3dce330a337b9409905a881a2f879d48fce499bfeeb3b12e7f83ab7d09b42f31fa729af4c19adfe150075b2f3fe99c8fbcd7b0b5f0bb91ac8ad8715bfe52e3fb12314fddb76d4e42461f6ea4").unwrap(),
         };
-        let info = mock_info("anyone", &[]);
+        let info = mock_info(bot_addr, &[]);
         execute(deps.branch(), mock_env(), info, msg).unwrap();
     }
 
