@@ -1,6 +1,6 @@
 [package]
 name = "nois-proxy"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
 edition = "2021"
 publish = false
