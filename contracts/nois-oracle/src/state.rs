@@ -1,8 +1,6 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Timestamp};
+use cosmwasm_std::{Addr, HexBinary, Timestamp};
 use cw_storage_plus::{Item, Map};
-
-use nois::HexBinary;
 
 use crate::drand::time_of_round;
 

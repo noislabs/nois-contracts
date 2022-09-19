@@ -1,6 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Timestamp};
-use nois::HexBinary;
+use cosmwasm_std::{Addr, HexBinary, Timestamp};
 
 use crate::state::{Config, QueriedBeacon};
 

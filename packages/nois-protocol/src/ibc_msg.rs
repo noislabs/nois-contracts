@@ -1,9 +1,7 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{from_slice, to_binary, Binary, Timestamp};
+use cosmwasm_std::{from_slice, to_binary, Binary, HexBinary, Timestamp};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-
-use nois::HexBinary;
 
 /// This is the message we send over the IBC channel from nois-proxy to nois-oracle
 #[cw_serde]

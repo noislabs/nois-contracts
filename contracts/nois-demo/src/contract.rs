@@ -122,9 +122,8 @@ mod tests {
     use super::*;
     use cosmwasm_std::{
         testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-        Empty, OwnedDeps,
+        Empty, HexBinary, OwnedDeps,
     };
-    use nois::HexBinary;
 
     const CREATOR: &str = "creator";
     const PROXY_ADDRESS: &str = "the proxy of choice";
