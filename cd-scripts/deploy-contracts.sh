@@ -115,6 +115,7 @@ do
         echo "$chain : generating relayer config"
         cp relayer/nois-relayer-config-template.yaml relayer/nois-relayer-config.yaml
         sed -i '' "s#TEMPLATE_RELAYER_NOIS_NAME#${COUNTER_PART_CHAIN}#" relayer/nois-relayer-config.yaml
+        sed -i '' "s#TEMPLATE_RELAYER_NOIS_CHAIN_ID#${COUNTER_PART_CHAIN}#" relayer/nois-relayer-config.yaml
         sed -i '' "s#TEMPLATE_RELAYER_CHAIN_NAME#${CHAIN_ID}#" relayer/nois-relayer-config.yaml
         sed -i '' "s#TEMPLATE_CHAIN_ID#${CHAIN_ID}#" relayer/nois-relayer-config.yaml
         sed -i '' "s#TEMPLATE_CHAIN_PREFIX#${PREFIX}#" relayer/nois-relayer-config.yaml

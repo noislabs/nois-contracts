@@ -2,7 +2,7 @@ version: 1
 
 chains:
   TEMPLATE_RELAYER_NOIS_NAME:
-    chain_id: nois-testnet-000
+    chain_id: TEMPLATE_RELAYER_NOIS_CHAIN_ID
     prefix: nois
     gas_price: 0.1unois
     hd_path: m/44'/118'/0'/0/0
