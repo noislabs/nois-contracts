@@ -506,8 +506,9 @@ checksum = "349d5a591cd28b49e1d1037471617a32ddcda5731b99419008085f72d5a53836"
 
 [[package]]
 name = "nois"
-version = "0.4.2"
-source = "git+https://github.com/noislabs/nois.git?branch=0.5-dev#437b0c7151241c0e62445f48c6e1bfadbd6bb001"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa2cf94202fef936ed8330fdfd08b2fb9b4d707d6e958fb9c01bad79227fc526"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
