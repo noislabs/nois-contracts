@@ -43,6 +43,8 @@ impl QueriedBeacon {
 // A map from round number to drand beacon
 pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
 
+pub const BOTS: Map<Addr, Bot> = Map::new("bots");
+
 #[cw_serde]
 pub struct StoredSubmission {
     pub time: Timestamp,
@@ -51,6 +53,13 @@ pub struct StoredSubmission {
 pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissions");
 
 pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
+
+#[cw_serde]
+pub struct Bot {
+    pub moniker: String,
+    pub address: Addr,
+    pub number_of_added_rounds: u64,
+}
 
 #[cw_serde]
 pub struct Job {
