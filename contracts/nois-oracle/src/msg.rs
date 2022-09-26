@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, HexBinary, Timestamp};
 
-use crate::state::{Config, QueriedBeacon};
+use crate::state::{Bot, Config, QueriedBeacon};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -17,6 +17,9 @@ pub enum ExecuteMsg {
         previous_signature: HexBinary,
         signature: HexBinary,
     },
+    RegisterBot {
+        moniker: String,
+    },
 }
 
 #[cw_serde]
@@ -25,6 +28,9 @@ pub enum QueryMsg {
     /// Get the config state
     #[returns(ConfigResponse)]
     Config {},
+    /// Gets registered bots
+    #[returns(BotsResponse)]
+    Bots {},
     /// Get a specific drand round
     #[returns(BeaconResponse)]
     Beacon { round: u64 },
@@ -56,6 +62,11 @@ pub type ConfigResponse = Config;
 #[cw_serde]
 pub struct BeaconResponse {
     pub beacon: Option<QueriedBeacon>,
+}
+
+#[cw_serde]
+pub struct BotsResponse {
+    pub bots: Vec<Bot>,
 }
 
 #[cw_serde]
