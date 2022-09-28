@@ -329,18 +329,19 @@ fn execute_register_bot(
     info: MessageInfo,
     moniker: String,
 ) -> Result<Response, ContractError> {
-    if !BOTS.has(deps.storage, info.sender.to_owned()) {
-        // Bot is new
-        let bot = Bot {
-            moniker: (moniker),
-            address: (info.sender),
-            number_of_added_rounds: (0),
-        };
-        BOTS.save(deps.storage, bot.address.to_owned(), &bot)?;
-    } else {
-        let mut bot = BOTS.load(deps.storage, info.sender)?;
-        bot.moniker = moniker;
-        BOTS.save(deps.storage, bot.address.to_owned(), &bot)?;
+    match BOTS.may_load(deps.storage, info.sender.to_owned())? {
+        Some(mut bot) => {
+            bot.moniker = moniker;
+            BOTS.save(deps.storage, bot.address.to_owned(), &bot)?;
+        }
+        _ => {
+            let bot = Bot {
+                moniker: (moniker),
+                address: (info.sender),
+                number_of_added_rounds: (0),
+            };
+            BOTS.save(deps.storage, bot.address.to_owned(), &bot)?;
+        }
     }
     Ok(Response::default())
 }
@@ -356,10 +357,6 @@ fn execute_add_round(
     // Handle sender is not sending funds
     if !info.funds.is_empty() {
         return Err(StdError::generic_err("Do not send funds").into());
-    }
-
-    if !BOTS.has(deps.storage, info.sender.to_owned()) {
-        return Err(ContractError::BotNotRegistered {});
     }
 
     let pk = g1_from_fixed(DRAND_MAINNET_PUBKEY).map_err(|_| ContractError::InvalidPubkey {})?;
@@ -387,9 +384,13 @@ fn execute_add_round(
     if SUBMISSIONS.has(deps.storage, submissions_key) {
         return Err(ContractError::SubmissionExists);
     }
-    let mut bot = BOTS.load(deps.storage, info.sender.to_owned())?;
-    bot.number_of_added_rounds += 1;
-    BOTS.save(deps.storage, bot.address.to_owned(), &bot)?;
+
+    let bot = BOTS.may_load(deps.storage, info.sender.to_owned())?;
+    if bot.is_some() {
+        bot.to_owned().unwrap().number_of_added_rounds += 1;
+        BOTS.save(deps.storage, info.sender.to_owned(), &bot.unwrap())?;
+    }
+
     SUBMISSIONS.save(
         deps.storage,
         submissions_key,
@@ -519,23 +520,30 @@ mod tests {
     }
 
     #[test]
-    fn unregistered_bot_cannot_add_round() {
+    fn unregistered_bot_can_add_round() {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("unregistered bot", &[]);
         let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/public/72785
-            round: 72785,
-            previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
-            signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
-        };
-
-        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
-        assert!(matches!(err, ContractError::BotNotRegistered));
+                // curl -sS https://drand.cloudflare.com/public/72785
+                round: 72785,
+                previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+                signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            };
+        let info = mock_info("unregistered_bot", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let randomness_attr = response
+            .attributes
+            .iter()
+            .find(|Attribute { key, .. }| key == "randomness")
+            .unwrap();
+        assert_eq!(
+            randomness_attr.value,
+            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
+        );
     }
     #[test]
     fn add_round_fails_for_broken_signature() {
