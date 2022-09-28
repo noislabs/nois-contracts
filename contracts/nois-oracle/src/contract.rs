@@ -84,7 +84,6 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 
 fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
     let bots = BOTS
-        // .keys(deps.storage, None, None, Order::Ascending)
         .prefix_range(deps.storage, None, None, Order::Ascending)
         .map(|bot| (bot.unwrap().1))
         .collect();
@@ -388,7 +387,6 @@ fn execute_add_round(
         BOTS.save(deps.storage, info.sender.to_owned(), &bot.unwrap())?;
     }
 
-
     SUBMISSIONS.save(
         deps.storage,
         submissions_key,
@@ -412,13 +410,17 @@ fn execute_add_round(
         Attribute::new("worker", info.sender.to_string()),
         Attribute::new("bot_incentive", bot_desired_incentive.to_string()),
     ];
+
     let mut response = Response::new().add_attributes(attributes);
-    if contract_balance > bot_desired_incentive.into() {
+    if contract_balance > bot_desired_incentive.into()
+        && BOTS.has(deps.storage, info.sender.to_owned())
+    {
+        //Bot registered and there's enough funds in the contract
         let bot_incentive_msg = BankMsg::Send {
             to_address: info.sender.to_string(),
             amount: vec![Coin::new(bot_desired_incentive, denom)],
         };
-        response.add_message(bot_incentive_msg);
+        response = response.add_message(bot_incentive_msg);
     }
 
     if !BEACONS.has(deps.storage, round) {
@@ -924,6 +926,10 @@ mod tests {
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
         assert_eq!(response_rounds, Vec::<u64>::new());
     }
+
+    //TODO Add a test to check that an unregistered bot does not get incentives
+    //TODO Add a test to check that an registered bot gets incentives
+    //TODO Add a test to check that when a contract does not have enough balance no incentives are given
 
     #[test]
     fn query_submissions_works() {
