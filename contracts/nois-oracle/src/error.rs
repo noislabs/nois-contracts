@@ -21,9 +21,6 @@ pub enum ContractError {
     #[error("Invalid public key")]
     InvalidPubkey,
 
-    #[error("Bot not registered")]
-    BotNotRegistered,
-
     #[error("Invalid signature")]
     InvalidSignature,
 
