@@ -379,7 +379,6 @@ fn execute_add_round(
         randomness: randomness.clone(),
     };
 
-
     let submissions_key = (round, &info.sender);
 
     if SUBMISSIONS.has(deps.storage, submissions_key) {
@@ -400,26 +399,26 @@ fn execute_add_round(
     //Pay the bot incentive
     let denom = CONFIG.load(deps.storage)?.native_denom;
     let bot_incentive_base_price = CONFIG.load(deps.storage)?.bot_incentive_base_price;
-    let contract_balance = deps.querier.query_balance(&env.contract.address, &denom)?.amount;
-    let bot_desired_incentive=calculate_bot_incentive_coefficient() * bot_incentive_base_price.u128();
-    //let bot_incentive = contract_balance > bot_desired_incentive.into();
-    let mut bot_incentive_msg=None;
-    if contract_balance > bot_desired_incentive.into(){
-            bot_incentive_msg = BankMsg::Send {
-            to_address: info.sender.to_string(),
-            amount: vec![Coin::new(
-                bot_desired_incentive,
-                denom,
-            )],
-        }.into();
-    }
-    
+    let contract_balance = deps
+        .querier
+        .query_balance(&env.contract.address, &denom)?
+        .amount;
+    let bot_desired_incentive =
+        calculate_bot_incentive_coefficient() * bot_incentive_base_price.u128();
     let attributes = vec![
         Attribute::new("round", round.to_string()),
         Attribute::new("randomness", randomness.to_hex()),
         Attribute::new("worker", info.sender.to_string()),
-        Attribute::new("bot_incentive",bot_desired_incentive.to_string()),
+        Attribute::new("bot_incentive", bot_desired_incentive.to_string()),
     ];
+    let mut response = Response::new().add_attributes(attributes);
+    if contract_balance > bot_desired_incentive.into() {
+        let bot_incentive_msg = BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: vec![Coin::new(bot_desired_incentive, denom)],
+        };
+        response.add_message(bot_incentive_msg);
+    }
 
     if !BEACONS.has(deps.storage, round) {
         // Round is new
@@ -435,25 +434,12 @@ fn execute_add_round(
                 msgs.push(msg.into());
             }
         }
-        match bot_incentive_msg {
-            None => {
-                Ok(Response::new()
-                    .add_messages(msgs)
-                    .add_attributes(attributes))
-            },
-            Some(bot_msg) =>{
-                Ok(Response::new()
-                    .add_messages(msgs)
-                    .add_message(bot_msg)
-                    .add_attributes(attributes))
-            },
-            
-        }
-        
+
+        Ok(response.add_messages(msgs))
     } else {
         // Round has already been verified and must not be overriden to not
         // get a wrong `verified` timestamp.
-        Ok(Response::new().add_attributes(attributes))
+        Ok(response)
     }
 }
 
