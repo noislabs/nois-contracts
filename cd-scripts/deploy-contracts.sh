@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 #PREREQS
 # 0 You need Install yq and fetch
@@ -66,11 +66,12 @@ do
         CONTRACTS_ADDRESS=$(yq -r '.chains[]| select(.name=="'"$chain"'").wasm.contracts[]| select(.name=="'"$contract"'").address' config.yaml)
         CONTRACT_INSTATIATION_MSG=$(yq -r '.chains[]| select(.name=="'"$chain"'").wasm.contracts[]| select(.name=="'"$contract"'").instantiation_msg' config.yaml)
         
-        if [ "$CONTRACT_INSTATIATION_MSG" == "defined-in-deployment-script-nois-demo" ] ;
+        if [ "$CONTRACT_INSTATIATION_MSG" == "defined-in-deployment-script-nois-demo" ] || [ "$CONTRACT_INSTATIATION_MSG" == "double_dice_roll_instantiate_msg" ] ;
         then 
         PROXY_ADDRESS=$(yq -r '.chains[]| select(.name=="'"$chain"'").wasm.contracts[]| select(.name=="nois-proxy").address' config.yaml)
         CONTRACT_INSTATIATION_MSG='{"nois_proxy":"'"$PROXY_ADDRESS"'"}'
         fi
+        
 
 
         if [ "$CONTRACTS_ADDRESS" == "~" ] ||  [ "$CONTRACTS_ADDRESS" == "null" ] || [ ${#CONTRACTS_ADDRESS} -le 10 ] ;
