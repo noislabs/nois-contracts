@@ -2,13 +2,14 @@
 #PREREQS
 # 0 You have already run the deploy-contracts script
 
+
 SCRIPT_DIR="cd-scripts"
 KEYRING_KEY_NAME="deployment-key"
 
 cd $SCRIPT_DIR
 
 chain=elgafar-1
-contract=nois-demo
+contract=double-dice-roll
 
 NOIS_DEMO_CONTRACT_ADDRESS=$(cat config.yaml|yq -r '.chains[]| select(.name=="'"$chain"'").wasm.contracts[]| select(.name=="'"$contract"'").address' )
 BINARY_NAME=($(yq -r '.chains[]| select(.name=="'"$chain"'").binary_name' config.yaml))
@@ -35,13 +36,12 @@ while true
 do
    timestamp=$(date +%s)
    result="null"
-   echo "$timestamp"
-   $BINARY_NAME tx wasm execute $NOIS_DEMO_CONTRACT_ADDRESS  '{"estimate_pi": {"job_id": "'"$timestamp"'"}}'  --from $KEYRING_KEY_NAME --chain-id $CHAIN_ID   --gas=auto --gas-adjustment 1.4  --gas-prices=$GAS_PRICES$DENOM --broadcast-mode=block --node=$NODE_URL -y >/dev/null
+   $BINARY_NAME tx wasm execute $NOIS_DEMO_CONTRACT_ADDRESS  '{"roll_dice": {"job_id": "'"$timestamp"'"}}'  --from $KEYRING_KEY_NAME --chain-id $CHAIN_ID   --gas=auto --gas-adjustment 1.4  --gas-prices=$GAS_PRICES$DENOM --broadcast-mode=block --node=$NODE_URL -y >/dev/null
    SECONDS=0
    i=0
    while [ "$result" == "null" ] && [ "$i" -lt "$TTL" ] 
    do
-     result=$($BINARY_NAME query wasm  contract-state  smart $NOIS_DEMO_CONTRACT_ADDRESS  '{"result": {"job_id":"'"$timestamp"'"}}'  --node=$NODE_URL |yq -r '.data')
+     result=$($BINARY_NAME query wasm  contract-state  smart $NOIS_DEMO_CONTRACT_ADDRESS  '{"query_outcome": {"job_id":"'"$timestamp"'"}}'  --node=$NODE_URL |yq -r '.data')
      #echo "attempt: $i"
      sleep 1
      let i++
@@ -53,6 +53,7 @@ do
    if [ "$result" != "null" ];
      then
         echo "randomness took $SECONDS seconds";
+        echo "result: $result"
    fi
    
 done

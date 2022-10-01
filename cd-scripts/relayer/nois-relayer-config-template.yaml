@@ -15,7 +15,7 @@ chains:
     prefix: TEMPLATE_CHAIN_PREFIX
     gas_price: TEMPLATE_GAS_PRICESTEMPLATE_CHAIN_DENOM
     hd_path: m/44'/118'/0'/0/0
-    ics20_port: 'wasm.TEMPLATE_NOIS_PROXY_CONTRACT_ADDRESS' #junod query wasm contract  $NOIS_PROXY_CONTRACT_ADDRESS    --node=$NODE_URL
+    ics20_port: 'wasm.TEMPLATE_NOIS_PROXY_CONTRACT_ADDRESS'
     faucet: TEMPLATE_CHAIN_FAUCET_URL
     rpc:
       - TEMPLATE_CHAIN_NODE_URL
