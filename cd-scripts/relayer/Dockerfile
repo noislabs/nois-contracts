@@ -7,7 +7,7 @@ FROM node:18.8
 ARG CHAIN_NAME
 ARG NOIS_CHAIN_NAME
 
-RUN npm i -g @confio/relayer@0.5.1
+RUN npm i -g @confio/relayer@0.6.1
 COPY nois-relayer-config.yaml /root/.ibc-setup/registry.yaml 
 RUN ibc-setup init --src $CHAIN_NAME --dest $NOIS_CHAIN_NAME
 

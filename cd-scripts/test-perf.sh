@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 #PREREQS
 # 0 You have already run the deploy-contracts script
 

@@ -52,6 +52,13 @@ chains:
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.5.0
+        - address: fetch14qwu44r6xas4wdg9un6rq49mys93vk6h62w534ph9y464zls8gpqa36549
+          code_id: "3386"
+          git_asset_name: double_dice_roll
+          instantiation_msg: double_dice_roll_instantiate_msg
+          name: double-dice-roll
+          url: "https://github.com/noislabs/nois-dapp-examples"
+          version: v0.3.0
   - binary_name: aurad
     chain_id: euphoria-1
     denom: ueaura
@@ -83,6 +90,13 @@ chains:
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.5.0
+        - address: aura1uqw9k3zpsqdmgp5nlsvyu4qmce34suyy0pk35dz005x4fhr52nfqlkkeyd
+          code_id: "68"
+          git_asset_name: double_dice_roll
+          instantiation_msg: double_dice_roll_instantiate_msg
+          name: double-dice-roll
+          url: "https://github.com/noislabs/nois-dapp-examples"
+          version: v0.3.0
   - binary_name: osmosisd
     chain_id: osmo-test-4
     denom: uosmo
@@ -114,6 +128,13 @@ chains:
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.5.0
+        - address: osmo18yyrpyhqlf7tgwjpgty7auqffdf0qadefr3qkda3735lzzpexr7sndsukw
+          code_id: "2167"
+          git_asset_name: double_dice_roll
+          instantiation_msg: double_dice_roll_instantiate_msg
+          name: double-dice-roll
+          url: "https://github.com/noislabs/nois-dapp-examples"
+          version: v0.3.0
   - binary_name: starsd
     chain_id: elgafar-1
     denom: ustars
@@ -145,18 +166,25 @@ chains:
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.5.0
+        - address: stars1ze3750ukzr4xvaxylrg9v8ny0s5lnkt6eygwkeh3v6twajsnpnysjffpk7
+          code_id: "165"
+          git_asset_name: double_dice_roll
+          instantiation_msg: double_dice_roll_instantiate_msg
+          name: double-dice-roll
+          url: "https://github.com/noislabs/nois-dapp-examples"
+          version: v0.3.0
   - binary_name: junod
-    chain_id: uni-3
+    chain_id: uni-5
     denom: ujunox
     faucet: "https://faucet.uni.juno.deuslabs.fi/credit"
     gas_price: 0.025
     ibc_connection:
-      dest: connection-3
-      src: connection-287
+      dest:
+      src:
       counterpart:
         chain: nois-testnet-002
         contract_name: nois-oracle
-    name: uni-3
+    name: uni-5
     prefix: juno
     rpc:
       - "https://rpc.uni.juno.deuslabs.fi:443"
@@ -176,6 +204,13 @@ chains:
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
           version: v0.5.0
+        - address: "null"
+          code_id: "null"
+          git_asset_name: double_dice_roll
+          instantiation_msg: double_dice_roll_instantiate_msg
+          name: double-dice-roll
+          url: "https://github.com/noislabs/nois-dapp-examples"
+          version: v0.3.0
 ibc:
   relayer:
     docker_image: noislabs/nois-relayer
