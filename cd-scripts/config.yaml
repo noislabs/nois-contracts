@@ -141,8 +141,8 @@ chains:
     faucet: ~
     gas_price: 0.025
     ibc_connection:
-      dest: connection-2
-      src: connection-6
+      dest: connection-4
+      src: connection-8
       counterpart:
         chain: nois-testnet-002
         contract_name: nois-oracle
