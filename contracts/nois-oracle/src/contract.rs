@@ -411,16 +411,18 @@ fn execute_add_round(
     };
     SUBMISSIONS_ORDER.save(deps.storage, (round, next_index), &info.sender)?;
 
-    //Pay the bot incentive
-    let denom = CONFIG.load(deps.storage)?.native_denom;
-    let bot_incentive_base_price = CONFIG.load(deps.storage)?.bot_incentive_base_price;
+    // Pay the bot incentive
+    let Config {
+        native_denom: denom,
+        bot_incentive_base_price,
+        ..
+    } = CONFIG.load(deps.storage)?;
     let contract_balance = deps
         .querier
         .query_balance(&env.contract.address, &denom)?
         .amount;
     let bot_desired_incentive =
         calculate_bot_incentive_coefficient() * bot_incentive_base_price.u128();
-    //let bot_incentive = contract_balance > bot_desired_incentive.into();
     let mut bot_incentive_msg = None;
     if contract_balance > bot_desired_incentive.into() {
         bot_incentive_msg = BankMsg::Send {
@@ -468,7 +470,8 @@ fn execute_add_round(
 }
 
 fn calculate_bot_incentive_coefficient() -> u128 {
-    1 //For now we just incentivise with the base/minimum price. We need to implement here the incentive logic and who gets how much
+    // For now we just incentivise with the base/minimum price. We need to implement here the incentive logic and who gets how much
+    1
 }
 
 #[cfg(test)]
