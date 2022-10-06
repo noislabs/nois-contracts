@@ -39,8 +39,8 @@ pub fn instantiate(
 ) -> StdResult<Response> {
     let config = Config {
         test_mode: msg.test_mode,
-        bot_incentive_base_price: msg.bot_incentive_base_price,
-        native_denom: msg.native_denom,
+        incentive_amount: msg.incentive_amount,
+        incentive_denom: msg.incentive_denom,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -432,7 +432,7 @@ fn execute_add_round(
         let config = CONFIG.load(deps.storage)?;
         let contract_balance = deps
             .querier
-            .query_balance(&env.contract.address, &config.native_denom)?
+            .query_balance(&env.contract.address, &config.incentive_denom)?
             .amount;
         let bot_desired_incentive = incentive_amount(&config);
         attributes.push(Attribute::new(
@@ -475,8 +475,8 @@ fn execute_add_round(
 
 fn incentive_amount(config: &Config) -> Coin {
     Coin {
-        denom: config.native_denom.clone(),
-        amount: config.bot_incentive_base_price,
+        denom: config.incentive_denom.clone(),
+        amount: config.incentive_amount,
     }
 }
 
@@ -497,8 +497,8 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -537,8 +537,8 @@ mod tests {
 
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         let info = mock_info("creator", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -562,8 +562,8 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -595,8 +595,8 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         let env = mock_env();
@@ -636,8 +636,8 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         let env = mock_env();
@@ -678,8 +678,8 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         let env = mock_env();
@@ -730,8 +730,8 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         let env = mock_env();
@@ -804,8 +804,8 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -835,8 +835,8 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -862,8 +862,8 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -890,8 +890,8 @@ mod tests {
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -939,8 +939,8 @@ mod tests {
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1045,8 +1045,8 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1143,8 +1143,8 @@ mod tests {
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1241,8 +1241,8 @@ mod tests {
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             test_mode: true,
-            bot_incentive_base_price: Uint128::new(1_000_000),
-            native_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 

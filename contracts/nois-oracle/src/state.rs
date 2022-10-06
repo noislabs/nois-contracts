@@ -8,8 +8,10 @@ use crate::drand::time_of_round;
 pub struct Config {
     /// In test mode the next round calculation is detached from the clock.
     pub test_mode: bool,
-    pub bot_incentive_base_price: Uint128,
-    pub native_denom: String,
+    /// Bot incentive amount
+    pub incentive_amount: Uint128,
+    /// Bot incentive denom
+    pub incentive_denom: String,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

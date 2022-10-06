@@ -7,8 +7,10 @@ use crate::state::{Config, QueriedBeacon, QueriedBot, StoredSubmission};
 pub struct InstantiateMsg {
     /// In test mode the next round calculation is detached from the clock.
     pub test_mode: bool,
-    pub bot_incentive_base_price: Uint128,
-    pub native_denom: String,
+    /// Bot incentive amount
+    pub incentive_amount: Uint128,
+    /// Bot incentive denom
+    pub incentive_denom: String,
 }
 
 #[cw_serde]
