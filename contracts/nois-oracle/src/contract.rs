@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, Binary, CosmosMsg, Deps,
-    DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    entry_point, from_binary, from_slice, to_binary, Attribute, Binary, CosmosMsg, Deps, DepsMut,
+    Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order,
     QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
@@ -130,14 +130,11 @@ fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
 
 // Query submissions by round
 fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
-    let min_addr = Addr::unchecked("\0"); // NULL: lower than all printable ASCII
-    let max_addr = Addr::unchecked("\x7f"); // DEL: larger than all printable ASCII
-    let from = Some(Bound::inclusive((round, &min_addr)));
-    let to = Some(Bound::exclusive((round, &max_addr)));
-    let submissions = SUBMISSIONS.range(deps.storage, from, to, Order::Ascending);
+    let prefix = SUBMISSIONS.prefix(round);
+    let submissions = prefix.range(deps.storage, None, None, Order::Ascending);
     let submissions: Vec<Submission> = submissions
         .map(|item| {
-            item.map(|((_round, bot), submission)| Submission {
+            item.map(|(bot, submission)| Submission {
                 bot,
                 time: submission.time,
             })
@@ -439,7 +436,7 @@ mod tests {
         mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_info, MockApi, MockQuerier,
         MockStorage,
     };
-    use cosmwasm_std::{coin, from_binary, OwnedDeps};
+    use cosmwasm_std::{coin, from_binary, Addr, OwnedDeps};
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
