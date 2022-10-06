@@ -21,6 +21,12 @@ const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 let wasmCodeIds: Record<string, number> = {};
 let osmosisCodeIds: Record<string, number> = {};
 
+interface OracleInstantiateMsg {
+  readonly test_mode: boolean;
+  readonly incentive_amount: string;
+  readonly incentive_denom: string;
+}
+
 test.before(async (t) => {
   t.log("Upload contracts to wasmd...");
   const wasmContracts = {
@@ -43,11 +49,16 @@ test.before(async (t) => {
 test.serial("Bot can submit to Oracle", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
-  const msg = { test_mode: true };
+  const msg: OracleInstantiateMsg = {
+    test_mode: true,
+    incentive_amount: "0",
+    incentive_denom: "unois",
+  };
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,
-    msg,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    msg as any,
     "Oracle instance",
     "auto"
   );
@@ -87,10 +98,16 @@ test.serial("set up channel", async (t) => {
 
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
+  const msg: OracleInstantiateMsg = {
+    test_mode: true,
+    incentive_amount: "0",
+    incentive_denom: "unois",
+  };
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,
-    { test_mode: true },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    msg as any,
     "Oracle instance",
     "auto"
   );
@@ -137,10 +154,16 @@ async function instantiateAndConnectIbc(testMode = true): Promise<SetupInfo> {
   );
 
   // Instantiate Oracle on Osmosis
+  const msg: OracleInstantiateMsg = {
+    test_mode: testMode,
+    incentive_amount: "0",
+    incentive_denom: "unois",
+  };
   const { contractAddress: noisOracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,
-    { test_mode: testMode },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    msg as any,
     "Oracle instance",
     "auto"
   );

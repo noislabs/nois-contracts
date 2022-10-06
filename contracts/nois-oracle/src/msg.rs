@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, HexBinary, Timestamp};
+use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
 
 use crate::state::{Config, QueriedBeacon, QueriedBot, StoredSubmission};
 
@@ -7,6 +7,14 @@ use crate::state::{Config, QueriedBeacon, QueriedBot, StoredSubmission};
 pub struct InstantiateMsg {
     /// In test mode the next round calculation is detached from the clock.
     pub test_mode: bool,
+    /// Bot incentive amount.
+    ///
+    /// A round submission currently consumes 620k. Using a gas limit of
+    /// 700k and a gas cost of 0.05unois/gas this is a fee of 35000unois.
+    /// Anything above that is a useful incentive.
+    pub incentive_amount: Uint128,
+    /// Bot incentive denom
+    pub incentive_denom: String,
 }
 
 #[cw_serde]
