@@ -329,20 +329,18 @@ fn execute_register_bot(
     info: MessageInfo,
     moniker: String,
 ) -> Result<Response, ContractError> {
-    match BOTS.may_load(deps.storage, &info.sender)? {
+    let bot = match BOTS.may_load(deps.storage, &info.sender)? {
         Some(mut bot) => {
             bot.moniker = moniker;
-            BOTS.save(deps.storage, &bot.address, &bot)?;
+            bot
         }
-        _ => {
-            let bot = Bot {
-                moniker: (moniker),
-                address: (info.sender),
-                number_of_added_rounds: (0),
-            };
-            BOTS.save(deps.storage, &bot.address, &bot)?;
-        }
-    }
+        _ => Bot {
+            moniker,
+            address: info.sender,
+            number_of_added_rounds: 0,
+        },
+    };
+    BOTS.save(deps.storage, &bot.address, &bot)?;
     Ok(Response::default())
 }
 
