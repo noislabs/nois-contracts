@@ -59,7 +59,8 @@ pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
 #[cw_serde]
 pub struct Bot {
     pub moniker: String,
-    pub number_of_added_rounds: u64,
+    /// Number of rounds added
+    pub rounds_added: u64,
 }
 
 /// Like [`Bot`] but with address
@@ -67,7 +68,8 @@ pub struct Bot {
 pub struct QueriedBot {
     pub moniker: String,
     pub address: Addr,
-    pub number_of_added_rounds: u64,
+    /// Number of rounds added
+    pub rounds_added: u64,
 }
 
 impl QueriedBot {
@@ -75,7 +77,7 @@ impl QueriedBot {
         Self {
             address,
             moniker: beacon.moniker,
-            number_of_added_rounds: beacon.number_of_added_rounds,
+            rounds_added: beacon.rounds_added,
         }
     }
 }

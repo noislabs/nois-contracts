@@ -348,7 +348,7 @@ fn execute_register_bot(
         }
         _ => Bot {
             moniker,
-            number_of_added_rounds: 0,
+            rounds_added: 0,
         },
     };
     BOTS.save(deps.storage, &info.sender, &bot)?;
@@ -395,7 +395,7 @@ fn execute_add_round(
     }
 
     if let Some(mut bot) = BOTS.may_load(deps.storage, &info.sender)? {
-        bot.number_of_added_rounds += 1;
+        bot.rounds_added += 1;
         BOTS.save(deps.storage, &info.sender, &bot)?;
     }
 
@@ -711,7 +711,7 @@ mod tests {
             QueriedBot {
                 moniker: "Nickname1".to_string(),
                 address: Addr::unchecked(&bot_addr),
-                number_of_added_rounds: 0,
+                rounds_added: 0,
             }
         );
 
@@ -739,7 +739,7 @@ mod tests {
             QueriedBot {
                 moniker: "Another nickname".to_string(),
                 address: Addr::unchecked(&bot_addr),
-                number_of_added_rounds: 0,
+                rounds_added: 0,
             }
         );
     }
