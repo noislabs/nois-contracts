@@ -425,26 +425,21 @@ fn execute_add_round(
 
     // Pay the bot incentive
     if is_registered {
-        let Config {
-            native_denom: denom,
-            bot_incentive_base_price,
-            ..
-        } = CONFIG.load(deps.storage)?;
+        let config = CONFIG.load(deps.storage)?;
         let contract_balance = deps
             .querier
-            .query_balance(&env.contract.address, &denom)?
+            .query_balance(&env.contract.address, &config.native_denom)?
             .amount;
-        let bot_desired_incentive =
-            calculate_bot_incentive_coefficient() * bot_incentive_base_price.u128();
+        let bot_desired_incentive = incentive_amount(&config);
         attributes.push(Attribute::new(
             "bot_incentive",
             bot_desired_incentive.to_string(),
         ));
-        if contract_balance > bot_desired_incentive.into() {
+        if contract_balance > bot_desired_incentive.amount {
             out_msgs.push(
                 BankMsg::Send {
                     to_address: info.sender.to_string(),
-                    amount: vec![Coin::new(bot_desired_incentive, denom)],
+                    amount: vec![bot_desired_incentive],
                 }
                 .into(),
             );
@@ -474,9 +469,11 @@ fn execute_add_round(
         .add_attributes(attributes))
 }
 
-fn calculate_bot_incentive_coefficient() -> u128 {
-    // For now we just incentivise with the base/minimum price. We need to implement here the incentive logic and who gets how much
-    1
+fn incentive_amount(config: &Config) -> Coin {
+    Coin {
+        denom: config.native_denom.clone(),
+        amount: config.bot_incentive_base_price,
+    }
 }
 
 #[cfg(test)]
