@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, Binary, CosmosMsg, Deps,
-    DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order,
-    QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
+    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
+    CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg,
+    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
+    Order, QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed, verify};
@@ -36,6 +36,8 @@ pub fn instantiate(
 ) -> StdResult<Response> {
     let config = Config {
         test_mode: msg.test_mode,
+        bot_incentive_base_price: msg.bot_incentive_base_price,
+        native_denom: msg.native_denom,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -237,6 +239,7 @@ fn receive_get_beacon(
     let mut msgs = Vec::<CosmosMsg>::new();
 
     let acknowledgement: Binary = if let Some(beacon) = beacon.as_ref() {
+        //If the drand round already exists we send it
         let msg = process_job(env.block.time, job, beacon)?;
         msgs.push(msg.into());
         StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
@@ -380,12 +383,6 @@ fn execute_add_round(
         randomness: randomness.clone(),
     };
 
-    let attributes = vec![
-        Attribute::new("round", round.to_string()),
-        Attribute::new("randomness", randomness.to_hex()),
-        Attribute::new("worker", info.sender.to_string()),
-    ];
-
     let submissions_key = (round, &info.sender);
 
     if SUBMISSIONS.has(deps.storage, submissions_key) {
@@ -414,6 +411,32 @@ fn execute_add_round(
     };
     SUBMISSIONS_ORDER.save(deps.storage, (round, next_index), &info.sender)?;
 
+    //Pay the bot incentive
+    let denom = CONFIG.load(deps.storage)?.native_denom;
+    let bot_incentive_base_price = CONFIG.load(deps.storage)?.bot_incentive_base_price;
+    let contract_balance = deps
+        .querier
+        .query_balance(&env.contract.address, &denom)?
+        .amount;
+    let bot_desired_incentive =
+        calculate_bot_incentive_coefficient() * bot_incentive_base_price.u128();
+    //let bot_incentive = contract_balance > bot_desired_incentive.into();
+    let mut bot_incentive_msg = None;
+    if contract_balance > bot_desired_incentive.into() {
+        bot_incentive_msg = BankMsg::Send {
+            to_address: info.sender.to_string(),
+            amount: vec![Coin::new(bot_desired_incentive, denom)],
+        }
+        .into();
+    }
+
+    let attributes = vec![
+        Attribute::new("round", round.to_string()),
+        Attribute::new("randomness", randomness.to_hex()),
+        Attribute::new("worker", info.sender.to_string()),
+        Attribute::new("bot_incentive", bot_desired_incentive.to_string()),
+    ];
+
     if !BEACONS.has(deps.storage, round) {
         // Round is new
         BEACONS.save(deps.storage, round, beacon)?;
@@ -428,14 +451,24 @@ fn execute_add_round(
                 msgs.push(msg.into());
             }
         }
-        Ok(Response::new()
-            .add_messages(msgs)
-            .add_attributes(attributes))
+        match bot_incentive_msg {
+            None => Ok(Response::new()
+                .add_messages(msgs)
+                .add_attributes(attributes)),
+            Some(bot_msg) => Ok(Response::new()
+                .add_messages(msgs)
+                .add_message(bot_msg)
+                .add_attributes(attributes)),
+        }
     } else {
         // Round has already been verified and must not be overriden to not
         // get a wrong `verified` timestamp.
         Ok(Response::new().add_attributes(attributes))
     }
+}
+
+fn calculate_bot_incentive_coefficient() -> u128 {
+    1 //For now we just incentivise with the base/minimum price. We need to implement here the incentive logic and who gets how much
 }
 
 #[cfg(test)]
@@ -446,14 +479,18 @@ mod tests {
         mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_info, MockApi, MockQuerier,
         MockStorage,
     };
-    use cosmwasm_std::{coin, from_binary, Addr, OwnedDeps};
+    use cosmwasm_std::{coin, from_binary, Addr, OwnedDeps, Uint128};
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -489,7 +526,11 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         let info = mock_info("creator", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -510,7 +551,11 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
@@ -539,7 +584,11 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::AddRound {
@@ -566,7 +615,11 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
@@ -589,7 +642,11 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
@@ -613,7 +670,11 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::AddRound {
@@ -658,7 +719,11 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::AddRound {
@@ -760,7 +825,11 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
@@ -854,7 +923,11 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
@@ -948,7 +1021,11 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
-        let msg = InstantiateMsg { test_mode: true };
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Address order is not submission order

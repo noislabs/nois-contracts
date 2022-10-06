@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, HexBinary, Timestamp};
+use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
 use cw_storage_plus::{Item, Map};
 
 use crate::drand::time_of_round;
@@ -8,6 +8,8 @@ use crate::drand::time_of_round;
 pub struct Config {
     /// In test mode the next round calculation is detached from the clock.
     pub test_mode: bool,
+    pub bot_incentive_base_price: Uint128,
+    pub native_denom: String,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
