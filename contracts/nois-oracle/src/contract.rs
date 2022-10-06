@@ -15,12 +15,12 @@ use nois_protocol::{
 use crate::drand::{DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_ROUND_LENGTH};
 use crate::error::ContractError;
 use crate::msg::{
-    BeaconResponse, BeaconsResponse, BotsResponse, ConfigResponse, ExecuteMsg, InstantiateMsg,
-    QueryMsg, Submission, SubmissionsResponse,
+    BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
+    InstantiateMsg, QueryMsg, Submission, SubmissionsResponse,
 };
 use crate::state::{
-    Bot, Config, Job, QueriedBeacon, StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG,
-    DRAND_JOBS, SUBMISSIONS, TEST_MODE_NEXT_ROUND,
+    Bot, Config, Job, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, BEACONS, BOTS,
+    CONFIG, DRAND_JOBS, SUBMISSIONS, TEST_MODE_NEXT_ROUND,
 };
 
 // TODO: make configurable?
@@ -62,7 +62,6 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
-        QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::Beacon { round } => to_binary(&query_beacon(deps, round)?)?,
         QueryMsg::BeaconsAsc { start_after, limit } => {
             to_binary(&query_beacons(deps, start_after, limit, Order::Ascending)?)?
@@ -70,6 +69,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::BeaconsDesc { start_after, limit } => {
             to_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
         }
+        QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
+        QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
     };
     Ok(response)
@@ -78,15 +79,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config)
-}
-
-fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
-    let bots = BOTS
-        // .keys(deps.storage, None, None, Order::Ascending)
-        .prefix_range(deps.storage, None, None, Order::Ascending)
-        .map(|bot| (bot.unwrap().1))
-        .collect();
-    Ok(BotsResponse { bots })
 }
 
 // Query beacon by round
@@ -114,6 +106,26 @@ fn query_beacons(
         .map(|c| c.map(|(round, beacon)| QueriedBeacon::make(beacon, round)))
         .collect::<Result<_, _>>()?;
     Ok(BeaconsResponse { beacons })
+}
+
+fn query_bot(deps: Deps, address: String) -> StdResult<BotResponse> {
+    let address = deps.api.addr_validate(&address)?;
+    let bot = BOTS
+        .may_load(deps.storage, &address)?
+        .map(|bot| QueriedBot::make(bot, address));
+    Ok(BotResponse { bot })
+}
+
+fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
+    // No pagination here yet 🤷‍♂️
+    let bots = BOTS
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|result| {
+            let (address, bot) = result.unwrap();
+            QueriedBot::make(bot, address)
+        })
+        .collect();
+    Ok(BotsResponse { bots })
 }
 
 // Query submissions by round
@@ -336,11 +348,10 @@ fn execute_register_bot(
         }
         _ => Bot {
             moniker,
-            address: info.sender,
             number_of_added_rounds: 0,
         },
     };
-    BOTS.save(deps.storage, &bot.address, &bot)?;
+    BOTS.save(deps.storage, &info.sender, &bot)?;
     Ok(Response::default())
 }
 
@@ -542,6 +553,7 @@ mod tests {
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
     }
+
     #[test]
     fn add_round_fails_for_broken_signature() {
         let mut deps = mock_dependencies();
@@ -669,6 +681,72 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
     }
+
+    #[test]
+    fn register_bot_works_for_updates() {
+        let mut deps = mock_dependencies();
+        let bot_addr = "bot_addr".to_string();
+
+        // first registration
+
+        let info = mock_info(&bot_addr, &[]);
+        let register_bot_msg = ExecuteMsg::RegisterBot {
+            moniker: "Nickname1".to_string(),
+        };
+        execute(deps.as_mut(), mock_env(), info, register_bot_msg).unwrap();
+        let BotResponse { bot } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Bot {
+                    address: bot_addr.clone(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let bot = bot.unwrap();
+        assert_eq!(
+            bot,
+            QueriedBot {
+                moniker: "Nickname1".to_string(),
+                address: Addr::unchecked(&bot_addr),
+                number_of_added_rounds: 0,
+            }
+        );
+
+        // re-register
+
+        let info = mock_info(&bot_addr, &[]);
+        let register_bot_msg = ExecuteMsg::RegisterBot {
+            moniker: "Another nickname".to_string(),
+        };
+        execute(deps.as_mut(), mock_env(), info, register_bot_msg).unwrap();
+        let BotResponse { bot } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Bot {
+                    address: bot_addr.clone(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let bot = bot.unwrap();
+        assert_eq!(
+            bot,
+            QueriedBot {
+                moniker: "Another nickname".to_string(),
+                address: Addr::unchecked(&bot_addr),
+                number_of_added_rounds: 0,
+            }
+        );
+    }
+
+    //
+    // Query tests
+    //
 
     #[test]
     fn query_beacons_asc_works() {

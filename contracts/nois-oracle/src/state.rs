@@ -54,11 +54,30 @@ pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissio
 
 pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
 
+/// The bot type for the state. We don't need the address here
+/// since this is stored in the storage key.
 #[cw_serde]
 pub struct Bot {
     pub moniker: String,
+    pub number_of_added_rounds: u64,
+}
+
+/// Like [`Bot`] but with address
+#[cw_serde]
+pub struct QueriedBot {
+    pub moniker: String,
     pub address: Addr,
     pub number_of_added_rounds: u64,
+}
+
+impl QueriedBot {
+    pub fn make(beacon: Bot, address: Addr) -> Self {
+        Self {
+            address,
+            moniker: beacon.moniker,
+            number_of_added_rounds: beacon.number_of_added_rounds,
+        }
+    }
 }
 
 #[cw_serde]
