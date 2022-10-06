@@ -421,8 +421,9 @@ fn execute_add_round(
         Attribute::new("worker", info.sender.to_string()),
     ];
 
+    let mut out_msgs = Vec::<CosmosMsg>::new();
+
     // Pay the bot incentive
-    let mut bot_incentive_msg = None;
     if is_registered {
         let Config {
             native_denom: denom,
@@ -440,11 +441,13 @@ fn execute_add_round(
             bot_desired_incentive.to_string(),
         ));
         if contract_balance > bot_desired_incentive.into() {
-            bot_incentive_msg = BankMsg::Send {
-                to_address: info.sender.to_string(),
-                amount: vec![Coin::new(bot_desired_incentive, denom)],
-            }
-            .into();
+            out_msgs.push(
+                BankMsg::Send {
+                    to_address: info.sender.to_string(),
+                    amount: vec![Coin::new(bot_desired_incentive, denom)],
+                }
+                .into(),
+            );
         }
     }
 
@@ -452,30 +455,23 @@ fn execute_add_round(
         // Round is new
         BEACONS.save(deps.storage, round, beacon)?;
 
-        let mut msgs = Vec::<CosmosMsg>::new();
         if let Some(jobs) = DRAND_JOBS.may_load(deps.storage, round)? {
             DRAND_JOBS.remove(deps.storage, round);
 
             for job in jobs {
                 // Use IbcMsg::SendPacket to send packages to the proxies.
                 let msg = process_job(env.block.time, job, beacon)?;
-                msgs.push(msg.into());
+                out_msgs.push(msg.into());
             }
-        }
-        match bot_incentive_msg {
-            None => Ok(Response::new()
-                .add_messages(msgs)
-                .add_attributes(attributes)),
-            Some(bot_msg) => Ok(Response::new()
-                .add_messages(msgs)
-                .add_message(bot_msg)
-                .add_attributes(attributes)),
         }
     } else {
         // Round has already been verified and must not be overriden to not
         // get a wrong `verified` timestamp.
-        Ok(Response::new().add_attributes(attributes))
     }
+
+    Ok(Response::new()
+        .add_messages(out_msgs)
+        .add_attributes(attributes))
 }
 
 fn calculate_bot_incentive_coefficient() -> u128 {
