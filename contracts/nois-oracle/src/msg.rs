@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, HexBinary, Timestamp};
 
-use crate::state::{Config, QueriedBeacon, QueriedBot};
+use crate::state::{Config, QueriedBeacon, QueriedBot, StoredSubmission};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -82,16 +82,27 @@ pub struct BotsResponse {
     pub bots: Vec<QueriedBot>,
 }
 
+/// Like StoredSubmission but plus bot address
 #[cw_serde]
-pub struct Submission {
+pub struct QueriedSubmission {
     /// Address of the bot
     pub bot: Addr,
     /// Submission time
     pub time: Timestamp,
 }
 
+impl QueriedSubmission {
+    pub fn make(stored: StoredSubmission, bot_address: Addr) -> Self {
+        let StoredSubmission { time } = stored;
+        Self {
+            bot: bot_address,
+            time,
+        }
+    }
+}
+
 #[cw_serde]
 pub struct SubmissionsResponse {
     pub round: u64,
-    pub submissions: Vec<Submission>,
+    pub submissions: Vec<QueriedSubmission>,
 }
