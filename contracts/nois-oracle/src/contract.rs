@@ -15,12 +15,12 @@ use nois_protocol::{
 use crate::drand::{DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_ROUND_LENGTH};
 use crate::error::ContractError;
 use crate::msg::{
-    BeaconResponse, BeaconsResponse, ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,
-    Submission, SubmissionsResponse,
+    BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
+    InstantiateMsg, QueryMsg, Submission, SubmissionsResponse,
 };
 use crate::state::{
-    Config, Job, QueriedBeacon, StoredSubmission, VerifiedBeacon, BEACONS, CONFIG, DRAND_JOBS,
-    SUBMISSIONS, TEST_MODE_NEXT_ROUND,
+    Bot, Config, Job, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, BEACONS, BOTS,
+    CONFIG, DRAND_JOBS, SUBMISSIONS, TEST_MODE_NEXT_ROUND,
 };
 
 // TODO: make configurable?
@@ -54,6 +54,7 @@ pub fn execute(
             previous_signature,
             signature,
         } => execute_add_round(deps, env, info, round, previous_signature, signature),
+        ExecuteMsg::RegisterBot { moniker } => execute_register_bot(deps, env, info, moniker),
     }
 }
 
@@ -68,6 +69,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::BeaconsDesc { start_after, limit } => {
             to_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
         }
+        QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
+        QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
     };
     Ok(response)
@@ -103,6 +106,26 @@ fn query_beacons(
         .map(|c| c.map(|(round, beacon)| QueriedBeacon::make(beacon, round)))
         .collect::<Result<_, _>>()?;
     Ok(BeaconsResponse { beacons })
+}
+
+fn query_bot(deps: Deps, address: String) -> StdResult<BotResponse> {
+    let address = deps.api.addr_validate(&address)?;
+    let bot = BOTS
+        .may_load(deps.storage, &address)?
+        .map(|bot| QueriedBot::make(bot, address));
+    Ok(BotResponse { bot })
+}
+
+fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
+    // No pagination here yet 🤷‍♂️
+    let bots = BOTS
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|result| {
+            let (address, bot) = result.unwrap();
+            QueriedBot::make(bot, address)
+        })
+        .collect();
+    Ok(BotsResponse { bots })
 }
 
 // Query submissions by round
@@ -312,6 +335,26 @@ pub fn ibc_packet_timeout(
     Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_timeout"))
 }
 
+fn execute_register_bot(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    moniker: String,
+) -> Result<Response, ContractError> {
+    let bot = match BOTS.may_load(deps.storage, &info.sender)? {
+        Some(mut bot) => {
+            bot.moniker = moniker;
+            bot
+        }
+        _ => Bot {
+            moniker,
+            rounds_added: 0,
+        },
+    };
+    BOTS.save(deps.storage, &info.sender, &bot)?;
+    Ok(Response::default())
+}
+
 fn execute_add_round(
     deps: DepsMut,
     env: Env,
@@ -350,6 +393,12 @@ fn execute_add_round(
     if SUBMISSIONS.has(deps.storage, submissions_key) {
         return Err(ContractError::SubmissionExists);
     }
+
+    if let Some(mut bot) = BOTS.may_load(deps.storage, &info.sender)? {
+        bot.rounds_added += 1;
+        BOTS.save(deps.storage, &info.sender, &bot)?;
+    }
+
     SUBMISSIONS.save(
         deps.storage,
         submissions_key,
@@ -442,6 +491,12 @@ mod tests {
     //
     // Execute tests
     //
+    fn register_bot(deps: DepsMut, info: MessageInfo) {
+        let register_bot_msg = ExecuteMsg::RegisterBot {
+            moniker: "Best Bot".to_string(),
+        };
+        execute(deps, mock_env(), info, register_bot_msg).unwrap();
+    }
 
     #[test]
     fn add_round_verifies_and_stores_randomness() {
@@ -452,6 +507,8 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
+
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
@@ -471,6 +528,33 @@ mod tests {
     }
 
     #[test]
+    fn unregistered_bot_can_add_round() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg { test_mode: true };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let msg = ExecuteMsg::AddRound {
+                // curl -sS https://drand.cloudflare.com/public/72785
+                round: 72785,
+                previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+                signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            };
+        let info = mock_info("unregistered_bot", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let randomness_attr = response
+            .attributes
+            .iter()
+            .find(|Attribute { key, .. }| key == "randomness")
+            .unwrap();
+        assert_eq!(
+            randomness_attr.value,
+            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
+        );
+    }
+
+    #[test]
     fn add_round_fails_for_broken_signature() {
         let mut deps = mock_dependencies();
 
@@ -479,6 +563,7 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
@@ -501,6 +586,7 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 1111, // wrong round
@@ -519,6 +605,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -531,6 +618,7 @@ mod tests {
 
         // Execute 1
         let info = mock_info("anyone", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         let randomness_attr = response
             .attributes
@@ -544,6 +632,7 @@ mod tests {
 
         // Execute 2
         let info = mock_info("someone else", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let randomness_attr = response
             .attributes
@@ -561,6 +650,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -573,20 +663,90 @@ mod tests {
 
         // Execute A1
         let info = mock_info("bot_alice", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         // Execute B1
         let info = mock_info("bot_bob", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // Execute A2
         let info = mock_info("bot_alice", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
         // Execute B2
         let info = mock_info("bot_alice", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
     }
+
+    #[test]
+    fn register_bot_works_for_updates() {
+        let mut deps = mock_dependencies();
+        let bot_addr = "bot_addr".to_string();
+
+        // first registration
+
+        let info = mock_info(&bot_addr, &[]);
+        let register_bot_msg = ExecuteMsg::RegisterBot {
+            moniker: "Nickname1".to_string(),
+        };
+        execute(deps.as_mut(), mock_env(), info, register_bot_msg).unwrap();
+        let BotResponse { bot } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Bot {
+                    address: bot_addr.clone(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let bot = bot.unwrap();
+        assert_eq!(
+            bot,
+            QueriedBot {
+                moniker: "Nickname1".to_string(),
+                address: Addr::unchecked(&bot_addr),
+                rounds_added: 0,
+            }
+        );
+
+        // re-register
+
+        let info = mock_info(&bot_addr, &[]);
+        let register_bot_msg = ExecuteMsg::RegisterBot {
+            moniker: "Another nickname".to_string(),
+        };
+        execute(deps.as_mut(), mock_env(), info, register_bot_msg).unwrap();
+        let BotResponse { bot } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Bot {
+                    address: bot_addr.clone(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let bot = bot.unwrap();
+        assert_eq!(
+            bot,
+            QueriedBot {
+                moniker: "Another nickname".to_string(),
+                address: Addr::unchecked(&bot_addr),
+                rounds_added: 0,
+            }
+        );
+    }
+
+    //
+    // Query tests
+    //
 
     #[test]
     fn query_beacons_asc_works() {
@@ -596,6 +756,8 @@ mod tests {
         let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
+        let info = mock_info("anyone", &[]);
+        register_bot(deps.as_mut(), info);
         add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
@@ -684,9 +846,12 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
+        let info = mock_info("anyone", &[]);
+        register_bot(deps.as_mut(), info);
         add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
@@ -775,9 +940,12 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
+        let info = mock_info("bot1", &[]);
+        register_bot(deps.as_mut(), info);
         add_test_rounds(deps.as_mut(), "bot1");
 
         // No submissions
@@ -849,6 +1017,7 @@ mod tests {
             signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
         let info = mock_info(bot_addr, &[]);
+        register_bot(deps.branch(), info.to_owned());
         execute(deps.branch(), mock_env(), info, msg).unwrap();
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72786

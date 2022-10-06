@@ -43,6 +43,8 @@ impl QueriedBeacon {
 // A map from round number to drand beacon
 pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
 
+pub const BOTS: Map<&Addr, Bot> = Map::new("bots");
+
 #[cw_serde]
 pub struct StoredSubmission {
     pub time: Timestamp,
@@ -51,6 +53,34 @@ pub struct StoredSubmission {
 pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissions");
 
 pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
+
+/// The bot type for the state. We don't need the address here
+/// since this is stored in the storage key.
+#[cw_serde]
+pub struct Bot {
+    pub moniker: String,
+    /// Number of rounds added
+    pub rounds_added: u64,
+}
+
+/// Like [`Bot`] but with address
+#[cw_serde]
+pub struct QueriedBot {
+    pub moniker: String,
+    pub address: Addr,
+    /// Number of rounds added
+    pub rounds_added: u64,
+}
+
+impl QueriedBot {
+    pub fn make(beacon: Bot, address: Addr) -> Self {
+        Self {
+            address,
+            moniker: beacon.moniker,
+            rounds_added: beacon.rounds_added,
+        }
+    }
+}
 
 #[cw_serde]
 pub struct Job {
