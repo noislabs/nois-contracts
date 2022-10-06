@@ -43,7 +43,7 @@ impl QueriedBeacon {
 // A map from round number to drand beacon
 pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
 
-pub const BOTS: Map<Addr, Bot> = Map::new("bots");
+pub const BOTS: Map<&Addr, Bot> = Map::new("bots");
 
 #[cw_serde]
 pub struct StoredSubmission {

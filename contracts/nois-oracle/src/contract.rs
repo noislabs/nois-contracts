@@ -329,10 +329,10 @@ fn execute_register_bot(
     info: MessageInfo,
     moniker: String,
 ) -> Result<Response, ContractError> {
-    match BOTS.may_load(deps.storage, info.sender.to_owned())? {
+    match BOTS.may_load(deps.storage, &info.sender)? {
         Some(mut bot) => {
             bot.moniker = moniker;
-            BOTS.save(deps.storage, bot.address.to_owned(), &bot)?;
+            BOTS.save(deps.storage, &bot.address, &bot)?;
         }
         _ => {
             let bot = Bot {
@@ -340,7 +340,7 @@ fn execute_register_bot(
                 address: (info.sender),
                 number_of_added_rounds: (0),
             };
-            BOTS.save(deps.storage, bot.address.to_owned(), &bot)?;
+            BOTS.save(deps.storage, &bot.address, &bot)?;
         }
     }
     Ok(Response::default())
@@ -385,9 +385,9 @@ fn execute_add_round(
         return Err(ContractError::SubmissionExists);
     }
 
-    if let Some(mut bot) = BOTS.may_load(deps.storage, info.sender.to_owned())? {
+    if let Some(mut bot) = BOTS.may_load(deps.storage, &info.sender)? {
         bot.number_of_added_rounds += 1;
-        BOTS.save(deps.storage, info.sender.clone(), &bot)?;
+        BOTS.save(deps.storage, &info.sender, &bot)?;
     }
 
     SUBMISSIONS.save(
