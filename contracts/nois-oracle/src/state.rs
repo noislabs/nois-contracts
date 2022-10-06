@@ -50,7 +50,15 @@ pub struct StoredSubmission {
     pub time: Timestamp,
 }
 
+/// Stores the submission for an efficient (round, address) lookup
 pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissions");
+
+/// A map from (round, index) to bot address. This is used when
+/// sorted submissions are needed.
+///
+/// The `index` values are 0-based. So the `n`th submission has index
+/// n-1 here as well as in the response array in `SubmissionsResponse`.
+pub const SUBMISSIONS_ORDER: Map<(u64, u32), Addr> = Map::new("submissions_order");
 
 pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
 

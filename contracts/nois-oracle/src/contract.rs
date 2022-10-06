@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Attribute, Binary, CosmosMsg, Deps, DepsMut,
-    Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, Binary, CosmosMsg, Deps,
+    DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Order,
     QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
@@ -16,11 +16,11 @@ use crate::drand::{DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_
 use crate::error::ContractError;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
-    InstantiateMsg, QueryMsg, Submission, SubmissionsResponse,
+    InstantiateMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
     Bot, Config, Job, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, BEACONS, BOTS,
-    CONFIG, DRAND_JOBS, SUBMISSIONS, TEST_MODE_NEXT_ROUND,
+    CONFIG, DRAND_JOBS, SUBMISSIONS, SUBMISSIONS_ORDER, TEST_MODE_NEXT_ROUND,
 };
 
 // TODO: make configurable?
@@ -130,16 +130,17 @@ fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
 
 // Query submissions by round
 fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
-    let prefix = SUBMISSIONS.prefix(round);
-    let submissions = prefix.range(deps.storage, None, None, Order::Ascending);
-    let submissions: Vec<Submission> = submissions
-        .map(|item| {
-            item.map(|(bot, submission)| Submission {
-                bot,
-                time: submission.time,
-            })
-        })
+    let prefix = SUBMISSIONS_ORDER.prefix(round);
+
+    let submission_addresses: Vec<Addr> = prefix
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|item| -> StdResult<_> { Ok(item?.1) })
         .collect::<Result<_, _>>()?;
+    let mut submissions: Vec<QueriedSubmission> = Vec::with_capacity(submission_addresses.len());
+    for addr in submission_addresses {
+        let stored = SUBMISSIONS.load(deps.storage, (round, &addr))?;
+        submissions.push(QueriedSubmission::make(stored, addr));
+    }
     Ok(SubmissionsResponse { round, submissions })
 }
 
@@ -403,6 +404,15 @@ fn execute_add_round(
             time: env.block.time,
         },
     )?;
+    let prefix = SUBMISSIONS_ORDER.prefix(round);
+    let next_index = match prefix
+        .keys(deps.storage, None, None, Order::Descending)
+        .next()
+    {
+        Some(x) => x? + 1, // The ? handles the decoding to u32
+        None => 0,
+    };
+    SUBMISSIONS_ORDER.save(deps.storage, (round, next_index), &info.sender)?;
 
     if !BEACONS.has(deps.storage, round) {
         // Round is new
@@ -941,9 +951,14 @@ mod tests {
         let msg = InstantiateMsg { test_mode: true };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("bot1", &[]);
+        // Address order is not submission order
+        let bot1 = "beta1";
+        let bot2 = "gamma2";
+        let bot3 = "alpha3";
+
+        let info = mock_info(bot1, &[]);
         register_bot(deps.as_mut(), info);
-        add_test_rounds(deps.as_mut(), "bot1");
+        add_test_rounds(deps.as_mut(), bot1);
 
         // No submissions
         let response: SubmissionsResponse = from_binary(
@@ -971,13 +986,13 @@ mod tests {
         assert_eq!(response.round, 72785);
         assert_eq!(
             response.submissions,
-            [Submission {
-                bot: Addr::unchecked("bot1"),
+            [QueriedSubmission {
+                bot: Addr::unchecked(bot1),
                 time: Timestamp::from_nanos(1571797419879305533),
             }]
         );
 
-        add_test_rounds(deps.as_mut(), "bot2");
+        add_test_rounds(deps.as_mut(), bot2);
 
         // Two submissions
         let response: SubmissionsResponse = from_binary(
@@ -993,14 +1008,45 @@ mod tests {
         assert_eq!(
             response.submissions,
             [
-                Submission {
-                    bot: Addr::unchecked("bot1"),
+                QueriedSubmission {
+                    bot: Addr::unchecked(bot1),
                     time: Timestamp::from_nanos(1571797419879305533),
                 },
-                Submission {
-                    bot: Addr::unchecked("bot2"),
+                QueriedSubmission {
+                    bot: Addr::unchecked(bot2),
                     time: Timestamp::from_nanos(1571797419879305533),
-                }
+                },
+            ]
+        );
+
+        add_test_rounds(deps.as_mut(), bot3);
+
+        // Three submissions
+        let response: SubmissionsResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Submissions { round: 72785 },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.round, 72785);
+        assert_eq!(
+            response.submissions,
+            [
+                QueriedSubmission {
+                    bot: Addr::unchecked(bot1),
+                    time: Timestamp::from_nanos(1571797419879305533),
+                },
+                QueriedSubmission {
+                    bot: Addr::unchecked(bot2),
+                    time: Timestamp::from_nanos(1571797419879305533),
+                },
+                QueriedSubmission {
+                    bot: Addr::unchecked(bot3),
+                    time: Timestamp::from_nanos(1571797419879305533),
+                },
             ]
         );
     }
