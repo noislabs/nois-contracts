@@ -389,7 +389,11 @@ fn execute_add_round(
         return Err(ContractError::SubmissionExists);
     }
 
+    // True if and only if bot has been registered before
+    let mut is_registered = false;
+
     if let Some(mut bot) = BOTS.may_load(deps.storage, &info.sender)? {
+        is_registered = true;
         bot.rounds_added += 1;
         BOTS.save(deps.storage, &info.sender, &bot)?;
     }
@@ -411,33 +415,38 @@ fn execute_add_round(
     };
     SUBMISSIONS_ORDER.save(deps.storage, (round, next_index), &info.sender)?;
 
-    // Pay the bot incentive
-    let Config {
-        native_denom: denom,
-        bot_incentive_base_price,
-        ..
-    } = CONFIG.load(deps.storage)?;
-    let contract_balance = deps
-        .querier
-        .query_balance(&env.contract.address, &denom)?
-        .amount;
-    let bot_desired_incentive =
-        calculate_bot_incentive_coefficient() * bot_incentive_base_price.u128();
-    let mut bot_incentive_msg = None;
-    if contract_balance > bot_desired_incentive.into() {
-        bot_incentive_msg = BankMsg::Send {
-            to_address: info.sender.to_string(),
-            amount: vec![Coin::new(bot_desired_incentive, denom)],
-        }
-        .into();
-    }
-
-    let attributes = vec![
+    let mut attributes = vec![
         Attribute::new("round", round.to_string()),
         Attribute::new("randomness", randomness.to_hex()),
         Attribute::new("worker", info.sender.to_string()),
-        Attribute::new("bot_incentive", bot_desired_incentive.to_string()),
     ];
+
+    // Pay the bot incentive
+    let mut bot_incentive_msg = None;
+    if is_registered {
+        let Config {
+            native_denom: denom,
+            bot_incentive_base_price,
+            ..
+        } = CONFIG.load(deps.storage)?;
+        let contract_balance = deps
+            .querier
+            .query_balance(&env.contract.address, &denom)?
+            .amount;
+        let bot_desired_incentive =
+            calculate_bot_incentive_coefficient() * bot_incentive_base_price.u128();
+        attributes.push(Attribute::new(
+            "bot_incentive",
+            bot_desired_incentive.to_string(),
+        ));
+        if contract_balance > bot_desired_incentive.into() {
+            bot_incentive_msg = BankMsg::Send {
+                to_address: info.sender.to_string(),
+                amount: vec![Coin::new(bot_desired_incentive, denom)],
+            }
+            .into();
+        }
+    }
 
     if !BEACONS.has(deps.storage, round) {
         // Round is new
@@ -580,6 +589,131 @@ mod tests {
             response.beacon.unwrap().randomness.to_hex(),
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
+    }
+
+    #[test]
+    fn unregistered_bot_does_not_get_incentives() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let env = mock_env();
+
+        deps.querier.update_balance(
+            env.contract.address.clone(),
+            vec![Coin {
+                denom: "unois".to_string(),
+                amount: 100_000_000u128.into(),
+            }],
+        );
+
+        let msg = ExecuteMsg::AddRound {
+                // curl -sS https://drand.cloudflare.com/public/72785
+                round: 72785,
+                previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+                signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            };
+        let info = mock_info("unregistered_bot", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let randomness_attr = response
+            .attributes
+            .iter()
+            .find(|Attribute { key, .. }| key == "randomness")
+            .unwrap();
+        assert_eq!(
+            randomness_attr.value,
+            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
+        );
+        assert_eq!(response.messages.len(), 0)
+    }
+
+    #[test]
+    fn when_contract_does_not_have_enough_funds_no_bot_incentives_are_sent() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let env = mock_env();
+
+        deps.querier.update_balance(
+            env.contract.address.clone(),
+            vec![Coin {
+                denom: "unois".to_string(),
+                amount: 1_000u128.into(),
+            }],
+        );
+
+        let msg = ExecuteMsg::AddRound {
+                // curl -sS https://drand.cloudflare.com/public/72785
+                round: 72785,
+                previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+                signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            };
+        let info = mock_info("registered_bot", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
+        let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let randomness_attr = response
+            .attributes
+            .iter()
+            .find(|Attribute { key, .. }| key == "randomness")
+            .unwrap();
+        assert_eq!(
+            randomness_attr.value,
+            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
+        );
+        assert_eq!(response.messages.len(), 0)
+    }
+
+    #[test]
+    fn registered_bot_gets_incentives() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            test_mode: true,
+            bot_incentive_base_price: Uint128::new(1_000_000),
+            native_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let env = mock_env();
+
+        deps.querier.update_balance(
+            env.contract.address.clone(),
+            vec![Coin {
+                denom: "unois".to_string(),
+                amount: 100_000_000u128.into(),
+            }],
+        );
+
+        let msg = ExecuteMsg::AddRound {
+                // curl -sS https://drand.cloudflare.com/public/72785
+                round: 72785,
+                previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+                signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+            };
+        let info = mock_info("registered_bot", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
+        let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let randomness_attr = response
+            .attributes
+            .iter()
+            .find(|Attribute { key, .. }| key == "randomness")
+            .unwrap();
+        assert_eq!(
+            randomness_attr.value,
+            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
+        );
+        assert_eq!(response.messages.len(), 1)
     }
 
     #[test]
