@@ -385,10 +385,9 @@ fn execute_add_round(
         return Err(ContractError::SubmissionExists);
     }
 
-    let bot = BOTS.may_load(deps.storage, info.sender.to_owned())?;
-    if bot.is_some() {
-        bot.to_owned().unwrap().number_of_added_rounds += 1;
-        BOTS.save(deps.storage, info.sender.to_owned(), &bot.unwrap())?;
+    if let Some(mut bot) = BOTS.may_load(deps.storage, info.sender.to_owned())? {
+        bot.number_of_added_rounds += 1;
+        BOTS.save(deps.storage, info.sender.clone(), &bot)?;
     }
 
     SUBMISSIONS.save(
