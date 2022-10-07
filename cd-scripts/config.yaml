@@ -1,36 +1,36 @@
 ---
 chains:
   - binary_name: wasmd
-    chain_id: nois-testnet-002
+    chain_id: nois-testnet-003
     denom: unois
     faucet: "http://faucet.noislabs.com/credit"
-    gas_price: 1
+    gas_price: 0.05
     ibc_connection:
       dest: ~
       src: ~
-    name: nois-testnet-002
+    name: nois-testnet-003
     prefix: nois
     rpc:
       - "http://node-0.noislabs.com:26657"
     wasm:
       contracts:
-        - address: nois1nc5tatafv6eyq7llkr2gv50ff9e22mnf70qgjlv737ktmt4eswrq5z5suf
-          code_id: "2"
+        - address: nois1j7m4f68lruceg5xq3gfkfdgdgz02vhvlq2p67vf9v3hwdydaat3sajzcy5
+          code_id: "15"
           git_asset_name: nois_oracle
-          instantiation_msg: '{"test_mode":false}'
+          instantiation_msg: '{"test_mode":false,"incentive_amount":"70000","incentive_denom":"unois"}'
           name: nois-oracle
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
+          version: v0.6.0
   - binary_name: fetchd #https://docs.fetch.ai/
     chain_id: dorado-1
     denom: atestfet
     faucet: ~ # use https://explore-dorado.fetch.ai/
     gas_price: 1000000000
     ibc_connection:
-      dest: connection-0
-      src: connection-12
+      dest: connection-1
+      src: connection-13
       counterpart:
-        chain: nois-testnet-002
+        chain: nois-testnet-003
         contract_name: nois-oracle
     name: dorado-1
     prefix: fetch
@@ -38,22 +38,22 @@ chains:
       - "https://rpc-dorado.fetch.ai:443"
     wasm:
       contracts:
-        - address: fetch1zkujh3jt7vgxx5hjm066x37cyzmgwgf852e74m904c5xk8l977tsmqs82u
-          code_id: "3244"
+        - address: fetch1v24plws0m9zfp9psxtqcgwn6h6g3sl7cpuaaq6lyewu6pedsfg9qhcmdz5
+          code_id: "3489"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: fetch1vckjrn00y2y9tujtlp6daqu70sujlfhe2w5u6zrwhass468vvsrqtcuuqt
-          code_id: "3245"
+          version: v0.6.0
+        - address: fetch14kevtr2dmcks9ad2vyq5uaafzr4swgjxz37wkll64r7vqsawx4esg522fl
+          code_id: "3490"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: fetch14qwu44r6xas4wdg9un6rq49mys93vk6h62w534ph9y464zls8gpqa36549
-          code_id: "3386"
+          version: v0.6.0
+        - address: fetch1ft8uetg05nkkdagmd99nre0ukreekhjtyzw47c3cu59s8c954xcq53geal
+          code_id: "3491"
           git_asset_name: double_dice_roll
           instantiation_msg: double_dice_roll_instantiate_msg
           name: double-dice-roll
@@ -65,10 +65,10 @@ chains:
     faucet: ~
     gas_price: 0.04
     ibc_connection:
-      dest: connection-1
-      src: connection-8
+      dest: connection-3
+      src: connection-9
       counterpart:
-        chain: nois-testnet-002
+        chain: nois-testnet-003
         contract_name: nois-oracle
     name: euphoria-1
     prefix: aura
@@ -76,22 +76,22 @@ chains:
       - "https://rpc.euphoria.aura.network:443"
     wasm:
       contracts:
-        - address: aura1hgu5z4nwcxngsm9tqfwj84k8n73wfddfrvchg39lrm44zahn0fdqh2yvgd
-          code_id: "51"
+        - address: "aura186hauv3x7jccterl2f3grq2pqhqg6f9tshulygmcnuujpdwdd6usll9lya"
+          code_id: "113"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: aura1txv9h05z48xrgy993cruv0ljz83dp0selx5wpd0uhf5c5mtrpkgq06m6tj
-          code_id: "52"
+          version: v0.6.0
+        - address: "aura1s6pr0zs02tp3680fpc05hhnt604d6j5tmaxfhef4p54zwak2s3mqjdvx0d"
+          code_id: "114"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: aura1uqw9k3zpsqdmgp5nlsvyu4qmce34suyy0pk35dz005x4fhr52nfqlkkeyd
-          code_id: "68"
+          version: v0.6.0
+        - address: aura1a042j00ptk5ljrh0wnaxfj0n9sqxcjdlqug44g7jg4akpqhw0gpsz7ks8y
+          code_id: "115"
           git_asset_name: double_dice_roll
           instantiation_msg: double_dice_roll_instantiate_msg
           name: double-dice-roll
@@ -106,7 +106,7 @@ chains:
       dest: ~
       src: ~
       counterpart:
-        chain: nois-testnet-002
+        chain: nois-testnet-003
         contract_name: nois-oracle
     name: osmo-test-4
     prefix: osmo
@@ -114,22 +114,22 @@ chains:
       - "https://rpc-test.osmosis.zone:443"
     wasm:
       contracts:
-        - address: osmo1qas9thwzjl2t9ttcthdwkpxpqlxk59vrtlu578qdexj6guc8a7kszzqgnr
+        - address: osmo1hprzl6hz9ta7xyv2ggrrjn9mhsu5f3zpy7h8mwl5auvgr8m0nqyskllyep
           code_id: "1501"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: osmo1u7k3ypp3c5rumdrq30k6cl2sunls6kr4ny3ql4cvgrv207wzarkslp98s3
+          version: v0.6.0
+        - address: osmo1s60gnzhuhc3f2vw96x4225hf6jlxf2cgwehl9s0xzgy67a2tnc6sk8akts
           code_id: "1502"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: osmo18yyrpyhqlf7tgwjpgty7auqffdf0qadefr3qkda3735lzzpexr7sndsukw
-          code_id: "2167"
+          version: v0.6.0
+        - address: osmo1p9v0yukf50s6ean69xaae9a5y99dyqqw4fd84su7qf3e2nu0vgqqvnm5wp
+          code_id: "2754"
           git_asset_name: double_dice_roll
           instantiation_msg: double_dice_roll_instantiate_msg
           name: double-dice-roll
@@ -141,10 +141,10 @@ chains:
     faucet: ~
     gas_price: 0.025
     ibc_connection:
-      dest: connection-4
-      src: connection-8
+      dest: connection-0
+      src: connection-11
       counterpart:
-        chain: nois-testnet-002
+        chain: nois-testnet-003
         contract_name: nois-oracle
     name: elgafar-1
     prefix: stars
@@ -152,22 +152,22 @@ chains:
       - "https://rpc.elgafar-1.stargaze-apis.com:443"
     wasm:
       contracts:
-        - address: stars1atajhwmu769z6kp2c4htj3qxxex29rwdh55e686fm4dqc6hz80dsxeld4v
-          code_id: "144"
+        - address: stars1qec8jd0h4uxxz2eshekzp2wy49zvjdvskgre6f9yxrce2glczngsqhf95k
+          code_id: "206"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: stars1rd8dqj0y450wu47r7ty6xkqjdpm9nyyvdnw4v7adzszd9enuq58qk257e7
-          code_id: "145"
+          version: v0.6.0
+        - address: stars1z4w5va9nlf0mgkc98kfnhtw8vz9dcs6y7knmrgqxj03wrcctftsqamj7pd
+          code_id: "207"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: stars1ze3750ukzr4xvaxylrg9v8ny0s5lnkt6eygwkeh3v6twajsnpnysjffpk7
-          code_id: "165"
+          version: v0.6.0
+        - address: stars1nt4d44m9lpgzxztdwqaueed7shhzmhwv6ahkaf76uudacxs8rmjsedh49d
+          code_id: "208"
           git_asset_name: double_dice_roll
           instantiation_msg: double_dice_roll_instantiate_msg
           name: double-dice-roll
@@ -179,10 +179,10 @@ chains:
     faucet: "https://faucet.uni.juno.deuslabs.fi/credit"
     gas_price: 0.025
     ibc_connection:
-      dest:
-      src:
+      dest: connection-2
+      src: connection-29
       counterpart:
-        chain: nois-testnet-002
+        chain: nois-testnet-003
         contract_name: nois-oracle
     name: uni-5
     prefix: juno
@@ -190,22 +190,22 @@ chains:
       - "https://rpc.uni.juno.deuslabs.fi:443"
     wasm:
       contracts:
-        - address: "null"
-          code_id: "null"
+        - address: "juno1e7vs76markshus39eyfefh2y3t9guge4t0kvqya3q6vamgsejh4q8lxtq9"
+          code_id: "796"
           git_asset_name: nois_proxy
           instantiation_msg: "{}"
           name: nois-proxy
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: "null"
-          code_id: "null"
+          version: v0.6.0
+        - address: "juno1yyay9yr0zales02x5le05j8xc7v3h2srtnzp54g4nja4373ehzgq8qhher"
+          code_id: "797"
           git_asset_name: nois_demo
           instantiation_msg: defined-in-deployment-script-nois-demo
           name: nois-demo
           url: "https://github.com/noislabs/nois-contracts"
-          version: v0.5.0
-        - address: "null"
-          code_id: "null"
+          version: v0.6.0
+        - address: "juno19pam0vncl2s3etn4e7rqxvpq2gkyu9wg2czfvsph6dgvp00fsrxqzjt5sr"
+          code_id: "798"
           git_asset_name: double_dice_roll
           instantiation_msg: double_dice_roll_instantiate_msg
           name: double-dice-roll
