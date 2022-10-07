@@ -29,6 +29,16 @@ the user (nois-demo) does not need to worry about that part.
   [![nois on crates.io](https://img.shields.io/crates/v/nois.svg)](https://crates.io/crates/nois)
 - nois-protocol (the Nois IBC protocol)
 
+## Compatibility
+
+The nois standard library and the nois-contracts are versiones independently to avoid
+unnecessary disruption for the dapp builders. The following table shows compatibility.
+
+| nois-contracts version | nois version |
+| ---------------------- | ------------ |
+| 0.6.x                  | ^0.5.0       |
+| 0.5.x                  | ^0.5.0       |
+
 ## Development
 
 Follow all those steps to test things.
