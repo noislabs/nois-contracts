@@ -12,6 +12,9 @@ pub enum ContractError {
     #[error("Channel is not stored. Channel not yet established or closed.")]
     UnsetChannel,
 
+    #[error("Channel was already created. Channel is immutable and cannot be overriden")]
+    ChannelAlreadySet,
+
     #[error("{0}")]
     ChannelError(#[from] ChannelError),
 

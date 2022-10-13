@@ -163,15 +163,19 @@ pub fn ibc_channel_connect(
     deps: DepsMut,
     _env: Env,
     msg: IbcChannelConnectMsg,
-) -> StdResult<IbcBasicResponse> {
+) -> Result<IbcBasicResponse, ContractError> {
     let channel = msg.channel();
     let channel_id = &channel.endpoint.channel_id;
+    match ORACLE_CHANNEL.may_load(deps.storage)? {
+        Some(_channel) => Err(ContractError::ChannelAlreadySet),
 
-    ORACLE_CHANNEL.save(deps.storage, channel_id)?;
-
-    Ok(IbcBasicResponse::new()
-        .add_attribute("action", "ibc_connect")
-        .add_attribute("channel_id", channel_id))
+        _ => {
+            ORACLE_CHANNEL.save(deps.storage, channel_id)?;
+            Ok(IbcBasicResponse::new()
+                .add_attribute("action", "ibc_connect")
+                .add_attribute("channel_id", channel_id))
+        }
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
