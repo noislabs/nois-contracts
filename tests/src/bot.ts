@@ -1,4 +1,4 @@
-import { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { assert } from "@cosmjs/utils";
 
 import { setupOsmosisClient } from "./utils";
@@ -85,17 +85,17 @@ export class Bot {
     this.oracleAddress = oracleAddress;
   }
 
-  public async submitNext(): Promise<void> {
+  public async submitNext(): Promise<ExecuteResult> {
     const round = this.nextRound;
     this.nextRound += 1;
     return this.submitRound(round);
   }
 
-  public async submitRound(round: number): Promise<void> {
+  public async submitRound(round: number): Promise<ExecuteResult> {
     const beacon = localDataSource.get(round);
     assert(beacon, `No data source for round ${round} available`);
 
-    await this.client.execute(
+    const res = await this.client.execute(
       this.address,
       this.oracleAddress,
       {
@@ -107,5 +107,6 @@ export class Bot {
       },
       "auto"
     );
+    return res;
   }
 }

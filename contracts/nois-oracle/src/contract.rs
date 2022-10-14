@@ -6,7 +6,7 @@ use cosmwasm_std::{
     Order, QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
 };
 use cw_storage_plus::Bound;
-use drand_verify::{derive_randomness, g1_from_fixed, verify};
+use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
@@ -372,7 +372,8 @@ fn execute_add_round(
         return Err(StdError::generic_err("Do not send funds").into());
     }
 
-    let pk = g1_from_fixed(DRAND_MAINNET_PUBKEY).map_err(|_| ContractError::InvalidPubkey {})?;
+    let pk = g1_from_fixed_unchecked(DRAND_MAINNET_PUBKEY)
+        .map_err(|_| ContractError::InvalidPubkey {})?;
     let is_valid = verify(&pk, round, &previous_signature, &signature).unwrap_or(false);
 
     if !is_valid {
