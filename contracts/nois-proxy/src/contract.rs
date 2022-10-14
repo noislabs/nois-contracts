@@ -296,16 +296,21 @@ mod tests {
     }
 
     #[test]
-    fn enforce_version_in_handshake() {
+    fn ibc_channel_open_checks_version_and_order() {
         let mut deps = setup();
 
-        let wrong_order = mock_ibc_channel_open_try("channel-12", BAD_APP_ORDER, IBC_APP_VERSION);
-        ibc_channel_open(deps.as_mut(), mock_env(), wrong_order).unwrap_err();
-
-        let wrong_version = mock_ibc_channel_open_try("channel-12", APP_ORDER, "other version");
-        ibc_channel_open(deps.as_mut(), mock_env(), wrong_version).unwrap_err();
-
+        // All good
         let valid_handshake = mock_ibc_channel_open_try("channel-12", APP_ORDER, IBC_APP_VERSION);
         ibc_channel_open(deps.as_mut(), mock_env(), valid_handshake).unwrap();
+
+        // Wrong order
+        let wrong_order = mock_ibc_channel_open_try("channel-12", BAD_APP_ORDER, IBC_APP_VERSION);
+        let res = ibc_channel_open(deps.as_mut(), mock_env(), wrong_order).unwrap_err();
+        assert!(matches!(res, ContractError::ChannelError(..)));
+
+        // Wrong version
+        let wrong_version = mock_ibc_channel_open_try("channel-12", APP_ORDER, "another version");
+        let res = ibc_channel_open(deps.as_mut(), mock_env(), wrong_version).unwrap_err();
+        assert!(matches!(res, ContractError::ChannelError(..)));
     }
 }
