@@ -276,9 +276,9 @@ dependencies = [
 
 [[package]]
 name = "drand-verify"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88e022e0275ca7dd43df921c4bbefb2e65250bf9c1e450e3a7486fe246976293"
+checksum = "49c55a2a82e7c416407cce748db96a004fe641c25ac81b947d4a0583806c3606"
 dependencies = [
  "fff",
  "groupy",
