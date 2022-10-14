@@ -14,7 +14,7 @@ use nois_protocol::{
 };
 
 use crate::error::ContractError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, OracleChannelResponse, QueryMsg};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 
 // TODO: make configurable?
@@ -135,8 +135,16 @@ pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn query(_deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
-    match msg {}
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
+    match msg {
+        QueryMsg::OracleChannel {} => to_binary(&query_oracle_channel(deps)?),
+    }
+}
+
+fn query_oracle_channel(deps: Deps) -> StdResult<OracleChannelResponse> {
+    Ok(OracleChannelResponse {
+        channel: ORACLE_CHANNEL.may_load(deps.storage)?,
+    })
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -324,8 +332,20 @@ mod tests {
         {
             let mut deps = setup();
 
+            // Channel is unset
+            let OracleChannelResponse { channel } =
+                from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+                    .unwrap();
+            assert_eq!(channel, None);
+
             let msg = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
             ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
+
+            // Channel is now set
+            let OracleChannelResponse { channel } =
+                from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+                    .unwrap();
+            assert_eq!(channel, Some("channel-12".to_string()));
 
             // One more ChanOpenAck
             let msg = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
@@ -342,8 +362,20 @@ mod tests {
         {
             let mut deps = setup();
 
+            // Channel is unset
+            let OracleChannelResponse { channel } =
+                from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+                    .unwrap();
+            assert_eq!(channel, None);
+
             let msg = mock_ibc_channel_connect_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);
             ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
+
+            // Channel is now set
+            let OracleChannelResponse { channel } =
+                from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+                    .unwrap();
+            assert_eq!(channel, Some("channel-12".to_string()));
 
             // One more ChanOpenConfirm
             let msg = mock_ibc_channel_connect_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);

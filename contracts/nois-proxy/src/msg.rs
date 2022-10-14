@@ -8,4 +8,15 @@ pub type ExecuteMsg = ProxyExecuteMsg;
 
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum QueryMsg {}
+pub enum QueryMsg {
+    /// Queries the local channel ID that is used to request beacons.
+    /// This channel is unset when the proxy is instantiated and will be set when
+    /// the channel is created. Once created, the value does not change anymore.
+    #[returns(OracleChannelResponse)]
+    OracleChannel {},
+}
+
+#[cw_serde]
+pub struct OracleChannelResponse {
+    pub channel: Option<String>,
+}
