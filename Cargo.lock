@@ -99,9 +99,8 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "cosmwasm-crypto"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe7d659bbecbdca16878322becea489c0fcc36e784f41c942ea0171e9cf74179"
+version = "1.1.4"
+source = "git+https://github.com/CosmWasm/cosmwasm?rev=2e215cf#2e215cf7d94116330411f3c19f31017ed41f1be5"
 dependencies = [
  "digest 0.10.3",
  "ed25519-zebra",
@@ -112,18 +111,16 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-derive"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f81b4676a316d3e4636f658d2d3aba9b4b30c3177e311bbda721b56d4a26342f"
+version = "1.1.4"
+source = "git+https://github.com/CosmWasm/cosmwasm?rev=2e215cf#2e215cf7d94116330411f3c19f31017ed41f1be5"
 dependencies = [
  "syn",
 ]
 
 [[package]]
 name = "cosmwasm-schema"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88917b0e7c987fd99251f8bb7e06da7d705e7572e0732428b72f8bc1f17b1af5"
+version = "1.1.4"
+source = "git+https://github.com/CosmWasm/cosmwasm?rev=2e215cf#2e215cf7d94116330411f3c19f31017ed41f1be5"
 dependencies = [
  "cosmwasm-schema-derive",
  "schemars",
@@ -134,9 +131,8 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-schema-derive"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03bd1495b8bc0130529dad7e69bef8d800654b50a5d5fc150f1e795c4c24c5b4"
+version = "1.1.4"
+source = "git+https://github.com/CosmWasm/cosmwasm?rev=2e215cf#2e215cf7d94116330411f3c19f31017ed41f1be5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -145,9 +141,8 @@ dependencies = [
 
 [[package]]
 name = "cosmwasm-std"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d39d5725d2bd4b868284c127f7a904c93a9826550f30267b301484138db2eb9b"
+version = "1.1.4"
+source = "git+https://github.com/CosmWasm/cosmwasm?rev=2e215cf#2e215cf7d94116330411f3c19f31017ed41f1be5"
 dependencies = [
  "base64",
  "cosmwasm-crypto",

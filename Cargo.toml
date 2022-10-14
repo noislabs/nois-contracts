@@ -2,6 +2,10 @@
 members = ["packages/*", "contracts/*"]
 resolver = "2"
 
+[patch.crates-io]
+cosmwasm-std = { git = "https://github.com/CosmWasm/cosmwasm", rev = "2e215cf" }
+cosmwasm-schema = { git = "https://github.com/CosmWasm/cosmwasm", rev = "2e215cf" }
+
 [profile.release.package.nois-proxy]
 codegen-units = 1
 incremental = false
