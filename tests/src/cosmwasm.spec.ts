@@ -57,8 +57,7 @@ test.serial("Bot can submit to Oracle", async (t) => {
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    msg as any,
+    msg,
     "Oracle instance",
     "auto"
   );
@@ -107,8 +106,7 @@ test.serial("set up channel", async (t) => {
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    msg as any,
+    msg,
     "Oracle instance",
     "auto"
   );
@@ -163,8 +161,7 @@ async function instantiateAndConnectIbc(testMode = true): Promise<SetupInfo> {
   const { contractAddress: noisOracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    msg as any,
+    msg,
     "Oracle instance",
     "auto"
   );
