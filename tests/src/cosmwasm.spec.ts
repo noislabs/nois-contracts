@@ -71,7 +71,8 @@ test.serial("Bot can submit to Oracle", async (t) => {
   t.deepEqual(before, { beacon: null });
 
   const bot = await Bot.connect(oracleAddress);
-  await bot.submitRound(2183666);
+  const res = await bot.submitRound(2183666);
+  t.log(`Gas used: ${res.gasUsed}/${res.gasWanted}`);
 
   const after = await osmoClient.sign.queryContractSmart(oracleAddress, {
     beacon: { round: 2183666 },
