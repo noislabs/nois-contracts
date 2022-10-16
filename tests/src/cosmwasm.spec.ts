@@ -140,7 +140,7 @@ interface SetupInfo {
   };
 }
 
-async function instantiateAndConnectIbc(testMode = true): Promise<SetupInfo> {
+async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
   const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
 
   // Instantiate proxy on appchain
@@ -215,7 +215,7 @@ async function instantiateAndConnectIbc(testMode = true): Promise<SetupInfo> {
 }
 
 test.serial("proxy works", async (t) => {
-  const { wasmClient, noisProxyAddress, link, noisOracleAddress: noisOracleAddress } = await instantiateAndConnectIbc();
+  const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(true);
   const bot = await Bot.connect(noisOracleAddress);
 
   t.log("Executing get_next_randomness for a round that already exists");
@@ -354,7 +354,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
 });
 
 test.serial("demo contract can be used", async (t) => {
-  const { wasmClient, noisDemoAddress, link, noisOracleAddress: noisOracleAddress } = await instantiateAndConnectIbc();
+  const { wasmClient, noisDemoAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(true);
   const bot = await Bot.connect(noisOracleAddress);
 
   // Correct round submitted before request
