@@ -2,9 +2,10 @@
 #PREREQS
 # 0 You have already run the deploy-contracts script
 
-SCRIPT_DIR="cd-scripts"
-KEYRING_KEY_NAME="deployment-key"
 
+SCRIPT_DIR="cd-scripts"
+#KEYRING_KEY_NAME="deployment-key"
+#set -x
 cd $SCRIPT_DIR
 
 chain=$CHAIN
@@ -12,7 +13,6 @@ contract=double-dice-roll
 
 NOIS_DEMO_CONTRACT_ADDRESS=$(cat config.yaml|yq -r '.chains[]| select(.name=="'"$chain"'").wasm.contracts[]| select(.name=="'"$contract"'").address' )
 echo "1"
-cat config.yaml
 yq -r '.chains[]| select(.name=="'"$chain"'").binary_name' config.yaml
 BINARY_NAME=($(yq -r '.chains[]| select(.name=="'"$chain"'").binary_name' config.yaml))
 echo $BINARY_NAME
@@ -31,18 +31,22 @@ if [ "$FAUCET_URL" == "~" ] ;
     fi
 
 declare -i TTL
-TTL='200'
-
+TTL='2000'
 while true
-do
+do 
+
    timestamp=$(date +%s)
+   job_id=$DAPP-$timestamp
    result="null"
-   echo passphrase | $BINARY_NAME tx wasm execute $NOIS_DEMO_CONTRACT_ADDRESS  '{"roll_dice": {"job_id": "'"$timestamp"'"}}'  --from $KEYRING_KEY_NAME --chain-id $CHAIN_ID   --gas=auto --gas-adjustment 1.4  --gas-prices=$GAS_PRICES$DENOM --broadcast-mode=block --node=$NODE_URL -y >/dev/null
+   RANDOM_SLEEP=$(($RANDOM%30))
+   echo "sleeping for $RANDOM_SLEEP seconds"
+   sleep $RANDOM_SLEEP
+   echo passphrase | $BINARY_NAME tx wasm execute $NOIS_DEMO_CONTRACT_ADDRESS  '{"roll_dice": {"job_id": "'"$job_id"'"}}'  --from $KEYRING_KEY_NAME --chain-id $CHAIN_ID   --gas=auto --gas-adjustment 1.4  --gas-prices=$GAS_PRICES$DENOM --broadcast-mode=block --node=$NODE_URL -y >/dev/null
    SECONDS=0
    i=0
    while [ "$result" == "null" ] && [ "$i" -lt "$TTL" ]
    do
-     result=$($BINARY_NAME query wasm  contract-state  smart $NOIS_DEMO_CONTRACT_ADDRESS  '{"query_outcome": {"job_id":"'"$timestamp"'"}}'  --node=$NODE_URL |yq -r '.data')
+     result=$($BINARY_NAME query wasm  contract-state  smart $NOIS_DEMO_CONTRACT_ADDRESS  '{"query_outcome": {"job_id":"'"$job_id"'"}}'  --node=$NODE_URL |yq -r '.data')
      #echo "attempt: $i"
      sleep 1
      let i++
@@ -50,13 +54,12 @@ do
    if [ "$i" -eq "$TTL" ] ;
      then
         echo "randomness took longer than TTL";
-        rm /tmp/$CHAIN-$NOIS_CHAIN
    fi
    if [ "$result" != "null" ];
      then
         echo "randomness took $SECONDS seconds";
-        echo $SECONDS >  /tmp/$CHAIN-$NOIS_CHAIN
         echo "result: $result"
    fi
+   echo $SECONDS >  /tmp/$CHAIN-$DAPP-$NOIS_CHAIN
 
 done
