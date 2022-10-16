@@ -12,7 +12,7 @@ use nois_protocol::{
     RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
-use crate::drand::{DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_ROUND_LENGTH};
+use crate::drand::{round_after, DRAND_CHAIN_HASH, DRAND_MAINNET_PUBKEY};
 use crate::error::ContractError;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
@@ -284,15 +284,7 @@ enum NextRoundMode {
 fn next_round(mode: NextRoundMode) -> StdResult<(u64, String)> {
     match mode {
         NextRoundMode::Time { base } => {
-            // Losely ported from https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L49-L63
-            let round = if base < DRAND_GENESIS {
-                1
-            } else {
-                let from_genesis = base.nanos() - DRAND_GENESIS.nanos();
-                let periods_since_genesis = from_genesis / DRAND_ROUND_LENGTH;
-                let next_period_index = periods_since_genesis + 1;
-                next_period_index + 1 // Convert 0-based counting to 1-based counting
-            };
+            let round = round_after(base);
             let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
             Ok((round, source_id))
         }
