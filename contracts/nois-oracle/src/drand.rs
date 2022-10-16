@@ -7,8 +7,11 @@ pub const DRAND_MAINNET_PUBKEY: [u8; 48] = [
     124, 113, 188, 92, 206, 150, 54, 107, 93, 122, 86, 153, 55, 197, 41, 238, 218, 102, 199, 41,
     55, 132, 169, 64, 40, 1, 175, 49,
 ];
+/// The chain hash serves as a drand network identifier.
+///
+/// See <https://drand.love/developer/> and <https://drand.cloudflare.com/info>
 pub const DRAND_CHAIN_HASH: &str =
-    "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce"; // See https://drand.love/developer/
+    "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce";
 pub const DRAND_GENESIS: Timestamp = Timestamp::from_seconds(1595431050);
 pub const DRAND_ROUND_LENGTH: u64 = 30_000_000_000; // in nanoseconds
 
