@@ -5,6 +5,8 @@ use crate::state::{Config, QueriedBeacon, QueriedBot, StoredSubmission};
 
 #[cw_serde]
 pub struct InstantiateMsg {
+    /// The lowest drand round this contracts accepts for verification and storage.
+    pub min_round: u64,
     /// Bot incentive amount.
     ///
     /// A round submission currently consumes 620k. Using a gas limit of
