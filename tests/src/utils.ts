@@ -24,7 +24,7 @@ export async function setupContracts(
     t.log(`Storing ${name} from ${path}...`);
     const wasm = await readFileSync(path);
     const receipt = await cosmwasm.sign.upload(cosmwasm.senderAddress, wasm, "auto", `Upload ${name}`);
-    t.log(`Uploaded ${name} with CodeID: ${receipt.codeId}`);
+    t.log(`Uploaded ${name} with code ID: ${receipt.codeId}; Gas used: ${receipt.gasUsed}/${receipt.gasWanted}`);
     results[name] = receipt.codeId;
   }
 
