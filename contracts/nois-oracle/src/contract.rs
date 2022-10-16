@@ -33,11 +33,12 @@ const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 5;
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     let config = Config {
+        min_round: round_after(env.block.time),
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
     };
@@ -341,11 +342,15 @@ fn execute_add_round(
         return Err(StdError::generic_err("Do not send funds").into());
     }
 
+    let config = CONFIG.load(deps.storage)?;
+    let min_round = config.min_round;
+    if round < min_round {
+        return Err(ContractError::RoundTooLow { round, min_round });
+    }
+
     let pk = g1_from_fixed_unchecked(DRAND_MAINNET_PUBKEY)
         .map_err(|_| ContractError::InvalidPubkey {})?;
-    let is_valid = verify(&pk, round, &previous_signature, &signature).unwrap_or(false);
-
-    if !is_valid {
+    if !verify(&pk, round, &previous_signature, &signature).unwrap_or(false) {
         return Err(ContractError::InvalidSignature {});
     }
 
@@ -399,7 +404,6 @@ fn execute_add_round(
     // Pay the bot incentive
     let is_eligible = is_registered && next_index < NUMBER_OF_INCENTIVES_PER_ROUND; // top X submissions can receive a reward
     if is_eligible {
-        let config = CONFIG.load(deps.storage)?;
         let contract_balance = deps
             .querier
             .query_balance(&env.contract.address, &config.incentive_denom)?
@@ -509,8 +513,22 @@ mod tests {
             incentive_denom: "unois".to_string(),
         };
         let info = mock_info("creator", &[]);
-        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let mut env = mock_env();
+        // 5 min after drand genesis. This is the publish time of round 11. Min round will be the next one.
+        env.block.time = Timestamp::from_seconds(1595431050 + 300);
+        let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(0, res.messages.len());
+
+        let config: ConfigResponse =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(
+            config,
+            ConfigResponse {
+                min_round: 12,
+                incentive_amount: Uint128::new(1_000_000),
+                incentive_denom: "unois".to_string(),
+            }
+        );
     }
 
     //
@@ -553,6 +571,41 @@ mod tests {
             response.beacon.unwrap().randomness.to_hex(),
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
+    }
+
+    #[test]
+    fn add_round_fails_when_round_too_low() {
+        let mut deps = mock_dependencies();
+
+        let msg = InstantiateMsg {
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+        };
+        let info = mock_info("creator", &[]);
+        let mut env = mock_env();
+        // 5 min after drand genesis. This is the publish time of round 11. Min round will be the next one.
+        env.block.time = Timestamp::from_seconds(1595431050 + 300);
+        let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let ConfigResponse { min_round, .. } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(min_round, 12);
+
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/9
+            round: 9,
+            previous_signature: HexBinary::from_hex("b3ed3c540ef5c5407ea6dbf7407ca5899feeb54f66f7e700ee063db71f979a869d28efa9e10b5e6d3d24a838e8b6386a15b411946c12815d81f2c445ae4ee1a7732509f0842f327c4d20d82a1209f12dbdd56fd715cc4ed887b53c321b318cd7").unwrap(),
+            signature: HexBinary::from_hex("99c37c83a0d7bb637f0e2f0c529aa5c8a37d0287535debe5dacd24e95b6e38f3394f7cb094bdf4908a192a3563276f951948f013414d927e0ba8c84466b4c9aea4de2a253dfec6eb5b323365dfd2d1cb98184f64c22c5293c8bfe7962d4eb0f5").unwrap(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
+        assert!(matches!(
+            err,
+            ContractError::RoundTooLow {
+                round: 9,
+                min_round: 12
+            }
+        ));
     }
 
     #[test]
