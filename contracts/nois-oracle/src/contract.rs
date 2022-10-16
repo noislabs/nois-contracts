@@ -3,7 +3,7 @@ use cosmwasm_std::{
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    Order, QueryResponse, Response, StdError, StdResult, Storage, Timestamp,
+    Order, QueryResponse, Response, StdError, StdResult, Timestamp,
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
@@ -12,7 +12,7 @@ use nois_protocol::{
     RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
-use crate::drand::{DRAND_CHAIN_HASH, DRAND_GENESIS, DRAND_MAINNET_PUBKEY, DRAND_ROUND_LENGTH};
+use crate::drand::{round_after, DRAND_CHAIN_HASH, DRAND_MAINNET_PUBKEY};
 use crate::error::ContractError;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
@@ -20,7 +20,7 @@ use crate::msg::{
 };
 use crate::state::{
     Bot, Config, Job, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, BEACONS, BOTS,
-    CONFIG, DRAND_JOBS, SUBMISSIONS, SUBMISSIONS_ORDER, TEST_MODE_NEXT_ROUND,
+    CONFIG, DRAND_JOBS, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
 
 // TODO: make configurable?
@@ -38,7 +38,6 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     let config = Config {
-        test_mode: msg.test_mode,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
     };
@@ -222,13 +221,7 @@ fn receive_get_beacon(
     sender: String,
     job_id: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    let Config { test_mode, .. } = CONFIG.load(deps.storage)?;
-    let mode = if test_mode {
-        NextRoundMode::Test
-    } else {
-        NextRoundMode::Time { base: after }
-    };
-    let (round, source_id) = next_round(deps.storage, mode)?;
+    let (round, source_id) = commit_to_drand_round(after);
 
     let job = Job {
         source_id: source_id.clone(),
@@ -281,35 +274,11 @@ fn process_job(
     Ok(msg)
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-enum NextRoundMode {
-    Test,
-    Time { base: Timestamp },
-}
-
 /// Calculates the next round in the future, i.e. publish time > base time.
-fn next_round(storage: &mut dyn Storage, mode: NextRoundMode) -> StdResult<(u64, String)> {
-    match mode {
-        NextRoundMode::Test => {
-            let next = TEST_MODE_NEXT_ROUND.may_load(storage)?.unwrap_or(2183660);
-            TEST_MODE_NEXT_ROUND.save(storage, &(next + 1))?;
-            let source_id = format!("test-mode:{}", next);
-            Ok((next, source_id))
-        }
-        NextRoundMode::Time { base } => {
-            // Losely ported from https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L49-L63
-            let round = if base < DRAND_GENESIS {
-                1
-            } else {
-                let from_genesis = base.nanos() - DRAND_GENESIS.nanos();
-                let periods_since_genesis = from_genesis / DRAND_ROUND_LENGTH;
-                let next_period_index = periods_since_genesis + 1;
-                next_period_index + 1 // Convert 0-based counting to 1-based counting
-            };
-            let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
-            Ok((round, source_id))
-        }
-    }
+fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
+    let round = round_after(after);
+    let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
+    (round, source_id)
 }
 
 #[entry_point]
@@ -497,7 +466,6 @@ mod tests {
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -537,7 +505,6 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -562,7 +529,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -595,7 +561,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -636,7 +601,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -678,7 +642,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -730,7 +693,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -804,7 +766,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -835,7 +796,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -862,7 +822,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -890,7 +849,6 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -939,7 +897,6 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -1045,7 +1002,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -1143,7 +1099,6 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -1241,7 +1196,6 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            test_mode: true,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
@@ -1437,87 +1391,45 @@ mod tests {
     //
 
     #[test]
-    fn next_round_works_for_test_mode() {
-        let mut deps = mock_dependencies();
-        let (round, source_id) = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
-        assert_eq!(round, 2183660);
-        assert_eq!(source_id, "test-mode:2183660");
-        let (round, source_id) = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
-        assert_eq!(round, 2183661);
-        assert_eq!(source_id, "test-mode:2183661");
-        let (round, source_id) = next_round(&mut deps.storage, NextRoundMode::Test).unwrap();
-        assert_eq!(round, 2183662);
-        assert_eq!(source_id, "test-mode:2183662");
-    }
-
-    #[test]
-    fn next_round_works_for_time_mode() {
-        let mut deps = mock_dependencies();
-
+    fn commit_to_drand_round_works() {
         // UNIX epoch
-        let (round, _) = next_round(
-            &mut deps.storage,
-            NextRoundMode::Time {
-                base: Timestamp::from_seconds(0),
-            },
-        )
-        .unwrap();
+        let (round, source) = commit_to_drand_round(Timestamp::from_seconds(0));
         assert_eq!(round, 1);
+        assert_eq!(
+            source,
+            "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:1"
+        );
 
         // Before Drand genesis (https://api3.drand.sh/info)
-        let (round, _) = next_round(
-            &mut deps.storage,
-            NextRoundMode::Time {
-                base: Timestamp::from_seconds(1595431050).minus_nanos(1),
-            },
-        )
-        .unwrap();
+        let (round, source) =
+            commit_to_drand_round(Timestamp::from_seconds(1595431050).minus_nanos(1));
         assert_eq!(round, 1);
+        assert_eq!(
+            source,
+            "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:1"
+        );
 
         // At Drand genesis (https://api3.drand.sh/info)
-        let (round, _) = next_round(
-            &mut deps.storage,
-            NextRoundMode::Time {
-                base: Timestamp::from_seconds(1595431050),
-            },
-        )
-        .unwrap();
+        let (round, source) = commit_to_drand_round(Timestamp::from_seconds(1595431050));
         assert_eq!(round, 2);
+        assert_eq!(
+            source,
+            "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2"
+        );
 
         // After Drand genesis (https://api3.drand.sh/info)
-        let (round, _) = next_round(
-            &mut deps.storage,
-            NextRoundMode::Time {
-                base: Timestamp::from_seconds(1595431050).plus_nanos(1),
-            },
-        )
-        .unwrap();
+        let (round, _) = commit_to_drand_round(Timestamp::from_seconds(1595431050).plus_nanos(1));
         assert_eq!(round, 2);
 
         // Drand genesis +29s/30s/31s
-        let (round, _) = next_round(
-            &mut deps.storage,
-            NextRoundMode::Time {
-                base: Timestamp::from_seconds(1595431050).plus_seconds(29),
-            },
-        )
-        .unwrap();
+        let (round, _) =
+            commit_to_drand_round(Timestamp::from_seconds(1595431050).plus_seconds(29));
         assert_eq!(round, 2);
-        let (round, _) = next_round(
-            &mut deps.storage,
-            NextRoundMode::Time {
-                base: Timestamp::from_seconds(1595431050).plus_seconds(30),
-            },
-        )
-        .unwrap();
+        let (round, _) =
+            commit_to_drand_round(Timestamp::from_seconds(1595431050).plus_seconds(30));
         assert_eq!(round, 3);
-        let (round, _) = next_round(
-            &mut deps.storage,
-            NextRoundMode::Time {
-                base: Timestamp::from_seconds(1595431050).plus_seconds(31),
-            },
-        )
-        .unwrap();
+        let (round, _) =
+            commit_to_drand_round(Timestamp::from_seconds(1595431050).plus_seconds(31));
         assert_eq!(round, 3);
     }
 }

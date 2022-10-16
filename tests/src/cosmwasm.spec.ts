@@ -22,9 +22,12 @@ let wasmCodeIds: Record<string, number> = {};
 let osmosisCodeIds: Record<string, number> = {};
 
 interface OracleInstantiateMsg {
-  readonly test_mode: boolean;
   readonly incentive_amount: string;
   readonly incentive_denom: string;
+}
+
+interface ProxyInstantiateMsg {
+  readonly test_mode: boolean;
 }
 
 test.before(async (t) => {
@@ -50,7 +53,6 @@ test.serial("Bot can submit to Oracle", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
   const msg: OracleInstantiateMsg = {
-    test_mode: true,
     incentive_amount: "0",
     incentive_denom: "unois",
   };
@@ -84,10 +86,13 @@ test.serial("Bot can submit to Oracle", async (t) => {
 test.serial("set up channel", async (t) => {
   // Instantiate proxy on appchain
   const wasmClient = await setupWasmClient();
+  const proxyMsg: ProxyInstantiateMsg = {
+    test_mode: true,
+  };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmCodeIds.proxy,
-    {},
+    proxyMsg,
     "Proxy instance",
     "auto"
   );
@@ -99,7 +104,6 @@ test.serial("set up channel", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
   const msg: OracleInstantiateMsg = {
-    test_mode: true,
     incentive_amount: "0",
     incentive_denom: "unois",
   };
@@ -140,21 +144,23 @@ interface SetupInfo {
   };
 }
 
-async function instantiateAndConnectIbc(testMode = true): Promise<SetupInfo> {
+async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
   const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
 
   // Instantiate proxy on appchain
+  const proxyMsg: ProxyInstantiateMsg = {
+    test_mode: testMode,
+  };
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmCodeIds.proxy,
-    {},
+    proxyMsg,
     "Proxy instance",
     "auto"
   );
 
   // Instantiate Oracle on Osmosis
   const msg: OracleInstantiateMsg = {
-    test_mode: testMode,
     incentive_amount: "0",
     incentive_denom: "unois",
   };
@@ -215,7 +221,7 @@ async function instantiateAndConnectIbc(testMode = true): Promise<SetupInfo> {
 }
 
 test.serial("proxy works", async (t) => {
-  const { wasmClient, noisProxyAddress, link, noisOracleAddress: noisOracleAddress } = await instantiateAndConnectIbc();
+  const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(true);
   const bot = await Bot.connect(noisOracleAddress);
 
   t.log("Executing get_next_randomness for a round that already exists");
@@ -232,7 +238,11 @@ test.serial("proxy works", async (t) => {
     const info1 = await link.relayAll();
     assertPacketsFromA(info1, 1, true);
     const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
-    t.deepEqual(ack1, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
+    t.deepEqual(ack1, {
+      result: toBinary({
+        processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+      }),
+    });
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
@@ -254,7 +264,11 @@ test.serial("proxy works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183661" } }) });
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+      }),
+    });
   }
 
   t.log("Executing get_randomness_after for a round that does not yet exists");
@@ -270,7 +284,11 @@ test.serial("proxy works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183662" } }) });
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2264219" },
+      }),
+    });
   }
 });
 
@@ -354,7 +372,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
 });
 
 test.serial("demo contract can be used", async (t) => {
-  const { wasmClient, noisDemoAddress, link, noisOracleAddress: noisOracleAddress } = await instantiateAndConnectIbc();
+  const { wasmClient, noisDemoAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(true);
   const bot = await Bot.connect(noisOracleAddress);
 
   // Correct round submitted before request
@@ -374,7 +392,11 @@ test.serial("demo contract can be used", async (t) => {
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+      }),
+    });
 
     // DeliverBeacon packet
     const infoB2A = await link.relayAll();
@@ -405,7 +427,11 @@ test.serial("demo contract can be used", async (t) => {
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183661" } }) });
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+      }),
+    });
 
     // DeliverBeacon packet not yet
     const infoB2A = await link.relayAll();

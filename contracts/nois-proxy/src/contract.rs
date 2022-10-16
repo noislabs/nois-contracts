@@ -15,6 +15,7 @@ use nois_protocol::{
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, OracleChannelResponse, QueryMsg};
+use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 
 // TODO: make configurable?
@@ -22,19 +23,20 @@ use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 pub const PACKET_LIFETIME: u64 = 60 * 60;
 pub const CALLBACK_ID: u64 = 456;
 
-pub const SAFETY_MARGIN: u64 = 3; // seconds
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    let config = Config {};
+    let InstantiateMsg { test_mode } = msg;
+    let config = Config { test_mode };
     CONFIG.save(deps.storage, &config)?;
 
-    Ok(Response::new().add_attribute("action", "instantiate"))
+    Ok(Response::new()
+        .add_attribute("action", "instantiate")
+        .add_attribute("test_mode", test_mode.to_string()))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -62,8 +64,16 @@ pub fn execute_get_next_randomness(
 ) -> Result<Response, ContractError> {
     let sender = info.sender.into();
 
+    let config = CONFIG.load(deps.storage)?;
+    let mode = if config.test_mode {
+        AfterMode::Test
+    } else {
+        AfterMode::BlockTime(env.block.time)
+    };
+    let after = calculate_after(deps.storage, mode)?;
+
     let packet = RequestBeaconPacket {
-        after: env.block.time.plus_seconds(SAFETY_MARGIN),
+        after,
         sender,
         job_id,
     };
@@ -291,7 +301,7 @@ mod tests {
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg { test_mode: true };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -301,7 +311,7 @@ mod tests {
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg { test_mode: false };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());

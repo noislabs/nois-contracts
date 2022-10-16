@@ -2,7 +2,10 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use nois::ProxyExecuteMsg;
 
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    /// In test mode the min publish time calculation is detached from the clock.
+    pub test_mode: bool,
+}
 
 pub type ExecuteMsg = ProxyExecuteMsg;
 
