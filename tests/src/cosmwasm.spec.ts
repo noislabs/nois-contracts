@@ -22,7 +22,6 @@ let wasmCodeIds: Record<string, number> = {};
 let osmosisCodeIds: Record<string, number> = {};
 
 interface OracleInstantiateMsg {
-  readonly test_mode: boolean;
   readonly incentive_amount: string;
   readonly incentive_denom: string;
 }
@@ -54,7 +53,6 @@ test.serial("Bot can submit to Oracle", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
   const msg: OracleInstantiateMsg = {
-    test_mode: false,
     incentive_amount: "0",
     incentive_denom: "unois",
   };
@@ -106,7 +104,6 @@ test.serial("set up channel", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
   const msg: OracleInstantiateMsg = {
-    test_mode: false,
     incentive_amount: "0",
     incentive_denom: "unois",
   };
@@ -164,7 +161,6 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
 
   // Instantiate Oracle on Osmosis
   const msg: OracleInstantiateMsg = {
-    test_mode: false,
     incentive_amount: "0",
     incentive_denom: "unois",
   };

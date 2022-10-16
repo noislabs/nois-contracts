@@ -6,8 +6,6 @@ use crate::drand::time_of_round;
 
 #[cw_serde]
 pub struct Config {
-    /// In test mode the next round calculation is detached from the clock.
-    pub test_mode: bool,
     /// Bot incentive amount
     pub incentive_amount: Uint128,
     /// Bot incentive denom
@@ -63,8 +61,6 @@ pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissio
 /// The `index` values are 0-based. So the `n`th submission has index
 /// n-1 here as well as in the response array in `SubmissionsResponse`.
 pub const SUBMISSIONS_ORDER: Map<(u64, u32), Addr> = Map::new("submissions_order");
-
-pub const TEST_MODE_NEXT_ROUND: Item<u64> = Item::new("test_mode_next_round");
 
 /// The bot type for the state. We don't need the address here
 /// since this is stored in the storage key.
