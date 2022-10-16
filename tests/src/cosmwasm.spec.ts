@@ -54,7 +54,7 @@ test.serial("Bot can submit to Oracle", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
   const msg: OracleInstantiateMsg = {
-    test_mode: true,
+    test_mode: false,
     incentive_amount: "0",
     incentive_denom: "unois",
   };
@@ -106,7 +106,7 @@ test.serial("set up channel", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
   const msg: OracleInstantiateMsg = {
-    test_mode: true,
+    test_mode: false,
     incentive_amount: "0",
     incentive_denom: "unois",
   };
@@ -164,7 +164,7 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
 
   // Instantiate Oracle on Osmosis
   const msg: OracleInstantiateMsg = {
-    test_mode: testMode,
+    test_mode: false,
     incentive_amount: "0",
     incentive_denom: "unois",
   };
@@ -242,7 +242,11 @@ test.serial("proxy works", async (t) => {
     const info1 = await link.relayAll();
     assertPacketsFromA(info1, 1, true);
     const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
-    t.deepEqual(ack1, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
+    t.deepEqual(ack1, {
+      result: toBinary({
+        processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+      }),
+    });
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
@@ -264,7 +268,11 @@ test.serial("proxy works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183661" } }) });
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+      }),
+    });
   }
 
   t.log("Executing get_randomness_after for a round that does not yet exists");
@@ -280,7 +288,11 @@ test.serial("proxy works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183662" } }) });
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2264219" },
+      }),
+    });
   }
 });
 
@@ -384,7 +396,11 @@ test.serial("demo contract can be used", async (t) => {
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary({ processed: { source_id: "test-mode:2183660" } }) });
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+      }),
+    });
 
     // DeliverBeacon packet
     const infoB2A = await link.relayAll();
@@ -415,7 +431,11 @@ test.serial("demo contract can be used", async (t) => {
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, { result: toBinary({ queued: { source_id: "test-mode:2183661" } }) });
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+      }),
+    });
 
     // DeliverBeacon packet not yet
     const infoB2A = await link.relayAll();
