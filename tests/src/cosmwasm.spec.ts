@@ -27,6 +27,10 @@ interface OracleInstantiateMsg {
   readonly incentive_denom: string;
 }
 
+interface ProxyInstantiateMsg {
+  readonly test_mode: boolean;
+}
+
 test.before(async (t) => {
   t.log("Upload contracts to wasmd...");
   const wasmContracts = {
@@ -84,10 +88,13 @@ test.serial("Bot can submit to Oracle", async (t) => {
 test.serial("set up channel", async (t) => {
   // Instantiate proxy on appchain
   const wasmClient = await setupWasmClient();
+  const proxyMsg: ProxyInstantiateMsg = {
+    test_mode: true,
+  };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmCodeIds.proxy,
-    {},
+    proxyMsg,
     "Proxy instance",
     "auto"
   );
@@ -144,10 +151,13 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
   const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
 
   // Instantiate proxy on appchain
+  const proxyMsg: ProxyInstantiateMsg = {
+    test_mode: testMode,
+  };
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
     wasmCodeIds.proxy,
-    {},
+    proxyMsg,
     "Proxy instance",
     "auto"
   );
