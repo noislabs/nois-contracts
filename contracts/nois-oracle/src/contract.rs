@@ -221,8 +221,7 @@ fn receive_get_beacon(
     sender: String,
     job_id: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    let mode = NextRoundMode::Time { base: after };
-    let (round, source_id) = next_round(mode)?;
+    let (round, source_id) = commit_to_drand_round(after);
 
     let job = Job {
         source_id: source_id.clone(),
@@ -275,20 +274,11 @@ fn process_job(
     Ok(msg)
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
-enum NextRoundMode {
-    Time { base: Timestamp },
-}
-
 /// Calculates the next round in the future, i.e. publish time > base time.
-fn next_round(mode: NextRoundMode) -> StdResult<(u64, String)> {
-    match mode {
-        NextRoundMode::Time { base } => {
-            let round = round_after(base);
-            let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
-            Ok((round, source_id))
-        }
-    }
+fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
+    let round = round_after(after);
+    let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
+    (round, source_id)
 }
 
 #[entry_point]
@@ -1401,50 +1391,45 @@ mod tests {
     //
 
     #[test]
-    fn next_round_works_for_time_mode() {
+    fn commit_to_drand_round_works() {
         // UNIX epoch
-        let (round, _) = next_round(NextRoundMode::Time {
-            base: Timestamp::from_seconds(0),
-        })
-        .unwrap();
+        let (round, source) = commit_to_drand_round(Timestamp::from_seconds(0));
         assert_eq!(round, 1);
+        assert_eq!(
+            source,
+            "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:1"
+        );
 
         // Before Drand genesis (https://api3.drand.sh/info)
-        let (round, _) = next_round(NextRoundMode::Time {
-            base: Timestamp::from_seconds(1595431050).minus_nanos(1),
-        })
-        .unwrap();
+        let (round, source) =
+            commit_to_drand_round(Timestamp::from_seconds(1595431050).minus_nanos(1));
         assert_eq!(round, 1);
+        assert_eq!(
+            source,
+            "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:1"
+        );
 
         // At Drand genesis (https://api3.drand.sh/info)
-        let (round, _) = next_round(NextRoundMode::Time {
-            base: Timestamp::from_seconds(1595431050),
-        })
-        .unwrap();
+        let (round, source) = commit_to_drand_round(Timestamp::from_seconds(1595431050));
         assert_eq!(round, 2);
+        assert_eq!(
+            source,
+            "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2"
+        );
 
         // After Drand genesis (https://api3.drand.sh/info)
-        let (round, _) = next_round(NextRoundMode::Time {
-            base: Timestamp::from_seconds(1595431050).plus_nanos(1),
-        })
-        .unwrap();
+        let (round, _) = commit_to_drand_round(Timestamp::from_seconds(1595431050).plus_nanos(1));
         assert_eq!(round, 2);
 
         // Drand genesis +29s/30s/31s
-        let (round, _) = next_round(NextRoundMode::Time {
-            base: Timestamp::from_seconds(1595431050).plus_seconds(29),
-        })
-        .unwrap();
+        let (round, _) =
+            commit_to_drand_round(Timestamp::from_seconds(1595431050).plus_seconds(29));
         assert_eq!(round, 2);
-        let (round, _) = next_round(NextRoundMode::Time {
-            base: Timestamp::from_seconds(1595431050).plus_seconds(30),
-        })
-        .unwrap();
+        let (round, _) =
+            commit_to_drand_round(Timestamp::from_seconds(1595431050).plus_seconds(30));
         assert_eq!(round, 3);
-        let (round, _) = next_round(NextRoundMode::Time {
-            base: Timestamp::from_seconds(1595431050).plus_seconds(31),
-        })
-        .unwrap();
+        let (round, _) =
+            commit_to_drand_round(Timestamp::from_seconds(1595431050).plus_seconds(31));
         assert_eq!(round, 3);
     }
 }
