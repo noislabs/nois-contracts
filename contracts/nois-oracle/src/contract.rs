@@ -19,8 +19,8 @@ use crate::msg::{
     InstantiateMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
-    Bot, Config, Job, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, BEACONS, BOTS,
-    CONFIG, DRAND_JOBS, SUBMISSIONS, SUBMISSIONS_ORDER,
+    jobs_queue_dequeue, jobs_queue_enqueue, Bot, Config, Job, QueriedBeacon, QueriedBot,
+    StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
 
 // TODO: make configurable?
@@ -241,12 +241,7 @@ fn receive_get_beacon(
         msgs.push(msg.into());
         StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
     } else {
-        // If we don't have the beacon yet we store the job for later
-        let mut jobs = DRAND_JOBS
-            .may_load(deps.storage, round)?
-            .unwrap_or_default();
-        jobs.push(job);
-        DRAND_JOBS.save(deps.storage, round, &jobs)?;
+        jobs_queue_enqueue(deps.storage, round, &job)?;
         StdAck::success(&RequestBeaconPacketAck::Queued { source_id })
     };
 
@@ -428,14 +423,10 @@ fn execute_add_round(
         // Round is new
         BEACONS.save(deps.storage, round, beacon)?;
 
-        if let Some(jobs) = DRAND_JOBS.may_load(deps.storage, round)? {
-            DRAND_JOBS.remove(deps.storage, round);
-
-            for job in jobs {
-                // Use IbcMsg::SendPacket to send packages to the proxies.
-                let msg = process_job(env.block.time, job, beacon)?;
-                out_msgs.push(msg.into());
-            }
+        while let Some(job) = jobs_queue_dequeue(deps.storage, round)? {
+            // Use IbcMsg::SendPacket to send packages to the proxies.
+            let msg = process_job(env.block.time, job, beacon)?;
+            out_msgs.push(msg.into());
         }
     } else {
         // Round has already been verified and must not be overriden to not

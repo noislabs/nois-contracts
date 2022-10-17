@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
-use cw_storage_plus::{Item, Map};
+use cosmwasm_std::{Addr, HexBinary, StdResult, Storage, Timestamp, Uint128};
+use cw_storage_plus::{Deque, Item, Map};
 
 use crate::drand::time_of_round;
 
@@ -104,5 +104,14 @@ pub struct Job {
     pub job_id: String,
 }
 
-// Unprocessed drand jobs that are waiting for the correct round to come in
-pub const DRAND_JOBS: Map<u64, Vec<Job>> = Map::new("drand_jobs");
+/// Add an element to the unprocessed drand jobs queue of this round
+pub fn jobs_queue_enqueue(storage: &mut dyn Storage, round: u64, value: &Job) -> StdResult<()> {
+    let prefix = format!("drand_jobs_{:0>10}", round);
+    Deque::new(&prefix).push_back(storage, value)
+}
+
+/// Remove an element from the unprocessed drand jobs queue of this round
+pub fn jobs_queue_dequeue(storage: &mut dyn Storage, round: u64) -> StdResult<Option<Job>> {
+    let prefix = format!("drand_jobs_{:0>10}", round);
+    Deque::new(&prefix).pop_front(storage)
+}
