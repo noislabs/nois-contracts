@@ -200,17 +200,23 @@ pub fn ibc_channel_close(
     deps: DepsMut,
     _env: Env,
     msg: IbcChannelCloseMsg,
-) -> StdResult<IbcBasicResponse> {
-    let channel = msg.channel();
-
-    ORACLE_CHANNEL.remove(deps.storage);
-
-    // remove the channel
-    let channel_id = &channel.endpoint.channel_id;
-
-    Ok(IbcBasicResponse::new()
-        .add_attribute("action", "ibc_close")
-        .add_attribute("channel_id", channel_id))
+) -> Result<IbcBasicResponse, ContractError> {
+    match msg {
+        // This side of the channel never initiates a close.
+        // Transactions trying that should fail.
+        IbcChannelCloseMsg::CloseInit { channel: _ } => Err(ContractError::ChannelMustNotBeClosed),
+        // If the close is already done on the other chain we cannot
+        // stop that anymore. We ensure this transactions succeeds to
+        // allow the local channel's state to change to closed.
+        //
+        // By clearing the ORACLE_CHANNEL we allow a new channel to be established.
+        IbcChannelCloseMsg::CloseConfirm { channel } => {
+            ORACLE_CHANNEL.remove(deps.storage);
+            Ok(IbcBasicResponse::new()
+                .add_attribute("action", "ibc_close")
+                .add_attribute("channel_id", channel.endpoint.channel_id))
+        }
+    }
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -289,7 +295,8 @@ mod tests {
     use super::*;
     use cosmwasm_std::{
         testing::{
-            mock_dependencies, mock_env, mock_ibc_channel_connect_ack,
+            mock_dependencies, mock_env, mock_ibc_channel_close_confirm,
+            mock_ibc_channel_close_init, mock_ibc_channel_connect_ack,
             mock_ibc_channel_connect_confirm, mock_ibc_channel_open_try, mock_info, MockApi,
             MockQuerier, MockStorage,
         },
@@ -397,5 +404,45 @@ mod tests {
             let err = ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap_err();
             assert!(matches!(err, ContractError::ChannelAlreadySet));
         }
+    }
+
+    #[test]
+    fn ibc_channel_close_works() {
+        let mut deps = setup();
+
+        // Open
+        let valid_handshake = mock_ibc_channel_open_try("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_open(deps.as_mut(), mock_env(), valid_handshake).unwrap();
+
+        // Connect
+        let msg = mock_ibc_channel_connect_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // Channel is now set
+        let OracleChannelResponse { channel } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+                .unwrap();
+        assert_eq!(channel, Some("channel-12".to_string()));
+
+        // Closing channel fails
+        let msg = mock_ibc_channel_close_init("channel-12", APP_ORDER, IBC_APP_VERSION);
+        let err = ibc_channel_close(deps.as_mut(), mock_env(), msg).unwrap_err();
+        assert!(matches!(err, ContractError::ChannelMustNotBeClosed));
+
+        // Channel is still set
+        let OracleChannelResponse { channel } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+                .unwrap();
+        assert_eq!(channel, Some("channel-12".to_string()));
+
+        // The other side closed
+        let msg = mock_ibc_channel_close_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_close(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // Channel is unset
+        let OracleChannelResponse { channel } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+                .unwrap();
+        assert_eq!(channel, None);
     }
 }
