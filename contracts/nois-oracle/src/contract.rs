@@ -30,6 +30,10 @@ pub const PACKET_LIFETIME: u64 = 60 * 60;
 /// Constant defining how many submissions per round will be rewarded
 const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 5;
 
+/// The number of jobs that are processed per submission. Use this limit
+/// to ensure the gas usage for the submissions is relatively stable.
+const MAX_JOBS_PER_SUBMISSION: u32 = 6;
+
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
@@ -422,15 +426,20 @@ fn execute_add_round(
     if !BEACONS.has(deps.storage, round) {
         // Round is new
         BEACONS.save(deps.storage, round, beacon)?;
-
-        while let Some(job) = jobs_queue_dequeue(deps.storage, round)? {
-            // Use IbcMsg::SendPacket to send packages to the proxies.
-            let msg = process_job(env.block.time, job, beacon)?;
-            out_msgs.push(msg.into());
-        }
     } else {
         // Round has already been verified and must not be overriden to not
         // get a wrong `verified` timestamp.
+    }
+
+    let mut jobs_processed = 0;
+    while let Some(job) = jobs_queue_dequeue(deps.storage, round)? {
+        // Use IbcMsg::SendPacket to send packages to the proxies.
+        let msg = process_job(env.block.time, job, beacon)?;
+        out_msgs.push(msg.into());
+        jobs_processed += 1;
+        if jobs_processed >= MAX_JOBS_PER_SUBMISSION {
+            break;
+        }
     }
 
     Ok(Response::new()
@@ -450,8 +459,8 @@ mod tests {
     use super::*;
     use cosmwasm_std::testing::{
         mock_dependencies, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_ack,
-        mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_info, MockApi, MockQuerier,
-        MockStorage,
+        mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_ibc_packet_recv, mock_info,
+        MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{coin, from_binary, Addr, OwnedDeps, Uint128};
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
@@ -991,6 +1000,150 @@ mod tests {
         register_bot(deps.as_mut(), info.to_owned());
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
+    }
+
+    #[test]
+    fn add_round_processes_jobs() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
+        let msg = InstantiateMsg {
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // Create one job
+        let msg = mock_ibc_packet_recv(
+            "foo",
+            &RequestBeaconPacket {
+                after: Timestamp::from_seconds(1660941090 - 1),
+                job_id: "test 1".to_string(),
+                sender: "my_dapp".to_string(),
+            },
+        )
+        .unwrap();
+        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // Previous round processes no job
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/2183668
+            round: 2183668,
+            previous_signature: HexBinary::from_hex("b0272269d87be8f146a0dc4f882b03add1e0f98ee7c55ee674107c231cfa7d2e40d9c88dd6e72f2f52d1abe14766b2c40dd392eec82d678a4c925c6937717246e8ae96d54d8ea70f85f8282cf14c56e5b547b7ee82df4ff61f3523a0eefcdf41").unwrap(),
+            signature: HexBinary::from_hex("b06969214b8a7c8d705c4c5e00262626d95e30f8583dc21670508d6d4751ae95ddf675e76feabe1ee5f4000dd21f09d009bb2b57da6eedd10418e83c303c2d5845914175ffe13601574d039a7593c3521eaa98e43be927b4a00d423388501f05").unwrap(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 0);
+
+        // Process one job
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/2183669
+            round: 2183669,
+            previous_signature: HexBinary::from_hex("b06969214b8a7c8d705c4c5e00262626d95e30f8583dc21670508d6d4751ae95ddf675e76feabe1ee5f4000dd21f09d009bb2b57da6eedd10418e83c303c2d5845914175ffe13601574d039a7593c3521eaa98e43be927b4a00d423388501f05").unwrap(),
+            signature: HexBinary::from_hex("990538b0f0ca3b934f53eb41d7a4ba24f3b3800abfc06275eb843df75a53257c2dbfb8f6618bb72874a79303429db13e038e6619c08726e8bbb3ae58ebb31e08d2aed921e4246fdef984285eb679c6b443f24bd04f78659bd4230e654db4200d").unwrap(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        assert_eq!(res.messages[0].gas_limit, None);
+        assert!(matches!(
+            res.messages[0].msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+
+        // Create five job
+        for i in 0..5 {
+            let msg = mock_ibc_packet_recv(
+                "foo",
+                &RequestBeaconPacket {
+                    after: Timestamp::from_seconds(1660941120 - 1),
+                    job_id: format!("test {i}"),
+                    sender: "my_dapp".to_string(),
+                },
+            )
+            .unwrap();
+            ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+        }
+
+        // Process five jobs
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/2183670
+            round: 2183670,
+            previous_signature: HexBinary::from_hex("990538b0f0ca3b934f53eb41d7a4ba24f3b3800abfc06275eb843df75a53257c2dbfb8f6618bb72874a79303429db13e038e6619c08726e8bbb3ae58ebb31e08d2aed921e4246fdef984285eb679c6b443f24bd04f78659bd4230e654db4200d").unwrap(),
+            signature: HexBinary::from_hex("a63dcbd669534b049a86198ee98f1b68c24aac50de411d11f2a8a98414f9312cd04027810417d0fa60461c0533d604630ada568ef83af93ce05c1620c8bee1491092c11e5c7d9bb679b5b8de61bbb48e092164366ae6f799c082ddab691d1d78").unwrap(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 5);
+        assert_eq!(res.messages[0].gas_limit, None);
+        assert_eq!(res.messages[1].gas_limit, None);
+        assert_eq!(res.messages[2].gas_limit, None);
+        assert_eq!(res.messages[3].gas_limit, None);
+        assert_eq!(res.messages[4].gas_limit, None);
+        assert!(matches!(
+            res.messages[0].msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+        assert!(matches!(
+            res.messages[1].msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+        assert!(matches!(
+            res.messages[2].msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+        assert!(matches!(
+            res.messages[3].msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+        assert!(matches!(
+            res.messages[4].msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+
+        // Create 15 job
+        for i in 0..15 {
+            let msg = mock_ibc_packet_recv(
+                "foo",
+                &RequestBeaconPacket {
+                    after: Timestamp::from_seconds(1660941150 - 1),
+                    job_id: format!("test {i}"),
+                    sender: "my_dapp".to_string(),
+                },
+            )
+            .unwrap();
+            ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+        }
+
+        // Process first 6 jobs
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/2183671
+            round: 2183671,
+            previous_signature: HexBinary::from_hex("a63dcbd669534b049a86198ee98f1b68c24aac50de411d11f2a8a98414f9312cd04027810417d0fa60461c0533d604630ada568ef83af93ce05c1620c8bee1491092c11e5c7d9bb679b5b8de61bbb48e092164366ae6f799c082ddab691d1d78").unwrap(),
+            signature: HexBinary::from_hex("b449f94098616029baea233fa8b64851cf9de2b230a7c5a2181c3abdc9e92806ae9020a5d9dcdbb707b6f1754480954b00a80b594cb35b51944167d2b20cc3b3cac6da7023c6a6bf867c6c3844768794edcaae292394316603797d669f62691a").unwrap(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("anon1", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 6);
+
+        // Process next 6 jobs
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/2183671
+            round: 2183671,
+            previous_signature: HexBinary::from_hex("a63dcbd669534b049a86198ee98f1b68c24aac50de411d11f2a8a98414f9312cd04027810417d0fa60461c0533d604630ada568ef83af93ce05c1620c8bee1491092c11e5c7d9bb679b5b8de61bbb48e092164366ae6f799c082ddab691d1d78").unwrap(),
+            signature: HexBinary::from_hex("b449f94098616029baea233fa8b64851cf9de2b230a7c5a2181c3abdc9e92806ae9020a5d9dcdbb707b6f1754480954b00a80b594cb35b51944167d2b20cc3b3cac6da7023c6a6bf867c6c3844768794edcaae292394316603797d669f62691a").unwrap(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("anon2", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 6);
+
+        // Process last 3 jobs
+        let msg = ExecuteMsg::AddRound {
+            // curl -sS https://drand.cloudflare.com/public/2183671
+            round: 2183671,
+            previous_signature: HexBinary::from_hex("a63dcbd669534b049a86198ee98f1b68c24aac50de411d11f2a8a98414f9312cd04027810417d0fa60461c0533d604630ada568ef83af93ce05c1620c8bee1491092c11e5c7d9bb679b5b8de61bbb48e092164366ae6f799c082ddab691d1d78").unwrap(),
+            signature: HexBinary::from_hex("b449f94098616029baea233fa8b64851cf9de2b230a7c5a2181c3abdc9e92806ae9020a5d9dcdbb707b6f1754480954b00a80b594cb35b51944167d2b20cc3b3cac6da7023c6a6bf867c6c3844768794edcaae292394316603797d669f62691a").unwrap(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("anon3", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 3);
     }
 
     #[test]
