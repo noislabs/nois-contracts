@@ -537,9 +537,6 @@ mod tests {
 
     /// Adds round 72785, 72786, 72787
     fn add_test_rounds(mut deps: DepsMut, bot_addr: &str) {
-        let info = mock_info(bot_addr, &[]);
-        register_bot(deps.branch(), info.to_owned());
-
         let msg = make_add_round_msg(72785);
         execute(deps.branch(), mock_env(), mock_info(bot_addr, &[]), msg).unwrap();
         let msg = make_add_round_msg(72786);
