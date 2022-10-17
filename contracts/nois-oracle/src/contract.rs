@@ -1148,6 +1148,11 @@ mod tests {
         let msg = make_add_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon3", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
+
+        // No jobs left for later submissions
+        let msg = make_add_round_msg(2183671);
+        let res = execute(deps.as_mut(), mock_env(), mock_info("anon4", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 0);
     }
 
     #[test]
