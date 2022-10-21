@@ -1,9 +1,11 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Timestamp;
+use cosmwasm_std::{Addr, Timestamp};
 use cw_storage_plus::Item;
 
 #[cw_serde]
 pub struct Config {
+    // The address to which withdrawals will be made
+    pub withdrawal_address: Addr,
     pub test_mode: bool,
 }
 
