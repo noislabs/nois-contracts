@@ -14,7 +14,7 @@ use nois_protocol::{
 };
 
 use crate::error::ContractError;
-use crate::job_id::validate_job_id;
+use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, OracleChannelResponse, QueryMsg};
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
@@ -32,11 +32,13 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
     let InstantiateMsg {
+        prices,
         withdrawal_address,
         test_mode,
     } = msg;
     let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
     let config = Config {
+        prices,
         withdrawal_address,
         test_mode,
     };
@@ -75,6 +77,9 @@ fn execute_get_next_randomness(
     validate_job_id(&job_id)?;
 
     let config = CONFIG.load(deps.storage)?;
+
+    validate_payment(&config.prices, &info.funds)?;
+
     let mode = if config.test_mode {
         AfterMode::Test
     } else {
@@ -108,6 +113,8 @@ fn execute_get_randomness_after(
     job_id: String,
 ) -> Result<Response, ContractError> {
     validate_job_id(&job_id)?;
+    let config = CONFIG.load(deps.storage)?;
+    validate_payment(&config.prices, &info.funds)?;
 
     let packet = RequestBeaconPacket {
         after,
@@ -368,6 +375,7 @@ mod tests {
         ];
         let mut deps = mock_dependencies_with_balance(&initial_funds);
         let msg = InstantiateMsg {
+            prices: vec![Coin::new(1_000000, "unoisx")],
             withdrawal_address: CREATOR.to_string(),
             test_mode: true,
         };
@@ -389,6 +397,7 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
+            prices: vec![Coin::new(1_000000, "unoisx")],
             withdrawal_address: "foo".to_string(),
             test_mode: false,
         };
@@ -411,7 +420,8 @@ mod tests {
         let msg = ExecuteMsg::GetNextRandomness {
             job_id: "foo".to_string(),
         };
-        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let out_msg = &res.messages[0];
         assert_eq!(out_msg.gas_limit, None);
@@ -447,7 +457,8 @@ mod tests {
             after: Timestamp::from_seconds(1666343642),
             job_id: "foo".to_string(),
         };
-        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let out_msg = &res.messages[0];
         assert_eq!(out_msg.gas_limit, None);

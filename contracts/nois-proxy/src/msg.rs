@@ -6,6 +6,9 @@ use crate::state::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
+    /// The prices of a randomness. List is to be interpreted as oneof,
+    /// i.e. payment must be paid in one of those denominations.
+    pub prices: Vec<Coin>,
     pub withdrawal_address: String,
     /// In test mode the min publish time calculation is detached from the clock.
     pub test_mode: bool,

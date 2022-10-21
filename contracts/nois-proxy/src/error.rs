@@ -12,6 +12,9 @@ pub enum ContractError {
     #[error("Job ID exceeds length limit.")]
     JobIdTooLong,
 
+    #[error("Insufficient payment.")]
+    InsufficientPayment,
+
     #[error("Channel is not stored. Channel not yet established or closed.")]
     UnsetChannel,
 
