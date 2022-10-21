@@ -14,6 +14,7 @@ use nois_protocol::{
 
 use crate::drand::{round_after, DRAND_CHAIN_HASH, DRAND_MAINNET_PUBKEY};
 use crate::error::ContractError;
+use crate::job_id::validate_job_id;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
     InstantiateMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
@@ -226,6 +227,8 @@ fn receive_get_beacon(
     sender: String,
     job_id: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
+    validate_job_id(&job_id)?;
+
     let (round, source_id) = commit_to_drand_round(after);
 
     let job = Job {

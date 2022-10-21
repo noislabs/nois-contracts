@@ -14,6 +14,7 @@ use nois_protocol::{
 };
 
 use crate::error::ContractError;
+use crate::job_id::validate_job_id;
 use crate::msg::{ExecuteMsg, InstantiateMsg, OracleChannelResponse, QueryMsg};
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
@@ -62,7 +63,7 @@ pub fn execute_get_next_randomness(
     info: MessageInfo,
     job_id: String,
 ) -> Result<Response, ContractError> {
-    let sender = info.sender.into();
+    validate_job_id(&job_id)?;
 
     let config = CONFIG.load(deps.storage)?;
     let mode = if config.test_mode {
@@ -74,7 +75,7 @@ pub fn execute_get_next_randomness(
 
     let packet = RequestBeaconPacket {
         after,
-        sender,
+        sender: info.sender.into(),
         job_id,
     };
     let channel_id = get_oracle_channel(deps.storage)?;
@@ -97,11 +98,11 @@ pub fn execute_get_randomness_after(
     after: Timestamp,
     job_id: String,
 ) -> Result<Response, ContractError> {
-    let sender = info.sender.into();
+    validate_job_id(&job_id)?;
 
     let packet = RequestBeaconPacket {
         after,
-        sender,
+        sender: info.sender.into(),
         job_id,
     };
     let channel_id = get_oracle_channel(deps.storage)?;
@@ -300,7 +301,7 @@ mod tests {
             mock_ibc_channel_connect_confirm, mock_ibc_channel_open_try, mock_info, MockApi,
             MockQuerier, MockStorage,
         },
-        OwnedDeps,
+        CosmosMsg, OwnedDeps, ReplyOn,
     };
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
 
@@ -315,6 +316,14 @@ mod tests {
         deps
     }
 
+    fn setup_channel(mut deps: DepsMut) {
+        let open_try = mock_ibc_channel_open_try("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_open(deps.branch(), mock_env(), open_try).unwrap();
+
+        let connect_ack = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_connect(deps, mock_env(), connect_ack).unwrap();
+    }
+
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
@@ -323,6 +332,86 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
     }
+
+    //
+    // Execute tests
+    //
+
+    #[test]
+    fn get_next_randomness_works() {
+        let mut deps = setup();
+
+        // Requires a channel to forward requests to
+        setup_channel(deps.as_mut());
+
+        let msg = ExecuteMsg::GetNextRandomness {
+            job_id: "foo".to_string(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        let out_msg = &res.messages[0];
+        assert_eq!(out_msg.gas_limit, None);
+        assert_eq!(out_msg.reply_on, ReplyOn::Never);
+        assert!(matches!(
+            out_msg.msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+    }
+
+    #[test]
+    fn get_next_randomnes_for_invalid_inputs() {
+        let mut deps = setup();
+        setup_channel(deps.as_mut());
+
+        // Job ID too long
+        let msg = ExecuteMsg::GetNextRandomness {
+            job_id: "cb480eb3697f39db828d9efa021abe681bfcd72e23894019b8ddb1ab94039081-and-counting"
+                .to_string(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::JobIdTooLong));
+    }
+
+    #[test]
+    fn get_randomness_after_works() {
+        let mut deps = setup();
+
+        // Requires a channel to forward requests to
+        setup_channel(deps.as_mut());
+
+        let msg = ExecuteMsg::GetRandomnessAfter {
+            after: Timestamp::from_seconds(1666343642),
+            job_id: "foo".to_string(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        let out_msg = &res.messages[0];
+        assert_eq!(out_msg.gas_limit, None);
+        assert_eq!(out_msg.reply_on, ReplyOn::Never);
+        assert!(matches!(
+            out_msg.msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+    }
+
+    #[test]
+    fn get_randomness_after_fails_for_invalid_inputs() {
+        let mut deps = setup();
+        setup_channel(deps.as_mut());
+
+        // Job ID too long
+        let msg = ExecuteMsg::GetRandomnessAfter {
+            after: Timestamp::from_seconds(1666343642),
+            job_id: "cb480eb3697f39db828d9efa021abe681bfcd72e23894019b8ddb1ab94039081-and-counting"
+                .to_string(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::JobIdTooLong));
+    }
+
+    //
+    // IBC tests
+    //
 
     #[test]
     fn ibc_channel_open_checks_version_and_order() {
