@@ -30,7 +30,7 @@ pub fn validate_payment(prices: &[Coin], funds: &[Coin]) -> Result<(), ContractE
             }
         }
     }
-    return Err(ContractError::InsufficientPayment);
+    Err(ContractError::InsufficientPayment)
 }
 
 #[cfg(test)]
