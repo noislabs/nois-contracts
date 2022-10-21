@@ -17,11 +17,12 @@ use crate::error::ContractError;
 use crate::job_id::validate_job_id;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
-    InstantiateMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
+    InstantiateMsg, JobStatsResponse, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
-    jobs_queue_dequeue, jobs_queue_enqueue, Bot, Config, Job, QueriedBeacon, QueriedBot,
-    StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    jobs_queue_dequeue, jobs_queue_enqueue, jobs_queue_len, Bot, Config, Job, QueriedBeacon,
+    QueriedBot, StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS,
+    SUBMISSIONS_ORDER,
 };
 
 // TODO: make configurable?
@@ -82,6 +83,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
+        QueryMsg::JobStats { round } => to_binary(&query_job_stats(deps, round)?)?,
     };
     Ok(response)
 }
@@ -152,6 +154,16 @@ fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
         submissions.push(QueriedSubmission::make(stored, addr));
     }
     Ok(SubmissionsResponse { round, submissions })
+}
+
+// Query job stats by round
+fn query_job_stats(deps: Deps, round: u64) -> StdResult<JobStatsResponse> {
+    let unprocessed = jobs_queue_len(deps.storage, round)?;
+    Ok(JobStatsResponse {
+        round,
+        unprocessed,
+        processed: 0,
+    })
 }
 
 #[entry_point]
@@ -1529,6 +1541,69 @@ mod tests {
                     time: Timestamp::from_nanos(1571797419879305533),
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn query_job_stats_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
+        let msg = InstantiateMsg {
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        fn job_stats(deps: Deps, round: u64) -> JobStatsResponse {
+            from_binary(&query(deps, mock_env(), QueryMsg::JobStats { round }).unwrap()).unwrap()
+        }
+
+        // No jobs
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183669),
+            JobStatsResponse {
+                round: 2183669,
+                processed: 0,
+                unprocessed: 0,
+            }
+        );
+
+        // Create one job
+        let msg = mock_ibc_packet_recv(
+            "foo",
+            &RequestBeaconPacket {
+                after: Timestamp::from_seconds(1660941090 - 1),
+                job_id: "test 1".to_string(),
+                sender: "my_dapp".to_string(),
+            },
+        )
+        .unwrap();
+        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // One unprocessed job
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183669),
+            JobStatsResponse {
+                round: 2183669,
+                processed: 0,
+                unprocessed: 1,
+            }
+        );
+
+        let msg = make_add_round_msg(2183669);
+        execute(deps.as_mut(), mock_env(), mock_info("bot", &[]), msg).unwrap();
+
+        // 0 processed job
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183669),
+            JobStatsResponse {
+                round: 2183669,
+                processed: 0,
+                unprocessed: 0,
+            }
         );
     }
 
