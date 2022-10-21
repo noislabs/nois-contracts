@@ -12,6 +12,7 @@ use nois_protocol::{
     RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
+use crate::bots::validate_moniker;
 use crate::drand::{round_after, DRAND_CHAIN_HASH, DRAND_MAINNET_PUBKEY};
 use crate::error::ContractError;
 use crate::job_id::validate_job_id;
@@ -332,6 +333,7 @@ fn execute_register_bot(
     info: MessageInfo,
     moniker: String,
 ) -> Result<Response, ContractError> {
+    validate_moniker(&moniker)?;
     let bot = match BOTS.may_load(deps.storage, &info.sender)? {
         Some(mut bot) => {
             bot.moniker = moniker;

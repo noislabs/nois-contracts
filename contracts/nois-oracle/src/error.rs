@@ -9,15 +9,25 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
+    // Bots
+    #[error("Moniker must not be empty.")]
+    MonikerEmpty,
+
+    #[error("Moniker exceeds length limit.")]
+    MonikerTooLong,
+
+    // Jobs
     #[error("Job ID exceeds length limit.")]
     JobIdTooLong,
 
+    // IBC
     #[error("{0}")]
     ChannelError(#[from] ChannelError),
 
     #[error("Cannot register over an existing channel")]
     ChannelAlreadyRegistered,
 
+    // Other
     #[error("Invalid reply id")]
     InvalidReplyId,
 
