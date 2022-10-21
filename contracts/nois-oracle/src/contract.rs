@@ -1610,6 +1610,28 @@ mod tests {
             }
         );
 
+        // New job for existing round gets processed immediately
+        let msg = mock_ibc_packet_recv(
+            "foo",
+            &RequestBeaconPacket {
+                after: Timestamp::from_seconds(1660941090 - 1),
+                job_id: "test 2".to_string(),
+                sender: "my_dapp".to_string(),
+            },
+        )
+        .unwrap();
+        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // 2 processed job, no unprocessed jobs
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183669),
+            JobStatsResponse {
+                round: 2183669,
+                processed: 2,
+                unprocessed: 0,
+            }
+        );
+
         // Create 20 jobs
         for i in 0..20 {
             let msg = mock_ibc_packet_recv(
