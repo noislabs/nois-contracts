@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Timestamp};
+use cosmwasm_std::{Coin, Timestamp, Uint128};
 use nois::ProxyExecuteMsg;
 
 use crate::state::Config;
@@ -48,6 +48,9 @@ pub enum QueryMsg {
     /// Get the config state
     #[returns(ConfigResponse)]
     Config {},
+    /// Get the price in one particular denom. Returns None when denom is not accepted.
+    #[returns(PriceResponse)]
+    Price { denom: String },
     /// Queries the local channel ID that is used to request beacons.
     /// This channel is unset when the proxy is instantiated and will be set when
     /// the channel is created. Once created, the value does not change anymore.
@@ -57,6 +60,7 @@ pub enum QueryMsg {
 
 // We define a custom struct for each query response
 pub type ConfigResponse = Config;
+pub type PriceResponse = Option<Uint128>;
 
 #[cw_serde]
 pub struct OracleChannelResponse {

@@ -15,7 +15,9 @@ use nois_protocol::{
 
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, OracleChannelResponse, QueryMsg};
+use crate::msg::{
+    ConfigResponse, ExecuteMsg, InstantiateMsg, OracleChannelResponse, PriceResponse, QueryMsg,
+};
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 
@@ -200,6 +202,7 @@ pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
         QueryMsg::OracleChannel {} => to_binary(&query_oracle_channel(deps)?),
     }
 }
@@ -207,6 +210,16 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config)
+}
+
+fn query_price(deps: Deps, denom: String) -> StdResult<PriceResponse> {
+    let config = CONFIG.load(deps.storage)?;
+
+    Ok(config
+        .prices
+        .into_iter()
+        .find(|price| price.denom == denom)
+        .map(|coin| coin.amount))
 }
 
 fn query_oracle_channel(deps: Deps) -> StdResult<OracleChannelResponse> {
@@ -359,7 +372,7 @@ mod tests {
             mock_ibc_channel_connect_ack, mock_ibc_channel_connect_confirm,
             mock_ibc_channel_open_try, mock_info, MockApi, MockQuerier, MockStorage,
         },
-        CosmosMsg, OwnedDeps, ReplyOn,
+        CosmosMsg, OwnedDeps, ReplyOn, Uint128,
     };
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
 
@@ -518,6 +531,41 @@ mod tests {
                 amount: coins(22334455, "unoisx"),
             })
         );
+    }
+
+    //
+    // Query tests
+    //
+
+    #[test]
+    fn query_price_works() {
+        let deps = setup();
+
+        let res: PriceResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Price {
+                    denom: "shitcoin".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(res, None);
+
+        let res: PriceResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Price {
+                    denom: "unoisx".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(res, Some(Uint128::new(1000000)));
     }
 
     //
