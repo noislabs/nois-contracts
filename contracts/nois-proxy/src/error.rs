@@ -9,6 +9,9 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
+    #[error("Job ID exceeds length limit.")]
+    JobIdTooLong,
+
     #[error("Channel is not stored. Channel not yet established or closed.")]
     UnsetChannel,
 
