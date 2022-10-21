@@ -17,11 +17,12 @@ use crate::error::ContractError;
 use crate::job_id::validate_job_id;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
-    InstantiateMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
+    InstantiateMsg, JobStatsResponse, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
-    jobs_queue_dequeue, jobs_queue_enqueue, Bot, Config, Job, QueriedBeacon, QueriedBot,
-    StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    processed_jobs_enqueue, processed_jobs_len, unprocessed_jobs_dequeue, unprocessed_jobs_enqueue,
+    unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot, StoredSubmission,
+    VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
 
 // TODO: make configurable?
@@ -82,6 +83,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
+        QueryMsg::JobStats { round } => to_binary(&query_job_stats(deps, round)?)?,
     };
     Ok(response)
 }
@@ -152,6 +154,17 @@ fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
         submissions.push(QueriedSubmission::make(stored, addr));
     }
     Ok(SubmissionsResponse { round, submissions })
+}
+
+// Query job stats by round
+fn query_job_stats(deps: Deps, round: u64) -> StdResult<JobStatsResponse> {
+    let unprocessed = unprocessed_jobs_len(deps.storage, round)?;
+    let processed = processed_jobs_len(deps.storage, round)?;
+    Ok(JobStatsResponse {
+        round,
+        unprocessed,
+        processed,
+    })
 }
 
 #[entry_point]
@@ -244,11 +257,12 @@ fn receive_get_beacon(
 
     let acknowledgement: Binary = if let Some(beacon) = beacon.as_ref() {
         //If the drand round already exists we send it
-        let msg = process_job(env.block.time, job, beacon)?;
+        processed_jobs_enqueue(deps.storage, round, &job)?;
+        let msg = create_deliver_beacon_ibc_message(env.block.time, job, beacon)?;
         msgs.push(msg.into());
         StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
     } else {
-        jobs_queue_enqueue(deps.storage, round, &job)?;
+        unprocessed_jobs_enqueue(deps.storage, round, &job)?;
         StdAck::success(&RequestBeaconPacketAck::Queued { source_id })
     };
 
@@ -258,7 +272,8 @@ fn receive_get_beacon(
         .add_attribute("action", "receive_get_beacon"))
 }
 
-fn process_job(
+/// Takes the job and turns it into a an IBC message with a `DeliverBeaconPacket`.
+fn create_deliver_beacon_ibc_message(
     blocktime: Timestamp,
     job: Job,
     beacon: &VerifiedBeacon,
@@ -435,9 +450,10 @@ fn execute_add_round(
     }
 
     let mut jobs_processed = 0;
-    while let Some(job) = jobs_queue_dequeue(deps.storage, round)? {
+    while let Some(job) = unprocessed_jobs_dequeue(deps.storage, round)? {
+        processed_jobs_enqueue(deps.storage, round, &job)?;
         // Use IbcMsg::SendPacket to send packages to the proxies.
-        let msg = process_job(env.block.time, job, beacon)?;
+        let msg = create_deliver_beacon_ibc_message(env.block.time, job, beacon)?;
         out_msgs.push(msg.into());
         jobs_processed += 1;
         if jobs_processed >= MAX_JOBS_PER_SUBMISSION {
@@ -1529,6 +1545,129 @@ mod tests {
                     time: Timestamp::from_nanos(1571797419879305533),
                 },
             ]
+        );
+    }
+
+    #[test]
+    fn query_job_stats_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
+        let msg = InstantiateMsg {
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        fn job_stats(deps: Deps, round: u64) -> JobStatsResponse {
+            from_binary(&query(deps, mock_env(), QueryMsg::JobStats { round }).unwrap()).unwrap()
+        }
+
+        // No jobs by default
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183669),
+            JobStatsResponse {
+                round: 2183669,
+                processed: 0,
+                unprocessed: 0,
+            }
+        );
+
+        // Create one job
+        let msg = mock_ibc_packet_recv(
+            "foo",
+            &RequestBeaconPacket {
+                after: Timestamp::from_seconds(1660941090 - 1),
+                job_id: "test 1".to_string(),
+                sender: "my_dapp".to_string(),
+            },
+        )
+        .unwrap();
+        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // One unprocessed job
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183669),
+            JobStatsResponse {
+                round: 2183669,
+                processed: 0,
+                unprocessed: 1,
+            }
+        );
+
+        let msg = make_add_round_msg(2183669);
+        execute(deps.as_mut(), mock_env(), mock_info("bot", &[]), msg).unwrap();
+
+        // 1 processed job, no unprocessed jobs
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183669),
+            JobStatsResponse {
+                round: 2183669,
+                processed: 1,
+                unprocessed: 0,
+            }
+        );
+
+        // New job for existing round gets processed immediately
+        let msg = mock_ibc_packet_recv(
+            "foo",
+            &RequestBeaconPacket {
+                after: Timestamp::from_seconds(1660941090 - 1),
+                job_id: "test 2".to_string(),
+                sender: "my_dapp".to_string(),
+            },
+        )
+        .unwrap();
+        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // 2 processed job, no unprocessed jobs
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183669),
+            JobStatsResponse {
+                round: 2183669,
+                processed: 2,
+                unprocessed: 0,
+            }
+        );
+
+        // Create 20 jobs
+        for i in 0..20 {
+            let msg = mock_ibc_packet_recv(
+                "foo",
+                &RequestBeaconPacket {
+                    after: Timestamp::from_seconds(1660941150 - 1),
+                    job_id: format!("job {i}"),
+                    sender: "my_dapp".to_string(),
+                },
+            )
+            .unwrap();
+            ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+        }
+
+        // 20 unprocessed
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183671),
+            JobStatsResponse {
+                round: 2183671,
+                processed: 0,
+                unprocessed: 20,
+            }
+        );
+
+        // process some
+        let msg = make_add_round_msg(2183671);
+        execute(deps.as_mut(), mock_env(), mock_info("bot", &[]), msg).unwrap();
+
+        // Some processed, rest unprocessed
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183671),
+            JobStatsResponse {
+                round: 2183671,
+                processed: 6,
+                unprocessed: 14,
+            }
         );
     }
 
