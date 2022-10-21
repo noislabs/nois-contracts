@@ -315,6 +315,14 @@ mod tests {
         deps
     }
 
+    fn setup_channel(mut deps: DepsMut) {
+        let open_try = mock_ibc_channel_open_try("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_open(deps.branch(), mock_env(), open_try).unwrap();
+
+        let connect_ack = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_connect(deps, mock_env(), connect_ack).unwrap();
+    }
+
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
@@ -323,6 +331,57 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
     }
+
+    //
+    // Execute tests
+    //
+
+    #[test]
+    fn get_next_randomness_works() {
+        let mut deps = setup();
+
+        // Requires a channel to forward requests to
+        setup_channel(deps.as_mut());
+
+        let msg = ExecuteMsg::GetNextRandomness {
+            job_id: "foo".to_string(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        let out_msg = &res.messages[0];
+        assert_eq!(out_msg.gas_limit, None);
+        assert_eq!(out_msg.reply_on, ReplyOn::Never);
+        assert!(matches!(
+            out_msg.msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+    }
+
+    #[test]
+    fn get_randomness_after_works() {
+        let mut deps = setup();
+
+        // Requires a channel to forward requests to
+        setup_channel(deps.as_mut());
+
+        let msg = ExecuteMsg::GetRandomnessAfter {
+            after: Timestamp::from_seconds(1666343642),
+            job_id: "foo".to_string(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        let out_msg = &res.messages[0];
+        assert_eq!(out_msg.gas_limit, None);
+        assert_eq!(out_msg.reply_on, ReplyOn::Never);
+        assert!(matches!(
+            out_msg.msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+    }
+
+    //
+    // IBC tests
+    //
 
     #[test]
     fn ibc_channel_open_checks_version_and_order() {
