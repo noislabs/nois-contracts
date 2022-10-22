@@ -1,4 +1,4 @@
-mod job_id;
+mod jobs;
 mod publish_time;
 
 pub mod contract;

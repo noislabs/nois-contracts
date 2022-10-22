@@ -1,8 +1,10 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
+import { coin, coins } from "@cosmjs/amino";
 import { toBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
+import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { Bot } from "./bot";
@@ -28,6 +30,8 @@ interface OracleInstantiateMsg {
 }
 
 interface ProxyInstantiateMsg {
+  readonly prices: Array<Coin>;
+  readonly withdrawal_address: string;
   readonly test_mode: boolean;
 }
 
@@ -89,6 +93,8 @@ test.serial("set up channel", async (t) => {
   // Instantiate proxy on appchain
   const wasmClient = await setupWasmClient();
   const proxyMsg: ProxyInstantiateMsg = {
+    prices: coins(1_000_000, "ucosm"),
+    withdrawal_address: wasmClient.senderAddress,
     test_mode: true,
   };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
@@ -152,6 +158,8 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
 
   // Instantiate proxy on appchain
   const proxyMsg: ProxyInstantiateMsg = {
+    prices: coins(1_000_000, "ucosm"),
+    withdrawal_address: wasmClient.senderAddress,
     test_mode: testMode,
   };
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
@@ -228,6 +236,14 @@ test.serial("proxy works", async (t) => {
   const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(true);
   const bot = await Bot.connect(noisOracleAddress);
 
+  t.log(`Getting randomness prices ...`);
+  const { prices } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { prices: {} });
+  t.log(`All available randomness prices: ${prices.map((p: Coin) => p.amount + p.denom).join(",")}`);
+
+  const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
+  const payment = coin(price, "ucosm");
+  t.log(`Got randomness price from query: ${payment.amount}${payment.denom}`);
+
   t.log("Executing get_next_randomness for a round that already exists");
   {
     await bot.submitNext();
@@ -235,7 +251,9 @@ test.serial("proxy works", async (t) => {
       wasmClient.senderAddress,
       noisProxyAddress,
       { get_next_randomness: { job_id: "eins" } },
-      "auto"
+      "auto",
+      undefined,
+      [payment]
     );
 
     t.log("Relaying RequestBeacon");
@@ -261,7 +279,9 @@ test.serial("proxy works", async (t) => {
       wasmClient.senderAddress,
       noisProxyAddress,
       { get_next_randomness: { job_id: "zwei" } },
-      "auto"
+      "auto",
+      undefined,
+      [payment]
     );
 
     t.log("Relaying RequestBeacon");
@@ -281,7 +301,9 @@ test.serial("proxy works", async (t) => {
       wasmClient.senderAddress,
       noisProxyAddress,
       { get_randomness_after: { after: "1663357574000000000", job_id: "drei" } },
-      "auto"
+      "auto",
+      undefined,
+      [payment]
     );
 
     t.log("Relaying RequestBeacon");
@@ -300,13 +322,19 @@ test.serial("proxy works for get_randomness_after", async (t) => {
   const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(false);
   const bot = await Bot.connect(noisOracleAddress);
 
+  const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
+  const payment = coin(price, "ucosm");
+  t.log(`Got randomness price from query: ${payment.amount}${payment.denom}`);
+
   t.log("Executing get_randomness_after time between 3nd and 4rd round");
   {
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
       { get_randomness_after: { after: "1660940884222222222", job_id: "first job" } },
-      "auto"
+      "auto",
+      undefined,
+      [payment]
     );
 
     t.log("Relaying RequestBeacon");
@@ -327,7 +355,9 @@ test.serial("proxy works for get_randomness_after", async (t) => {
       wasmClient.senderAddress,
       noisProxyAddress,
       { get_randomness_after: { after: "1660940820000000000", job_id: "second job" } },
-      "auto"
+      "auto",
+      undefined,
+      [payment]
     );
 
     t.log("Relaying RequestBeacon");
@@ -376,8 +406,14 @@ test.serial("proxy works for get_randomness_after", async (t) => {
 });
 
 test.serial("demo contract can be used", async (t) => {
-  const { wasmClient, noisDemoAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(true);
+  const { wasmClient, noisDemoAddress, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(
+    true
+  );
   const bot = await Bot.connect(noisOracleAddress);
+
+  const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
+  const payment = coin(price, "ucosm");
+  t.log(`Got randomness price from query: ${payment.amount}${payment.denom}`);
 
   // Correct round submitted before request
   {
@@ -388,7 +424,9 @@ test.serial("demo contract can be used", async (t) => {
       wasmClient.senderAddress,
       noisDemoAddress,
       { estimate_pi: { job_id: jobId } },
-      "auto"
+      "auto",
+      undefined,
+      [payment]
     );
     t.log(getRoundQuery);
 
@@ -423,7 +461,9 @@ test.serial("demo contract can be used", async (t) => {
       wasmClient.senderAddress,
       noisDemoAddress,
       { estimate_pi: { job_id: jobId } },
-      "auto"
+      "auto",
+      undefined,
+      [payment]
     );
     t.log(getRoundQuery);
 

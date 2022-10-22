@@ -1,9 +1,14 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::Timestamp;
+use cosmwasm_std::{Addr, Coin, Timestamp};
 use cw_storage_plus::Item;
 
 #[cw_serde]
 pub struct Config {
+    /// The prices of a randomness. List is to be interpreted as oneof,
+    /// i.e. payment must be paid in one of those denominations.
+    pub prices: Vec<Coin>,
+    // The address to which withdrawals will be made
+    pub withdrawal_address: Addr,
     pub test_mode: bool,
 }
 

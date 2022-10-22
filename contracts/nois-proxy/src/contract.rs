@@ -1,11 +1,11 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Attribute, Deps, DepsMut, Env, Event, Ibc3ChannelOpenResponse,
-    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
-    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
-    WasmMsg,
+    from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event,
+    Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
+    IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
+    IbcReceiveResponse, MessageInfo, QueryResponse, Reply, Response, StdError, StdResult, Storage,
+    SubMsg, SubMsgResult, Timestamp, WasmMsg,
 };
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
@@ -14,8 +14,11 @@ use nois_protocol::{
 };
 
 use crate::error::ContractError;
-use crate::job_id::validate_job_id;
-use crate::msg::{ExecuteMsg, InstantiateMsg, OracleChannelResponse, QueryMsg};
+use crate::jobs::{validate_job_id, validate_payment};
+use crate::msg::{
+    ConfigResponse, ExecuteMsg, InstantiateMsg, OracleChannelResponse, PriceResponse,
+    PricesResponse, QueryMsg,
+};
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 
@@ -31,8 +34,17 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    let InstantiateMsg { test_mode } = msg;
-    let config = Config { test_mode };
+    let InstantiateMsg {
+        prices,
+        withdrawal_address,
+        test_mode,
+    } = msg;
+    let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
+    let config = Config {
+        prices,
+        withdrawal_address,
+        test_mode,
+    };
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new()
@@ -54,10 +66,12 @@ pub fn execute(
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
         }
+        ExecuteMsg::Withdaw { amount } => execute_withdraw(deps, env, info, amount),
+        ExecuteMsg::WithdawAll { denom } => execute_withdraw_all(deps, env, info, denom),
     }
 }
 
-pub fn execute_get_next_randomness(
+fn execute_get_next_randomness(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -66,6 +80,9 @@ pub fn execute_get_next_randomness(
     validate_job_id(&job_id)?;
 
     let config = CONFIG.load(deps.storage)?;
+
+    validate_payment(&config.prices, &info.funds)?;
+
     let mode = if config.test_mode {
         AfterMode::Test
     } else {
@@ -91,7 +108,7 @@ pub fn execute_get_next_randomness(
     Ok(res)
 }
 
-pub fn execute_get_randomness_after(
+fn execute_get_randomness_after(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -99,6 +116,8 @@ pub fn execute_get_randomness_after(
     job_id: String,
 ) -> Result<Response, ContractError> {
     validate_job_id(&job_id)?;
+    let config = CONFIG.load(deps.storage)?;
+    validate_payment(&config.prices, &info.funds)?;
 
     let packet = RequestBeaconPacket {
         after,
@@ -115,6 +134,41 @@ pub fn execute_get_randomness_after(
     let res = Response::new()
         .add_message(msg)
         .add_attribute("action", "execute_get_randomness_after");
+    Ok(res)
+}
+
+fn execute_withdraw_all(
+    deps: DepsMut,
+    env: Env,
+    _info: MessageInfo,
+    denom: String,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let amount = deps.querier.query_balance(env.contract.address, denom)?;
+    let msg = BankMsg::Send {
+        to_address: config.withdrawal_address.into(),
+        amount: vec![amount],
+    };
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "withdraw_all");
+    Ok(res)
+}
+
+fn execute_withdraw(
+    deps: DepsMut,
+    _env: Env,
+    _info: MessageInfo,
+    amount: Coin,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let msg = BankMsg::Send {
+        to_address: config.withdrawal_address.into(),
+        amount: vec![amount],
+    };
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "withdraw");
     Ok(res)
 }
 
@@ -148,8 +202,33 @@ pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     match msg {
+        QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::Prices {} => to_binary(&query_prices(deps)?),
+        QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
         QueryMsg::OracleChannel {} => to_binary(&query_oracle_channel(deps)?),
     }
+}
+
+fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
+    let config = CONFIG.load(deps.storage)?;
+    Ok(ConfigResponse { config })
+}
+
+fn query_prices(deps: Deps) -> StdResult<PricesResponse> {
+    let config = CONFIG.load(deps.storage)?;
+    Ok(PricesResponse {
+        prices: config.prices,
+    })
+}
+
+fn query_price(deps: Deps, denom: String) -> StdResult<PriceResponse> {
+    let config = CONFIG.load(deps.storage)?;
+    let price = config
+        .prices
+        .into_iter()
+        .find(|price| price.denom == denom)
+        .map(|coin| coin.amount);
+    Ok(PriceResponse { price })
 }
 
 fn query_oracle_channel(deps: Deps) -> StdResult<OracleChannelResponse> {
@@ -295,21 +374,33 @@ pub fn ibc_packet_timeout(
 mod tests {
     use super::*;
     use cosmwasm_std::{
+        coins,
         testing::{
-            mock_dependencies, mock_env, mock_ibc_channel_close_confirm,
-            mock_ibc_channel_close_init, mock_ibc_channel_connect_ack,
-            mock_ibc_channel_connect_confirm, mock_ibc_channel_open_try, mock_info, MockApi,
-            MockQuerier, MockStorage,
+            mock_dependencies, mock_dependencies_with_balance, mock_env,
+            mock_ibc_channel_close_confirm, mock_ibc_channel_close_init,
+            mock_ibc_channel_connect_ack, mock_ibc_channel_connect_confirm,
+            mock_ibc_channel_open_try, mock_info, MockApi, MockQuerier, MockStorage,
         },
-        CosmosMsg, OwnedDeps, ReplyOn,
+        CosmosMsg, OwnedDeps, ReplyOn, Uint128,
     };
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
 
     const CREATOR: &str = "creator";
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
-        let mut deps = mock_dependencies();
-        let msg = InstantiateMsg { test_mode: true };
+        let initial_funds = vec![
+            Coin::new(22334455, "unoisx"),
+            Coin::new(
+                123321,
+                "ibc/CB480EB3697F39DB828D9EFA021ABE681BFCD72E23894019B8DDB1AB94039081",
+            ),
+        ];
+        let mut deps = mock_dependencies_with_balance(&initial_funds);
+        let msg = InstantiateMsg {
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            withdrawal_address: CREATOR.to_string(),
+            test_mode: true,
+        };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -327,7 +418,11 @@ mod tests {
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg { test_mode: false };
+        let msg = InstantiateMsg {
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            withdrawal_address: "foo".to_string(),
+            test_mode: false,
+        };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -347,7 +442,8 @@ mod tests {
         let msg = ExecuteMsg::GetNextRandomness {
             job_id: "foo".to_string(),
         };
-        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let out_msg = &res.messages[0];
         assert_eq!(out_msg.gas_limit, None);
@@ -383,7 +479,8 @@ mod tests {
             after: Timestamp::from_seconds(1666343642),
             job_id: "foo".to_string(),
         };
-        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let out_msg = &res.messages[0];
         assert_eq!(out_msg.gas_limit, None);
@@ -407,6 +504,86 @@ mod tests {
         };
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
+    }
+
+    #[test]
+    fn withdraw_works() {
+        let mut deps = setup();
+
+        let msg = ExecuteMsg::Withdaw {
+            amount: Coin::new(12, "unoisx"),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        assert_eq!(
+            res.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: CREATOR.to_string(),
+                amount: coins(12, "unoisx"),
+            })
+        );
+    }
+
+    #[test]
+    fn withdraw_all_works() {
+        let mut deps = setup();
+
+        let msg = ExecuteMsg::WithdawAll {
+            denom: "unoisx".to_string(),
+        };
+        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        assert_eq!(
+            res.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: CREATOR.to_string(),
+                amount: coins(22334455, "unoisx"),
+            })
+        );
+    }
+
+    //
+    // Query tests
+    //
+
+    #[test]
+    fn query_prices_works() {
+        let deps = setup();
+
+        let PricesResponse { prices } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Prices {}).unwrap()).unwrap();
+        assert_eq!(prices, coins(1000000, "unoisx"));
+    }
+
+    #[test]
+    fn query_price_works() {
+        let deps = setup();
+
+        let PriceResponse { price } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Price {
+                    denom: "shitcoin".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(price, None);
+
+        let PriceResponse { price } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Price {
+                    denom: "unoisx".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(price, Some(Uint128::new(1000000)));
     }
 
     //
