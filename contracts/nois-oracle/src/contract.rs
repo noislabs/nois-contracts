@@ -31,11 +31,14 @@ use crate::state::{
 pub const PACKET_LIFETIME: u64 = 60 * 60;
 
 /// Constant defining how many submissions per round will be rewarded
-const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 5;
+const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 
 /// The number of jobs that are processed per submission. Use this limit
 /// to ensure the gas usage for the submissions is relatively stable.
-const MAX_JOBS_PER_SUBMISSION: u32 = 6;
+///
+/// Currently a submission without jobs consumes ~600k gas. Every job adds
+/// ~50k gas.
+const MAX_JOBS_PER_SUBMISSION: u32 = 3;
 
 #[entry_point]
 pub fn instantiate(
@@ -844,6 +847,7 @@ mod tests {
         let bot4 = "registered_bot4";
         let bot5 = "registered_bot5";
         let bot6 = "registered_bot6";
+        let bot7 = "registered_bot7";
 
         register_bot(deps.as_mut(), mock_info(bot1, &[]));
         register_bot(deps.as_mut(), mock_info(bot2, &[]));
@@ -851,6 +855,7 @@ mod tests {
         register_bot(deps.as_mut(), mock_info(bot4, &[]));
         register_bot(deps.as_mut(), mock_info(bot5, &[]));
         register_bot(deps.as_mut(), mock_info(bot6, &[]));
+        register_bot(deps.as_mut(), mock_info(bot7, &[]));
 
         // Same msg for all submissions
         let msg = make_add_round_msg(72785);
@@ -880,8 +885,13 @@ mod tests {
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
 
-        // 6th, here no message is emitted
+        // 6th
         let info = mock_info(bot6, &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        assert_eq!(response.messages.len(), 1);
+
+        // 7th, here no message is emitted
+        let info = mock_info(bot7, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(response.messages.len(), 0);
     }
@@ -1098,7 +1108,7 @@ mod tests {
         ));
 
         // Create five job
-        for i in 0..5 {
+        for i in 0..3 {
             let msg = mock_ibc_packet_recv(
                 "foo",
                 &RequestBeaconPacket {
@@ -1114,12 +1124,10 @@ mod tests {
         // Process five jobs
         let msg = make_add_round_msg(2183670);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 5);
+        assert_eq!(res.messages.len(), 3);
         assert_eq!(res.messages[0].gas_limit, None);
         assert_eq!(res.messages[1].gas_limit, None);
         assert_eq!(res.messages[2].gas_limit, None);
-        assert_eq!(res.messages[3].gas_limit, None);
-        assert_eq!(res.messages[4].gas_limit, None);
         assert!(matches!(
             res.messages[0].msg,
             CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
@@ -1132,17 +1140,9 @@ mod tests {
             res.messages[2].msg,
             CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
         ));
-        assert!(matches!(
-            res.messages[3].msg,
-            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
-        ));
-        assert!(matches!(
-            res.messages[4].msg,
-            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
-        ));
 
-        // Create 15 job
-        for i in 0..15 {
+        // Create 7 job
+        for i in 0..7 {
             let msg = mock_ibc_packet_recv(
                 "foo",
                 &RequestBeaconPacket {
@@ -1155,20 +1155,20 @@ mod tests {
             ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
         }
 
-        // Process first 6 jobs
+        // Process first 3 jobs
         let msg = make_add_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon1", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 6);
+        assert_eq!(res.messages.len(), 3);
 
-        // Process next 6 jobs
+        // Process next 3 jobs
         let msg = make_add_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon2", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 6);
+        assert_eq!(res.messages.len(), 3);
 
-        // Process last 3 jobs
+        // Process last 1 jobs
         let msg = make_add_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon3", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 3);
+        assert_eq!(res.messages.len(), 1);
 
         // No jobs left for later submissions
         let msg = make_add_round_msg(2183671);
@@ -1667,8 +1667,8 @@ mod tests {
             job_stats(deps.as_ref(), 2183671),
             JobStatsResponse {
                 round: 2183671,
-                processed: 6,
-                unprocessed: 14,
+                processed: 3,
+                unprocessed: 17,
             }
         );
     }
