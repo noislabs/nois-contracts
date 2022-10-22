@@ -16,7 +16,8 @@ use nois_protocol::{
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, OracleChannelResponse, PriceResponse, QueryMsg,
+    ConfigResponse, ExecuteMsg, InstantiateMsg, OracleChannelResponse, PriceResponse,
+    PricesResponse, QueryMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
@@ -202,6 +203,7 @@ pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
+        QueryMsg::Prices {} => to_binary(&query_prices(deps)?),
         QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
         QueryMsg::OracleChannel {} => to_binary(&query_oracle_channel(deps)?),
     }
@@ -210,6 +212,13 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config)
+}
+
+fn query_prices(deps: Deps) -> StdResult<PricesResponse> {
+    let config = CONFIG.load(deps.storage)?;
+    Ok(PricesResponse {
+        prices: config.prices,
+    })
 }
 
 fn query_price(deps: Deps, denom: String) -> StdResult<PriceResponse> {
@@ -536,6 +545,15 @@ mod tests {
     //
     // Query tests
     //
+
+    #[test]
+    fn query_prices_works() {
+        let deps = setup();
+
+        let PricesResponse { prices } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Prices {}).unwrap()).unwrap();
+        assert_eq!(prices, coins(1000000, "unoisx"));
+    }
 
     #[test]
     fn query_price_works() {

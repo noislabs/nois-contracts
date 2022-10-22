@@ -48,6 +48,9 @@ pub enum QueryMsg {
     /// Get the config state
     #[returns(ConfigResponse)]
     Config {},
+    /// Get the prices.
+    #[returns(PricesResponse)]
+    Prices {},
     /// Get the price in one particular denom. Returns None when denom is not accepted.
     #[returns(PriceResponse)]
     Price { denom: String },
@@ -60,6 +63,13 @@ pub enum QueryMsg {
 
 // We define a custom struct for each query response
 pub type ConfigResponse = Config;
+
+#[cw_serde]
+pub struct PricesResponse {
+    /// Prices are encoded in a one-of list.
+    pub prices: Vec<Coin>,
+}
+
 pub type PriceResponse = Option<Uint128>;
 
 #[cw_serde]
