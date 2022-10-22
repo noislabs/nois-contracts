@@ -31,7 +31,7 @@ use crate::state::{
 pub const PACKET_LIFETIME: u64 = 60 * 60;
 
 /// Constant defining how many submissions per round will be rewarded
-const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 5;
+const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 
 /// The number of jobs that are processed per submission. Use this limit
 /// to ensure the gas usage for the submissions is relatively stable.
@@ -847,6 +847,7 @@ mod tests {
         let bot4 = "registered_bot4";
         let bot5 = "registered_bot5";
         let bot6 = "registered_bot6";
+        let bot7 = "registered_bot7";
 
         register_bot(deps.as_mut(), mock_info(bot1, &[]));
         register_bot(deps.as_mut(), mock_info(bot2, &[]));
@@ -854,6 +855,7 @@ mod tests {
         register_bot(deps.as_mut(), mock_info(bot4, &[]));
         register_bot(deps.as_mut(), mock_info(bot5, &[]));
         register_bot(deps.as_mut(), mock_info(bot6, &[]));
+        register_bot(deps.as_mut(), mock_info(bot7, &[]));
 
         // Same msg for all submissions
         let msg = make_add_round_msg(72785);
@@ -883,8 +885,13 @@ mod tests {
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
 
-        // 6th, here no message is emitted
+        // 6th
         let info = mock_info(bot6, &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        assert_eq!(response.messages.len(), 1);
+
+        // 7th, here no message is emitted
+        let info = mock_info(bot7, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(response.messages.len(), 0);
     }
