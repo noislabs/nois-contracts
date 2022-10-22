@@ -41,7 +41,7 @@ pub fn execute(
 pub fn execute_estimate_pi(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     job_id: String,
 ) -> Result<Response, ContractError> {
     let nois_proxy = NOIS_PROXY.load(deps.storage)?;
@@ -49,7 +49,7 @@ pub fn execute_estimate_pi(
     let res = Response::new().add_message(WasmMsg::Execute {
         contract_addr: nois_proxy.into(),
         msg: to_binary(&ProxyExecuteMsg::GetNextRandomness { job_id })?,
-        funds: vec![],
+        funds: info.funds, // Just pass on all funds we got
     });
     Ok(res)
 }
