@@ -1,6 +1,6 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
-import { toBinary } from "@cosmjs/cosmwasm-stargate";
+import { ExecuteInstruction, toBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
@@ -17,7 +17,7 @@ import {
   setupWasmClient,
 } from "./utils";
 
-const { osmosis: oldOsmo, setup, wasmd } = testutils;
+const { osmosis: oldOsmo, setup, wasmd, fundAccount } = testutils;
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 let wasmCodeIds: Record<string, number> = {};
@@ -504,5 +504,61 @@ test.serial("demo contract can be used", async (t) => {
 
     const results2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
     t.log(results2);
+  }
+});
+
+test.serial.only("submit randomness for various job counts", async (t) => {
+  const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(false);
+  const bot = await Bot.connect(noisOracleAddress);
+
+  const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
+  const payment = coin(price, "ucosm");
+  t.log(`Got randomness price from query: ${payment.amount}${payment.denom}`);
+
+  await fundAccount(wasmd, wasmClient.senderAddress, "40000000");
+
+  function before(num: string): string {
+    return (BigInt(num) - BigInt(1)).toString();
+  }
+
+  const afterValues = [
+    before("1660940820000000000"),
+    before("1660940850000000000"),
+    before("1660940880000000000"),
+    before("1660940910000000000"),
+    before("1660940940000000000"),
+    before("1660940970000000000"),
+    before("1660941000000000000"),
+    before("1660941030000000000"),
+    before("1660941060000000000"),
+    before("1660941090000000000"),
+  ];
+
+  for (const [i, jobs] of [0, 1, 2, 3, 4].entries()) {
+    t.log(`Executing get_next_randomness ${jobs} times for a round that does not yet exists`);
+
+    const msgs = Array.from({ length: jobs }).map(
+      (_, j): ExecuteInstruction => ({
+        contractAddress: noisProxyAddress,
+        msg: { get_randomness_after: { after: afterValues[i], job_id: `job-${j}` } },
+        funds: [payment],
+      })
+    );
+    if (msgs.length > 0) {
+      await wasmClient.sign.executeMultiple(wasmClient.senderAddress, msgs, "auto");
+    }
+
+    t.log("Relaying RequestBeacon");
+    const info = await link.relayAll();
+    assertPacketsFromA(info, jobs, true);
+
+    const result = await bot.submitNext();
+    t.log(`Gas: ${result.gasUsed}/${result.gasWanted}`);
+    t.is(result.logs.length, 1);
+    const packetsEvents = result.logs[0].events.filter((e) => e.type === "send_packet");
+    const attributes = packetsEvents.flatMap((e) => e.attributes);
+    t.log("Number of events and attributes:", packetsEvents.length, attributes.length);
+    const packetsSentCount = attributes.filter((a) => a.key === "packet_sequence").length;
+    t.log("Number of packets sent:", packetsSentCount);
   }
 });
