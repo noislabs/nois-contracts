@@ -211,7 +211,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = CONFIG.load(deps.storage)?;
-    Ok(config)
+    Ok(ConfigResponse { config })
 }
 
 fn query_prices(deps: Deps) -> StdResult<PricesResponse> {

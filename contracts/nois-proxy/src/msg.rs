@@ -61,8 +61,10 @@ pub enum QueryMsg {
     OracleChannel {},
 }
 
-// We define a custom struct for each query response
-pub type ConfigResponse = Config;
+#[cw_serde]
+pub struct ConfigResponse {
+    pub config: Config,
+}
 
 #[cw_serde]
 pub struct PricesResponse {
