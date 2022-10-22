@@ -70,7 +70,11 @@ pub struct PricesResponse {
     pub prices: Vec<Coin>,
 }
 
-pub type PriceResponse = Option<Uint128>;
+#[cw_serde]
+pub struct PriceResponse {
+    /// Price for the requested denom
+    pub price: Option<Uint128>,
+}
 
 #[cw_serde]
 pub struct OracleChannelResponse {

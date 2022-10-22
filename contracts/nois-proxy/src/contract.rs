@@ -223,12 +223,12 @@ fn query_prices(deps: Deps) -> StdResult<PricesResponse> {
 
 fn query_price(deps: Deps, denom: String) -> StdResult<PriceResponse> {
     let config = CONFIG.load(deps.storage)?;
-
-    Ok(config
+    let price = config
         .prices
         .into_iter()
         .find(|price| price.denom == denom)
-        .map(|coin| coin.amount))
+        .map(|coin| coin.amount);
+    Ok(PriceResponse { price })
 }
 
 fn query_oracle_channel(deps: Deps) -> StdResult<OracleChannelResponse> {
@@ -559,7 +559,7 @@ mod tests {
     fn query_price_works() {
         let deps = setup();
 
-        let res: PriceResponse = from_binary(
+        let PriceResponse { price } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
@@ -570,9 +570,9 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(res, None);
+        assert_eq!(price, None);
 
-        let res: PriceResponse = from_binary(
+        let PriceResponse { price } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
@@ -583,7 +583,7 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(res, Some(Uint128::new(1000000)));
+        assert_eq!(price, Some(Uint128::new(1000000)));
     }
 
     //
