@@ -557,8 +557,8 @@ test.serial("submit randomness for various job counts", async (t) => {
     t.is(result.logs.length, 1);
     const packetsEvents = result.logs[0].events.filter((e) => e.type === "send_packet");
     const attributes = packetsEvents.flatMap((e) => e.attributes);
-    t.log("Number of events and attributes:", packetsEvents.length, attributes.length);
     const packetsSentCount = attributes.filter((a) => a.key === "packet_sequence").length;
     t.log("Number of packets sent:", packetsSentCount);
+    t.is(packetsSentCount, Math.min(jobs, 3));
   }
 });
