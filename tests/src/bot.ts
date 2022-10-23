@@ -1,4 +1,5 @@
 import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { logs } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 
 import { setupOsmosisClient } from "./utils";
@@ -109,4 +110,12 @@ export class Bot {
     );
     return res;
   }
+}
+
+export function ibcPacketsSent(resultLogs: readonly logs.Log[]): number {
+  const allEvents = resultLogs.flatMap((log) => log.events);
+  const packetsEvents = allEvents.filter((e) => e.type === "send_packet");
+  const attributes = packetsEvents.flatMap((e) => e.attributes);
+  const packetsSentCount = attributes.filter((a) => a.key === "packet_sequence").length;
+  return packetsSentCount;
 }
