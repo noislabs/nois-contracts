@@ -507,7 +507,7 @@ test.serial("demo contract can be used", async (t) => {
   }
 });
 
-test.serial.only("submit randomness for various job counts", async (t) => {
+test.serial("submit randomness for various job counts", async (t) => {
   const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(false);
   const bot = await Bot.connect(noisOracleAddress);
 
