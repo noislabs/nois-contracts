@@ -7,7 +7,7 @@ import test from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
-import { Bot } from "./bot";
+import { Bot, ibcPacketsSent } from "./bot";
 import {
   assertPacketsFromA,
   assertPacketsFromB,
@@ -554,10 +554,7 @@ test.serial("submit randomness for various job counts", async (t) => {
 
     const result = await bot.submitNext();
     t.log(`Gas: ${result.gasUsed}/${result.gasWanted}`);
-    t.is(result.logs.length, 1);
-    const packetsEvents = result.logs[0].events.filter((e) => e.type === "send_packet");
-    const attributes = packetsEvents.flatMap((e) => e.attributes);
-    const packetsSentCount = attributes.filter((a) => a.key === "packet_sequence").length;
+    const packetsSentCount = ibcPacketsSent(result.logs);
     t.log("Number of packets sent:", packetsSentCount);
     t.is(packetsSentCount, Math.min(jobs, 3));
   }
