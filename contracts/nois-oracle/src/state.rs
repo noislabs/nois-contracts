@@ -110,12 +110,6 @@ fn unprocessed_jobs_key(round: u64) -> String {
     format!("jobs_up_{:0>10}", round)
 }
 
-#[inline]
-fn processed_jobs_key(round: u64) -> String {
-    // "p" for processed
-    format!("jobs_p_{:0>10}", round)
-}
-
 /// Add an element to the unprocessed drand jobs queue of this round
 pub fn unprocessed_jobs_enqueue(
     storage: &mut dyn Storage,
@@ -138,20 +132,18 @@ pub fn unprocessed_jobs_len(storage: &dyn Storage, round: u64) -> StdResult<u32>
     Deque::<Job>::new(&prefix).len(storage)
 }
 
+// "pc" for processed count
+const PROCESSED_JOBS_COUNT: Map<u64, u32> = Map::new("jobs_pc");
+
 /// Add an element to the processed drand jobs queue of this round
-pub fn processed_jobs_enqueue(storage: &mut dyn Storage, round: u64, value: &Job) -> StdResult<()> {
-    let prefix = processed_jobs_key(round);
-    Deque::new(&prefix).push_back(storage, value)
+pub fn get_processed_jobs(storage: &dyn Storage, round: u64) -> StdResult<u32> {
+    let current = PROCESSED_JOBS_COUNT.may_load(storage, round)?.unwrap_or(0);
+    Ok(current)
 }
 
-/// Remove an element from the processed drand jobs queue of this round
-pub fn processed_jobs_dequeue(storage: &mut dyn Storage, round: u64) -> StdResult<Option<Job>> {
-    let prefix = processed_jobs_key(round);
-    Deque::new(&prefix).pop_front(storage)
-}
-
-/// Gets the number of processed drand jobs queue of this round
-pub fn processed_jobs_len(storage: &dyn Storage, round: u64) -> StdResult<u32> {
-    let prefix = processed_jobs_key(round);
-    Deque::<Job>::new(&prefix).len(storage)
+/// Add an element to the processed drand jobs queue of this round
+pub fn increment_processed_jobs(storage: &mut dyn Storage, round: u64) -> StdResult<()> {
+    let current = get_processed_jobs(storage, round)?;
+    PROCESSED_JOBS_COUNT.save(storage, round, &(current + 1))?;
+    Ok(())
 }

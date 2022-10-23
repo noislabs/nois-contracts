@@ -21,9 +21,9 @@ use crate::msg::{
     InstantiateMsg, JobStatsResponse, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
-    processed_jobs_enqueue, processed_jobs_len, unprocessed_jobs_dequeue, unprocessed_jobs_enqueue,
-    unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot, StoredSubmission,
-    VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    get_processed_jobs, increment_processed_jobs, unprocessed_jobs_dequeue,
+    unprocessed_jobs_enqueue, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
+    StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
 
 // TODO: make configurable?
@@ -163,7 +163,7 @@ fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
 // Query job stats by round
 fn query_job_stats(deps: Deps, round: u64) -> StdResult<JobStatsResponse> {
     let unprocessed = unprocessed_jobs_len(deps.storage, round)?;
-    let processed = processed_jobs_len(deps.storage, round)?;
+    let processed = get_processed_jobs(deps.storage, round)?;
     Ok(JobStatsResponse {
         round,
         unprocessed,
@@ -261,7 +261,7 @@ fn receive_get_beacon(
 
     let acknowledgement: Binary = if let Some(beacon) = beacon.as_ref() {
         //If the drand round already exists we send it
-        processed_jobs_enqueue(deps.storage, round, &job)?;
+        increment_processed_jobs(deps.storage, round)?;
         let msg = create_deliver_beacon_ibc_message(env.block.time, job, beacon)?;
         msgs.push(msg.into());
         StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
@@ -456,7 +456,7 @@ fn execute_add_round(
 
     let mut jobs_processed = 0;
     while let Some(job) = unprocessed_jobs_dequeue(deps.storage, round)? {
-        processed_jobs_enqueue(deps.storage, round, &job)?;
+        increment_processed_jobs(deps.storage, round)?;
         // Use IbcMsg::SendPacket to send packages to the proxies.
         let msg = create_deliver_beacon_ibc_message(env.block.time, job, beacon)?;
         out_msgs.push(msg.into());
