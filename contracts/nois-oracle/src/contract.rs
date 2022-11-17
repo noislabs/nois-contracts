@@ -3,7 +3,7 @@ use cosmwasm_std::{
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    Order, QueryResponse, Response, StdError, StdResult, Timestamp,
+    Order, QueryResponse, Response, StdError, StdResult, Timestamp, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
@@ -11,13 +11,14 @@ use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
     RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
+use nois_delegator;
 
 use crate::bots::validate_moniker;
 use crate::drand::{round_after, DRAND_CHAIN_HASH, DRAND_MAINNET_PUBKEY};
 use crate::error::ContractError;
 use crate::job_id::validate_job_id;
 use crate::msg::{
-    BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
+    ExecuteMsg, BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse,
     InstantiateMsg, JobStatsResponse, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
@@ -46,11 +47,16 @@ pub fn instantiate(
     _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
+    let delegator_contract = deps
+        .api
+        .addr_validate(&msg.delegator_contract)
+        .map_err(|_| ContractError::InvalidDelegatorAddress)?;
     let config = Config {
         min_round: msg.min_round,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
+        delegator_contract: delegator_contract,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -426,22 +432,22 @@ fn execute_add_round(
     // Pay the bot incentive
     let is_eligible = is_registered && next_index < NUMBER_OF_INCENTIVES_PER_ROUND; // top X submissions can receive a reward
     if is_eligible {
-        let contract_balance = deps
+        //Check that the delegator contract has enough balance to incentivise the bot
+        let delegator_contract_balance = deps
             .querier
-            .query_balance(&env.contract.address, &config.incentive_denom)?
+            .query_balance(&config.delegator_contract, &config.incentive_denom)?
             .amount;
         let bot_desired_incentive = incentive_amount(&config);
         attributes.push(Attribute::new(
             "bot_incentive",
             bot_desired_incentive.to_string(),
         ));
-        if contract_balance > bot_desired_incentive.amount {
-            out_msgs.push(
-                BankMsg::Send {
-                    to_address: info.sender.to_string(),
-                    amount: vec![bot_desired_incentive],
-                }
-                .into(),
+        if delegator_contract_balance > bot_desired_incentive.amount {
+            out_msgs.push( WasmMsg::Execute { 
+                contract_addr: (&config.delegator_contract).to_string(), 
+                msg: to_binary( &nois_delegator::msg::ExecuteMsg::IncentiviseBot { addr: info.sender.to_string() })?,
+                funds: info.funds,
+            }.into(),
             );
         }
     }
@@ -480,6 +486,8 @@ fn incentive_amount(config: &Config) -> Coin {
 
 #[cfg(test)]
 mod tests {
+    use crate::msg::ExecuteMsg;
+
     use super::*;
     use cosmwasm_std::testing::{
         mock_dependencies, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_ack,
@@ -498,6 +506,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -602,6 +611,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         let info = mock_info("creator", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -615,6 +625,7 @@ mod tests {
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
                 incentive_denom: "unois".to_string(),
+                delegator_contract: Addr::unchecked("address123")//("address123"),
             }
         );
     }
@@ -638,6 +649,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -670,6 +682,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         let info = mock_info("creator", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -699,6 +712,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         let env = mock_env();
@@ -740,6 +754,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         let env = mock_env();
@@ -771,12 +786,32 @@ mod tests {
     #[test]
     fn registered_bot_gets_incentives() {
         let mut deps = mock_dependencies();
+        let mut deps_delegator_contract = mock_dependencies();
 
         let info = mock_info("creator", &[]);
+
+        //instantiate delegator contract
+        let msg = nois_delegator::msg::InstantiateMsg {
+            admin_addr: info.sender.to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+            staking_denom: "unois".to_string(),
+        };
+        nois_delegator::contract::instantiate(deps_delegator_contract.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        let env = mock_env();
+        deps_delegator_contract.querier.update_balance(
+            env.contract.address.clone(),
+            vec![Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(100_000_000),
+            }],
+        );
+        
         let msg = InstantiateMsg {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: env.contract.address.into_string().clone(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         let env = mock_env();
@@ -817,6 +852,8 @@ mod tests {
                     amount: Uint128::new(1_000_000),
                 }])
             })
+
+            
         );
     }
 
@@ -829,6 +866,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         let env = mock_env();
@@ -905,6 +943,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -931,6 +970,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -958,6 +998,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -997,6 +1038,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1041,6 +1083,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1077,6 +1120,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1251,6 +1295,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1349,6 +1394,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1447,6 +1493,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1560,6 +1607,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
+            delegator_contract: "address123".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
