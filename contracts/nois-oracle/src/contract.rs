@@ -486,6 +486,8 @@ fn incentive_amount(config: &Config) -> Coin {
 
 #[cfg(test)]
 mod tests {
+    
+
     use crate::msg::ExecuteMsg;
 
     use super::*;
@@ -708,22 +710,35 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
+
+        //instantiate delegator contract
+        let mut deps_delegator_contract = mock_dependencies();
+        let msg = nois_delegator::msg::InstantiateMsg {
+            admin_addr: info.sender.to_string(),
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
-            delegator_contract: "address123".to_string(),
+            staking_denom: "unois".to_string(),
         };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        
+        nois_delegator::contract::instantiate(deps_delegator_contract.as_mut(), mock_env(), info.clone(), msg).unwrap();
         let env = mock_env();
-
+        let delegator_contract_address=env.contract.address.clone();
+        //add balance to the delegator contract
         deps.querier.update_balance(
-            env.contract.address,
+            delegator_contract_address.clone(),
             vec![Coin {
                 denom: "unois".to_string(),
                 amount: Uint128::new(100_000_000),
             }],
         );
+
+        let msg = InstantiateMsg {
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+            delegator_contract: delegator_contract_address.clone().into_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
@@ -750,22 +765,34 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
+        //instantiate delegator contract
+        let mut deps_delegator_contract = mock_dependencies();
+        let msg = nois_delegator::msg::InstantiateMsg {
+            admin_addr: info.sender.to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+            staking_denom: "unois".to_string(),
+        };
+        
+        nois_delegator::contract::instantiate(deps_delegator_contract.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        let env = mock_env();
+        let delegator_contract_address=env.contract.address.clone();
+        //add balance to the delegator contract
+        deps.querier.update_balance(
+            delegator_contract_address.clone(),
+            vec![Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(10_000),
+            }],
+        );
+
         let msg = InstantiateMsg {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
-            delegator_contract: "address123".to_string(),
+            delegator_contract: delegator_contract_address.clone().into_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        let env = mock_env();
-
-        deps.querier.update_balance(
-            env.contract.address,
-            vec![Coin {
-                denom: "unois".to_string(),
-                amount: 1_000u128.into(),
-            }],
-        );
 
         let msg = make_add_round_msg(72785);
         let info = mock_info("registered_bot", &[]);
@@ -784,23 +811,26 @@ mod tests {
     }
 
     #[test]
-    fn registered_bot_gets_incentives() {
+    fn registered_bot_gets_incentives(){
         let mut deps = mock_dependencies();
-        let mut deps_delegator_contract = mock_dependencies();
-
+        
         let info = mock_info("creator", &[]);
 
         //instantiate delegator contract
+        let mut deps_delegator_contract = mock_dependencies();
         let msg = nois_delegator::msg::InstantiateMsg {
             admin_addr: info.sender.to_string(),
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
             staking_denom: "unois".to_string(),
         };
+        
         nois_delegator::contract::instantiate(deps_delegator_contract.as_mut(), mock_env(), info.clone(), msg).unwrap();
         let env = mock_env();
-        deps_delegator_contract.querier.update_balance(
-            env.contract.address.clone(),
+        let delegator_contract_address=env.contract.address.clone();
+        //add balance to the delegator contract
+        deps.querier.update_balance(
+            delegator_contract_address.clone(),
             vec![Coin {
                 denom: "unois".to_string(),
                 amount: Uint128::new(100_000_000),
@@ -811,18 +841,11 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
-            delegator_contract: env.contract.address.into_string().clone(),
+            delegator_contract: delegator_contract_address.clone().into_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        let env = mock_env();
 
-        deps.querier.update_balance(
-            env.contract.address,
-            vec![Coin {
-                denom: "unois".to_string(),
-                amount: Uint128::new(100_000_000),
-            }],
-        );
+        
 
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
@@ -842,42 +865,56 @@ mod tests {
             randomness_attr.value,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
+        //Check bot is incentivised
         assert_eq!(response.messages.len(), 1);
+        //Check message is sent to the delegator contract
         assert_eq!(
             response.messages[0].msg,
-            CosmosMsg::Bank(BankMsg::Send {
-                to_address: info.sender.into(),
-                amount: Vec::from([Coin {
-                    denom: "unois".to_string(),
-                    amount: Uint128::new(1_000_000),
-                }])
-            })
-
-            
+            CosmosMsg::Wasm(WasmMsg::Execute { 
+                contract_addr:delegator_contract_address.into_string(),
+                msg: to_binary(&nois_delegator::msg::ExecuteMsg::IncentiviseBot { addr: "registered_bot".to_string()}).unwrap(),
+                funds: info.funds })
         );
+
     }
+    //
 
     #[test]
     fn only_top_x_bots_receive_incentive() {
+
+
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
+        //instantiate delegator contract
+        let mut deps_delegator_contract = mock_dependencies();
+        let msg = nois_delegator::msg::InstantiateMsg {
+            admin_addr: info.sender.to_string(),
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
-            delegator_contract: "address123".to_string(),
+            staking_denom: "unois".to_string(),
         };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        
+        nois_delegator::contract::instantiate(deps_delegator_contract.as_mut(), mock_env(), info.clone(), msg).unwrap();
         let env = mock_env();
-
+        let delegator_contract_address=env.contract.address.clone();
+        //add balance to the delegator contract
         deps.querier.update_balance(
-            env.contract.address,
+            delegator_contract_address.clone(),
             vec![Coin {
                 denom: "unois".to_string(),
                 amount: Uint128::new(100_000_000),
             }],
         );
+
+
+        let msg = InstantiateMsg {
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+            delegator_contract: delegator_contract_address.clone().into_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let bot1 = "registered_bot1";
         let bot2 = "registered_bot2";
