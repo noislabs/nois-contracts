@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
+use cosmwasm_std::Uint128;
 
-use crate::state::{Config,};
+use crate::state::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -28,18 +28,18 @@ pub enum ExecuteMsg {
     },
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
-    Stake { 
-        addr: String, 
-        amount: Uint128
-    },
-    Unbond { 
+    Stake {
         addr: String,
-        amount:Uint128 
+        amount: Uint128,
     },
-    Redelegate { 
+    Unbond {
+        addr: String,
+        amount: Uint128,
+    },
+    Redelegate {
         src_addr: String,
         dest_addr: String,
-        amount: Uint128 
+        amount: Uint128,
     },
     ClaimRewards {},
     SetNoisOracleContractAddr {
@@ -53,9 +53,7 @@ pub enum QueryMsg {
     /// Get the config state
     #[returns(ConfigResponse)]
     Config {},
-
 }
 
 // We define a custom struct for each query response
 pub type ConfigResponse = Config;
-

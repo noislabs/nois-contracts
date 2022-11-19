@@ -1,11 +1,10 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, StdResult, Storage, Timestamp, Uint128};
-use cw_storage_plus::{Deque, Item, Map};
-
+use cosmwasm_std::{Addr, Uint128};
+use cw_storage_plus::Item;
 
 #[cw_serde]
 pub struct Config {
-     /// The multisig admin wallet that controls the incentive and delegation.
+    /// The multisig admin wallet that controls the incentive and delegation.
     /// The admin should not be able to withdraw funds from the contract
     pub admin_addr: String,
     /// Bot incentive amount.
