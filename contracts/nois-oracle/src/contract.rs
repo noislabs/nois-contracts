@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, Binary, Coin, CosmosMsg,
+    Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
     Order, QueryResponse, Response, StdError, StdResult, Timestamp, WasmMsg,
@@ -56,7 +56,7 @@ pub fn instantiate(
         min_round: msg.min_round,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
-        delegator_contract: delegator_contract,
+        delegator_contract,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())

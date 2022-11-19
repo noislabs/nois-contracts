@@ -41,7 +41,9 @@ pub enum ExecuteMsg {
         dest_addr: String,
         amount: Uint128,
     },
-    ClaimRewards {},
+    ClaimRewards {
+        addr: String,
+    },
     SetNoisOracleContractAddr {
         addr: String,
     },

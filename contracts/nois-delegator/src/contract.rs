@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    QueryResponse, Response, StakingMsg, StdResult, Uint128,
+    ensure_eq, entry_point, to_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg,
+    Env, MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
 };
 
 use crate::error::ContractError;
@@ -33,15 +33,15 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::IncentiviseBot { addr } => execute_incentivise_bot(deps, env, info, addr),
-        ExecuteMsg::Stake { addr, amount } => execute_stake(deps, env, addr, amount),
-        ExecuteMsg::Unbond { addr, amount } => execute_unbond(deps, env, addr, amount),
+        ExecuteMsg::IncentiviseBot { addr } => execute_incentivise_bot(deps, info, addr),
+        ExecuteMsg::Stake { addr, amount } => execute_stake(deps, addr, amount),
+        ExecuteMsg::Unbond { addr, amount } => execute_unbond(deps, addr, amount),
         ExecuteMsg::Redelegate {
             src_addr,
             dest_addr,
             amount,
-        } => execute_redelegate(deps, env, src_addr, dest_addr, amount),
-        ExecuteMsg::ClaimRewards {} => execute_claim_rewards(deps, env, info),
+        } => execute_redelegate(deps, src_addr, dest_addr, amount),
+        ExecuteMsg::ClaimRewards { addr } => execute_claim_rewards(addr),
         ExecuteMsg::SetNoisOracleContractAddr { addr } => {
             execute_set_nois_oracle_contract_addr(deps, env, addr)
         }
@@ -58,7 +58,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 
 fn execute_incentivise_bot(
     deps: DepsMut,
-    _env: Env,
     info: MessageInfo,
     addr: String,
 ) -> Result<Response, ContractError> {
@@ -73,95 +72,64 @@ fn execute_incentivise_bot(
         nois_oracle_contract,
         ContractError::Unauthorized
     );
-    let mut out_msgs = Vec::<CosmosMsg>::new();
-    out_msgs.push(
-        BankMsg::Send {
-            to_address: addr, //Not sure if here we can exract the drand_bot addr by info.sender. Is info.sender here the nois-oracle or the drand bot?
-            amount: vec![Coin::new(
-                config.incentive_amount.into(),
-                config.incentive_denom,
-            )],
-        }
-        .into(),
-    );
 
-    Ok(Response::new().add_messages(out_msgs))
+    Ok(Response::new().add_messages(vec![BankMsg::Send {
+        to_address: addr, //Not sure if here we can exract the drand_bot addr by info.sender. Is info.sender here the nois-oracle or the drand bot?
+        amount: vec![Coin::new(
+            config.incentive_amount.into(),
+            config.incentive_denom,
+        )],
+    }]))
 }
 
-fn execute_stake(
-    deps: DepsMut,
-    _env: Env,
-    addr: String,
-    amount: Uint128,
-) -> Result<Response, ContractError> {
+fn execute_stake(deps: DepsMut, addr: String, amount: Uint128) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage).unwrap();
-    let mut out_msgs = Vec::<StakingMsg>::new();
-    out_msgs.push(
-        StakingMsg::Delegate {
-            validator: addr,
-            amount: Coin {
-                denom: config.staking_denom,
-                amount: amount,
-            },
-        }
-        .into(),
-    );
 
-    Ok(Response::new().add_messages(out_msgs))
+    Ok(Response::new().add_messages(vec![StakingMsg::Delegate {
+        validator: addr,
+        amount: Coin {
+            denom: config.staking_denom,
+            amount,
+        },
+    }]))
 }
 
-fn execute_unbond(
-    deps: DepsMut,
-    _env: Env,
-    addr: String,
-    amount: Uint128,
-) -> Result<Response, ContractError> {
+fn execute_unbond(deps: DepsMut, addr: String, amount: Uint128) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage).unwrap();
-    let mut out_msgs = Vec::<StakingMsg>::new();
-    out_msgs.push(
-        StakingMsg::Undelegate {
-            validator: addr,
-            amount: Coin {
-                denom: config.staking_denom,
-                amount: amount,
-            },
-        }
-        .into(),
-    );
 
-    Ok(Response::new().add_messages(out_msgs))
+    Ok(Response::new().add_messages(vec![StakingMsg::Undelegate {
+        validator: addr,
+        amount: Coin {
+            denom: config.staking_denom,
+            amount,
+        },
+    }]))
 }
 
 fn execute_redelegate(
     deps: DepsMut,
-    _env: Env,
     src_addr: String,
     dest_addr: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage).unwrap();
-    let mut out_msgs = Vec::<StakingMsg>::new();
-    out_msgs.push(
-        StakingMsg::Redelegate {
-            src_validator: src_addr,
-            dst_validator: dest_addr,
-            amount: Coin {
-                denom: config.staking_denom,
-                amount: amount,
-            },
-        }
-        .into(),
-    );
 
-    Ok(Response::new().add_messages(out_msgs))
+    Ok(Response::new().add_messages(vec![StakingMsg::Redelegate {
+        src_validator: src_addr,
+        dst_validator: dest_addr,
+        amount: Coin {
+            denom: config.staking_denom,
+            amount,
+        },
+    }]))
 }
 
-fn execute_claim_rewards(
-    _deps: DepsMut,
-    _env: Env,
-    _info: MessageInfo,
-) -> Result<Response, ContractError> {
-    Ok(Response::default())
+fn execute_claim_rewards(addr: String) -> Result<Response, ContractError> {
+    Ok(
+        Response::new().add_messages(vec![DistributionMsg::WithdrawDelegatorReward {
+            validator: addr,
+        }]),
+    )
 }
 
 fn execute_set_nois_oracle_contract_addr(
