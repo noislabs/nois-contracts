@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg,
-    Env, MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
+    ensure_eq, entry_point, to_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg, Env,
+    MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
 };
 
 use crate::error::ContractError;
