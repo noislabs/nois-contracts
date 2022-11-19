@@ -156,3 +156,62 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use cosmwasm_std::{
+        from_binary,
+        testing::{mock_dependencies, mock_env, mock_info},
+        Uint128,
+    };
+
+    const CREATOR: &str = "creator";
+
+    #[test]
+    fn instantiate_works() {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            admin_addr: "admin".to_string(),
+            incentive_denom: "unois".to_string(),
+            staking_denom: "unois".to_string(),
+            incentive_amount: Uint128::new(1_000_000),
+        };
+        let info = mock_info(CREATOR, &[]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+        let config: ConfigResponse =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(
+            config,
+            ConfigResponse {
+                incentive_amount: Uint128::new(1_000_000),
+                incentive_denom: "unois".to_string(),
+                admin_addr: "admin".to_string(),
+                staking_denom: "unois".to_string(),
+                nois_oracle_contract_addr: None,
+            }
+        );
+    }
+
+    //#[test]
+    //fn staking_works() {
+    //    let mut deps = mock_dependencies();
+    //    let msg = InstantiateMsg {
+    //        admin_addr: "admin".to_string(),
+    //        incentive_denom:"unois".to_string(),
+    //        staking_denom:"unois".to_string(),
+    //        incentive_amount:Uint128::new(1_000_000),
+    //
+    //    };
+    //    let  env = mock_env();
+    //    let info = mock_info(CREATOR, &[]);
+    //    instantiate(deps.as_mut(), env.to_owned(), info.clone(), msg).unwrap();
+    //    let addr="validator_addr".to_string();
+    //    let amount=Uint128::new(100);
+    //    let msg = ExecuteMsg::Stake { addr: addr.to_owned(), amount } ;
+    //    execute(deps.as_mut(),env.to_owned() , info, msg).unwrap();
+    //    let msg= StakingQuery::Delegation { delegator: env.to_owned().contract.address.into_string(), validator: addr.to_string() };
+    //
+    //}
+}
