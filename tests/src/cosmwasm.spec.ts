@@ -23,10 +23,15 @@ const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 let wasmCodeIds: Record<string, number> = {};
 let osmosisCodeIds: Record<string, number> = {};
 
+interface DelegatorInstantiateMsg {
+  readonly admin_addr: string;
+}
+
 interface OracleInstantiateMsg {
   readonly min_round: number;
   readonly incentive_amount: string;
   readonly incentive_denom: string;
+  readonly delegator_contract: string;
 }
 
 interface ProxyInstantiateMsg {
@@ -46,6 +51,7 @@ test.before(async (t) => {
 
   t.log("Upload contracts to osmosis...");
   const osmosisContracts = {
+    delegator: "./internal/nois_delegator.wasm",
     oracle: "./internal/nois_oracle.wasm",
   };
   const osmosisSign = await setupOsmosisClient();
@@ -57,10 +63,24 @@ test.before(async (t) => {
 test.serial("Bot can submit to Oracle", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
+  const delegatorMsg: DelegatorInstantiateMsg = {
+    admin_addr: "admin_addr",
+  };
+  const { contractAddress: delegatorAddress } = await osmoClient.sign.instantiate(
+    osmoClient.senderAddress,
+    osmosisCodeIds.delegator,
+    delegatorMsg,
+    "Delegator instance",
+    "auto"
+  );
+  t.log(`Instantiated delegator at ${delegatorAddress} with msg ${JSON.stringify(delegatorMsg)}`);
+  t.truthy(delegatorAddress);
+
   const msg: OracleInstantiateMsg = {
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
+    delegator_contract: delegatorAddress,
   };
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -109,12 +129,24 @@ test.serial("set up channel", async (t) => {
   t.log(`Proxy port: ${proxyPort}`);
   assert(proxyPort);
 
-  // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
+  // Instantiate Delegator on osmosis
+  const delegatorMsg: DelegatorInstantiateMsg = {
+    admin_addr: "admin-addr",
+  };
+  const { contractAddress: delegatorAddress } = await osmoClient.sign.instantiate(
+    osmoClient.senderAddress,
+    osmosisCodeIds.delegator,
+    delegatorMsg,
+    "Delegator instance",
+    "auto"
+  );
+  t.truthy(delegatorAddress);
   const msg: OracleInstantiateMsg = {
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
+    delegator_contract: delegatorAddress,
   };
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -142,6 +174,7 @@ interface SetupInfo {
   noisDemoAddress: string;
   /// Address on randomness chain (osmosis)
   noisOracleAddress: string;
+  noisDelegatorAddress: string;
   link: Link;
   noisChannel: {
     wasmChannelId: string;
@@ -170,11 +203,24 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     "auto"
   );
 
+  // Instantiate Delegator on osmosis
+  const delegatorMsg: DelegatorInstantiateMsg = {
+    admin_addr: "admin-addr",
+  };
+  const { contractAddress: delegatorAddress } = await osmoClient.sign.instantiate(
+    osmoClient.senderAddress,
+    osmosisCodeIds.delegator,
+    delegatorMsg,
+    "Delegator instance",
+    "auto"
+  );
+
   // Instantiate Oracle on Osmosis
   const msg: OracleInstantiateMsg = {
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
+    delegator_contract: delegatorAddress,
   };
   const { contractAddress: noisOracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -226,6 +272,7 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     noisProxyAddress,
     noisDemoAddress,
     noisOracleAddress,
+    noisDelegatorAddress: delegatorAddress,
     link,
     noisChannel,
     ics20Channel,
