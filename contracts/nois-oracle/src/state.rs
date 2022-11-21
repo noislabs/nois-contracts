@@ -12,7 +12,7 @@ pub struct Config {
     pub incentive_amount: Uint128,
     /// Bot incentive denom
     pub incentive_denom: String,
-    ///Delegator-incentive contract
+    /// Delegator-incentive contract
     pub delegator_contract: Addr,
 }
 

@@ -448,6 +448,8 @@ fn execute_add_round(
                     contract_addr: (&config.delegator_contract).to_string(),
                     msg: to_binary(&nois_delegator::msg::ExecuteMsg::IncentiviseBot {
                         addr: info.sender.to_string(),
+                        incentive_amount: bot_desired_incentive.amount,
+                        incentive_denom: bot_desired_incentive.denom,
                     })?,
                     funds: info.funds,
                 }
@@ -718,9 +720,6 @@ mod tests {
         let mut deps_delegator_contract = mock_dependencies();
         let msg = nois_delegator::msg::InstantiateMsg {
             admin_addr: info.sender.to_string(),
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-            staking_denom: "unois".to_string(),
         };
 
         nois_delegator::contract::instantiate(
@@ -778,9 +777,6 @@ mod tests {
         let mut deps_delegator_contract = mock_dependencies();
         let msg = nois_delegator::msg::InstantiateMsg {
             admin_addr: info.sender.to_string(),
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-            staking_denom: "unois".to_string(),
         };
 
         nois_delegator::contract::instantiate(
@@ -835,9 +831,6 @@ mod tests {
         let mut deps_delegator_contract = mock_dependencies();
         let msg = nois_delegator::msg::InstantiateMsg {
             admin_addr: info.sender.to_string(),
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-            staking_denom: "unois".to_string(),
         };
 
         nois_delegator::contract::instantiate(
@@ -892,7 +885,9 @@ mod tests {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: delegator_contract_address.into_string(),
                 msg: to_binary(&nois_delegator::msg::ExecuteMsg::IncentiviseBot {
-                    addr: "registered_bot".to_string()
+                    addr: "registered_bot".to_string(),
+                    incentive_amount: Uint128::new(1_000_000),
+                    incentive_denom: "unois".to_string(),
                 })
                 .unwrap(),
                 funds: info.funds
@@ -910,9 +905,6 @@ mod tests {
         let mut deps_delegator_contract = mock_dependencies();
         let msg = nois_delegator::msg::InstantiateMsg {
             admin_addr: info.sender.to_string(),
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-            staking_denom: "unois".to_string(),
         };
 
         nois_delegator::contract::instantiate(

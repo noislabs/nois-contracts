@@ -7,7 +7,7 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("Unauthorized. The sender should be the nois contract")]
+    #[error("Unauthorized.")]
     Unauthorized,
 
     #[error("Unauthorized. Contract is already set")]

@@ -8,16 +8,6 @@ pub struct InstantiateMsg {
     /// The multisig admin wallet that controls the incentive and delegation.
     /// The admin should not be able to withdraw funds from the contract
     pub admin_addr: String,
-    /// Bot incentive amount.
-    ///
-    /// A round submission currently consumes 620k. Using a gas limit of
-    /// 700k and a gas cost of 0.05unois/gas this is a fee of 35000unois.
-    /// Anything above that is a useful incentive.
-    pub incentive_amount: Uint128,
-    /// Bot incentive denom
-    pub incentive_denom: String,
-    // The staking, unbonding, redelegating, claim denom. It can be the same as the incentive denom
-    pub staking_denom: String,
 }
 
 #[cw_serde]
@@ -25,14 +15,22 @@ pub enum ExecuteMsg {
     /// Add drand beacon
     IncentiviseBot {
         addr: String,
+        /// Bot incentive amount.
+        ///
+        /// A round submission currently consumes 620k. Using a gas limit of
+        /// 700k and a gas cost of 0.05unois/gas this is a fee of 35000unois.
+        /// Anything above that is a useful incentive.
+        incentive_amount: Uint128,
+        /// Bot incentive denom
+        incentive_denom: String,
     },
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
-    Stake {
+    Delegate {
         addr: String,
         amount: Uint128,
     },
-    Unbond {
+    Undelegate {
         addr: String,
         amount: Uint128,
     },
