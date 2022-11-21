@@ -730,7 +730,7 @@ mod tests {
         )
         .unwrap();
         let env = mock_env();
-        let delegator_contract_address = env.contract.address.clone();
+        let delegator_contract_address = env.contract.address;
         //add balance to the delegator contract
         deps.querier.update_balance(
             delegator_contract_address.clone(),
@@ -744,7 +744,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
-            delegator_contract: delegator_contract_address.clone().into_string(),
+            delegator_contract: delegator_contract_address.into_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -787,7 +787,7 @@ mod tests {
         )
         .unwrap();
         let env = mock_env();
-        let delegator_contract_address = env.contract.address.clone();
+        let delegator_contract_address = env.contract.address;
         //add balance to the delegator contract
         deps.querier.update_balance(
             delegator_contract_address.clone(),
@@ -801,7 +801,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
-            delegator_contract: delegator_contract_address.clone().into_string(),
+            delegator_contract: delegator_contract_address.into_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -841,7 +841,7 @@ mod tests {
         )
         .unwrap();
         let env = mock_env();
-        let delegator_contract_address = env.contract.address.clone();
+        let delegator_contract_address = env.contract.address;
         //add balance to the delegator contract
         deps.querier.update_balance(
             delegator_contract_address.clone(),
@@ -915,7 +915,7 @@ mod tests {
         )
         .unwrap();
         let env = mock_env();
-        let delegator_contract_address = env.contract.address.clone();
+        let delegator_contract_address = env.contract.address;
         //add balance to the delegator contract
         deps.querier.update_balance(
             delegator_contract_address.clone(),
@@ -929,7 +929,7 @@ mod tests {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
-            delegator_contract: delegator_contract_address.clone().into_string(),
+            delegator_contract: delegator_contract_address.into_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 

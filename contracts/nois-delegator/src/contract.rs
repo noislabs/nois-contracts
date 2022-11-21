@@ -253,7 +253,7 @@ mod tests {
             amount: Uint128::new(1_000),
         };
 
-        let response = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+        let response = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         assert_eq!(
             response.messages[0].msg,
             CosmosMsg::Staking(StakingMsg::Delegate {
@@ -271,7 +271,7 @@ mod tests {
             amount: Uint128::new(1_000),
         };
 
-        let response = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
+        let response = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         assert_eq!(
             response.messages[0].msg,
             CosmosMsg::Staking(StakingMsg::Undelegate {
@@ -290,7 +290,7 @@ mod tests {
             amount: Uint128::new(1_000),
         };
 
-        let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
+        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(
             response.messages[0].msg,
             CosmosMsg::Staking(StakingMsg::Redelegate {
@@ -311,26 +311,24 @@ mod tests {
             addr: "validator".to_string(),
             amount: Uint128::new(1_000),
         };
-        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
         // undelegate for non admin unothorized
-        let info = mock_info("not_admin", &[]);
         let msg = ExecuteMsg::Undelegate {
             addr: "validator".to_string(),
             amount: Uint128::new(1_000),
         };
-        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
         // redelegate for non admin unothorized
-        let info = mock_info("not_admin", &[]);
         let msg = ExecuteMsg::Redelegate {
             src_addr: "src_validator".to_string(),
             dest_addr: "dest_validator".to_string(),
             amount: Uint128::new(1_000),
         };
-        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
     }
 }
