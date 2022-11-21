@@ -75,11 +75,9 @@ fn execute_incentivise_bot(
     incentive_amount: Uint128,
     incentive_denom: String,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    if config.nois_oracle_contract_addr.is_none() {
+    let Some(nois_oracle_contract) = CONFIG.load(deps.storage).unwrap().nois_oracle_contract_addr else {
         return Err(ContractError::NoisOracleContractAddressUnset);
-    }
-    let nois_oracle_contract = config.nois_oracle_contract_addr.unwrap();
+    };
 
     ensure_eq!(
         info.sender,
