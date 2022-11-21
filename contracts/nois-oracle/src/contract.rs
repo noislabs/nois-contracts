@@ -445,7 +445,7 @@ fn execute_add_round(
         if delegator_contract_balance > bot_desired_incentive.amount {
             out_msgs.push(
                 WasmMsg::Execute {
-                    contract_addr: (&config.delegator_contract).to_string(),
+                    contract_addr: (config.delegator_contract).to_string(),
                     msg: to_binary(&nois_delegator::msg::ExecuteMsg::IncentiviseBot {
                         addr: info.sender.to_string(),
                         incentive_amount: bot_desired_incentive.amount,
