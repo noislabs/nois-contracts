@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg,
+    Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
     Order, QueryResponse, Response, StdError, StdResult, Timestamp,
@@ -8,8 +8,8 @@ use cosmwasm_std::{
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
-    RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
+    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
 };
 
 use crate::bots::validate_moniker;
@@ -228,12 +228,24 @@ pub fn ibc_packet_receive(
     deps: DepsMut,
     env: Env,
     msg: IbcPacketReceiveMsg,
-) -> Result<IbcReceiveResponse, ContractError> {
+) -> Result<IbcReceiveResponse, Never> {
     let packet = msg.packet;
     // which local channel did this packet come on
     let channel = packet.dest.channel_id;
-    let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-    receive_get_beacon(deps, env, channel, msg.after, msg.sender, msg.job_id)
+
+    // put this in a closure so we can convert all error responses into acknowledgements
+    (|| {
+        let msg: RequestBeaconPacket = from_slice(&packet.data)?;
+        receive_get_beacon(deps, env, channel, msg.after, msg.sender, msg.job_id)
+    })()
+    .or_else(|e| {
+        // we try to capture all app-level errors and convert them into
+        // acknowledgement packets that contain an error code.
+        let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
+        Ok(IbcReceiveResponse::new()
+            .set_ack(acknowledgement)
+            .add_event(Event::new("ibc").add_attribute("packet", "receive")))
+    })
 }
 
 fn receive_get_beacon(
