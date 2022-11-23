@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg,
+    Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
     Order, QueryResponse, Response, StdError, StdResult, Timestamp,
@@ -8,8 +8,9 @@ use cosmwasm_std::{
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
-    RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
+    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME,
+    IBC_APP_VERSION,
 };
 
 use crate::bots::validate_moniker;
@@ -25,10 +26,6 @@ use crate::state::{
     unprocessed_jobs_enqueue, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
     StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
-
-// TODO: make configurable?
-/// packets live one hour
-pub const PACKET_LIFETIME: u64 = 60 * 60;
 
 /// Constant defining how many submissions per round will be rewarded
 const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
@@ -228,15 +225,27 @@ pub fn ibc_packet_receive(
     deps: DepsMut,
     env: Env,
     msg: IbcPacketReceiveMsg,
-) -> Result<IbcReceiveResponse, ContractError> {
+) -> Result<IbcReceiveResponse, Never> {
     let packet = msg.packet;
     // which local channel did this packet come on
     let channel = packet.dest.channel_id;
-    let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-    receive_get_beacon(deps, env, channel, msg.after, msg.sender, msg.job_id)
+
+    // put this in a closure so we can convert all error responses into acknowledgements
+    (|| {
+        let msg: RequestBeaconPacket = from_slice(&packet.data)?;
+        receive_request_beacon(deps, env, channel, msg.after, msg.sender, msg.job_id)
+    })()
+    .or_else(|e| {
+        // we try to capture all app-level errors and convert them into
+        // acknowledgement packets that contain an error code.
+        let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
+        Ok(IbcReceiveResponse::new()
+            .set_ack(acknowledgement)
+            .add_event(Event::new("ibc").add_attribute("packet", "receive")))
+    })
 }
 
-fn receive_get_beacon(
+fn receive_request_beacon(
     deps: DepsMut,
     env: Env,
     channel: String,
@@ -259,7 +268,7 @@ fn receive_get_beacon(
 
     let mut msgs = Vec::<CosmosMsg>::new();
 
-    let acknowledgement: Binary = if let Some(beacon) = beacon.as_ref() {
+    let acknowledgement = if let Some(beacon) = beacon.as_ref() {
         //If the drand round already exists we send it
         increment_processed_jobs(deps.storage, round)?;
         let msg = create_deliver_beacon_ibc_message(env.block.time, job, beacon)?;
@@ -273,7 +282,7 @@ fn receive_get_beacon(
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
         .add_messages(msgs)
-        .add_attribute("action", "receive_get_beacon"))
+        .add_attribute("action", "receive_request_beacon"))
 }
 
 /// Takes the job and turns it into a an IBC message with a `DeliverBeaconPacket`.
@@ -291,7 +300,9 @@ fn create_deliver_beacon_ibc_message(
     let msg = IbcMsg::SendPacket {
         channel_id: job.channel,
         data: to_binary(&packet)?,
-        timeout: blocktime.plus_seconds(PACKET_LIFETIME).into(),
+        timeout: blocktime
+            .plus_seconds(DELIVER_BEACON_PACKET_LIFETIME)
+            .into(),
     };
     Ok(msg)
 }
