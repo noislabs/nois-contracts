@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event,
+    from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
     IbcReceiveResponse, MessageInfo, QueryResponse, Reply, Response, StdError, StdResult, Storage,
@@ -9,8 +9,8 @@ use cosmwasm_std::{
 };
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
-    RequestBeaconPacketAck, StdAck,
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
+    RequestBeaconPacket, RequestBeaconPacketAck, StdAck,
 };
 
 use crate::error::ContractError;
@@ -304,14 +304,32 @@ pub fn ibc_packet_receive(
     _deps: DepsMut,
     _env: Env,
     packet: IbcPacketReceiveMsg,
-) -> StdResult<IbcReceiveResponse> {
-    let DeliverBeaconPacket {
-        source_id: _,
-        randomness,
-        sender,
-        job_id,
-    } = from_binary(&packet.packet.data)?;
+) -> Result<IbcReceiveResponse, Never> {
+    // put this in a closure so we can convert all error responses into acknowledgements
+    (|| {
+        let DeliverBeaconPacket {
+            source_id: _,
+            randomness,
+            sender,
+            job_id,
+        } = from_binary(&packet.packet.data)?;
+        receive_deliver_beacon(randomness, sender, job_id)
+    })()
+    .or_else(|e| {
+        // we try to capture all app-level errors and convert them into
+        // acknowledgement packets that contain an error code.
+        let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
+        Ok(IbcReceiveResponse::new()
+            .set_ack(acknowledgement)
+            .add_event(Event::new("ibc").add_attribute("packet", "receive")))
+    })
+}
 
+fn receive_deliver_beacon(
+    randomness: HexBinary,
+    sender: String,
+    job_id: String,
+) -> Result<IbcReceiveResponse, ContractError> {
     // Create the message for executing the callback.
     // This can fail for various reasons, like
     // - `sender` not being a contract
