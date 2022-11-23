@@ -259,7 +259,7 @@ fn receive_get_beacon(
 
     let mut msgs = Vec::<CosmosMsg>::new();
 
-    let acknowledgement: Binary = if let Some(beacon) = beacon.as_ref() {
+    let acknowledgement = if let Some(beacon) = beacon.as_ref() {
         //If the drand round already exists we send it
         increment_processed_jobs(deps.storage, round)?;
         let msg = create_deliver_beacon_ibc_message(env.block.time, job, beacon)?;
