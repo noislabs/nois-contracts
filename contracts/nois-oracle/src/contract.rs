@@ -236,7 +236,7 @@ pub fn ibc_packet_receive(
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
         let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-        receive_get_beacon(deps, env, channel, msg.after, msg.sender, msg.job_id)
+        receive_request_beacon(deps, env, channel, msg.after, msg.sender, msg.job_id)
     })()
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
@@ -248,7 +248,7 @@ pub fn ibc_packet_receive(
     })
 }
 
-fn receive_get_beacon(
+fn receive_request_beacon(
     deps: DepsMut,
     env: Env,
     channel: String,
@@ -285,7 +285,7 @@ fn receive_get_beacon(
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
         .add_messages(msgs)
-        .add_attribute("action", "receive_get_beacon"))
+        .add_attribute("action", "receive_request_beacon"))
 }
 
 /// Takes the job and turns it into a an IBC message with a `DeliverBeaconPacket`.
