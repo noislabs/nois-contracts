@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg,
-    Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
     Order, QueryResponse, Response, StdError, StdResult, Timestamp,
@@ -50,6 +50,13 @@ pub fn instantiate(
         incentive_denom: msg.incentive_denom,
     };
     CONFIG.save(deps.storage, &config)?;
+    Ok(Response::default())
+}
+
+// This no-op migrate implementation allows us to upgrade within the 0.7 series.
+// No state changes expected.
+#[entry_point]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
     Ok(Response::default())
 }
 
