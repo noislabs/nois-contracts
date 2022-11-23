@@ -15,3 +15,11 @@ pub const IBC_APP_VERSION: &str = "nois-v3";
 pub const APP_ORDER: IbcOrder = IbcOrder::Unordered;
 // we use this for tests to ensure it is rejected
 pub const BAD_APP_ORDER: IbcOrder = IbcOrder::Ordered;
+
+// We currently have no way for dapps to process timeouts. If we wanted that,
+// we had to introduce a different callback which then needs handling by the
+// dapp developer. For now, let's assume all requests relayed to Nois and all
+// deliveries are relayed to the consumer chain. In order to avoid unintended
+// timeouts due to relayer downtime, we set the lifetime to 100 days.
+pub const REQUEST_BEACON_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
+pub const DELIVER_BEACON_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds

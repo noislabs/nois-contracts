@@ -9,7 +9,8 @@ use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
-    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, IBC_APP_VERSION,
+    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME,
+    IBC_APP_VERSION,
 };
 
 use crate::bots::validate_moniker;
@@ -25,10 +26,6 @@ use crate::state::{
     unprocessed_jobs_enqueue, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
     StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
-
-// TODO: make configurable?
-/// packets live one hour
-pub const PACKET_LIFETIME: u64 = 60 * 60;
 
 /// Constant defining how many submissions per round will be rewarded
 const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
@@ -303,7 +300,9 @@ fn create_deliver_beacon_ibc_message(
     let msg = IbcMsg::SendPacket {
         channel_id: job.channel,
         data: to_binary(&packet)?,
-        timeout: blocktime.plus_seconds(PACKET_LIFETIME).into(),
+        timeout: blocktime
+            .plus_seconds(DELIVER_BEACON_PACKET_LIFETIME)
+            .into(),
     };
     Ok(msg)
 }

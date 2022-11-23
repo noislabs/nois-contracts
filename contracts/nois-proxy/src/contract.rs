@@ -10,7 +10,7 @@ use cosmwasm_std::{
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
-    RequestBeaconPacket, RequestBeaconPacketAck, StdAck,
+    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, REQUEST_BEACON_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -22,9 +22,6 @@ use crate::msg::{
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 
-// TODO: make configurable?
-/// packets live one hour
-pub const PACKET_LIFETIME: u64 = 60 * 60;
 pub const CALLBACK_ID: u64 = 456;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -99,7 +96,11 @@ fn execute_get_next_randomness(
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
-        timeout: env.block.time.plus_seconds(PACKET_LIFETIME).into(),
+        timeout: env
+            .block
+            .time
+            .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
+            .into(),
     };
 
     let res = Response::new()
@@ -128,7 +129,11 @@ fn execute_get_randomness_after(
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
-        timeout: env.block.time.plus_seconds(PACKET_LIFETIME).into(),
+        timeout: env
+            .block
+            .time
+            .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
+            .into(),
     };
 
     let res = Response::new()
