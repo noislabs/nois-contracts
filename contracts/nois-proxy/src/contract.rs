@@ -1,5 +1,5 @@
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
+use cosmwasm_std::{entry_point, Empty};
 use cosmwasm_std::{
     from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
@@ -47,6 +47,13 @@ pub fn instantiate(
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("test_mode", test_mode.to_string()))
+}
+
+// This no-op migrate implementation allows us to upgrade within the 0.7 series.
+// No state changes expected.
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
