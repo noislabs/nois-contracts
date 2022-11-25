@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
-use cosmwasm_std::entry_point;
+use cosmwasm_std::{entry_point, Empty};
 use cosmwasm_std::{
-    from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event,
+    from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
     IbcReceiveResponse, MessageInfo, QueryResponse, Reply, Response, StdError, StdResult, Storage,
@@ -9,8 +9,8 @@ use cosmwasm_std::{
 };
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
-    RequestBeaconPacketAck, StdAck,
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
+    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, REQUEST_BEACON_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -22,9 +22,6 @@ use crate::msg::{
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
 
-// TODO: make configurable?
-/// packets live one hour
-pub const PACKET_LIFETIME: u64 = 60 * 60;
 pub const CALLBACK_ID: u64 = 456;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -50,6 +47,13 @@ pub fn instantiate(
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("test_mode", test_mode.to_string()))
+}
+
+// This no-op migrate implementation allows us to upgrade within the 0.7 series.
+// No state changes expected.
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -99,7 +103,11 @@ fn execute_get_next_randomness(
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
-        timeout: env.block.time.plus_seconds(PACKET_LIFETIME).into(),
+        timeout: env
+            .block
+            .time
+            .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
+            .into(),
     };
 
     let res = Response::new()
@@ -128,7 +136,11 @@ fn execute_get_randomness_after(
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
-        timeout: env.block.time.plus_seconds(PACKET_LIFETIME).into(),
+        timeout: env
+            .block
+            .time
+            .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
+            .into(),
     };
 
     let res = Response::new()
@@ -304,14 +316,32 @@ pub fn ibc_packet_receive(
     _deps: DepsMut,
     _env: Env,
     packet: IbcPacketReceiveMsg,
-) -> StdResult<IbcReceiveResponse> {
-    let DeliverBeaconPacket {
-        source_id: _,
-        randomness,
-        sender,
-        job_id,
-    } = from_binary(&packet.packet.data)?;
+) -> Result<IbcReceiveResponse, Never> {
+    // put this in a closure so we can convert all error responses into acknowledgements
+    (|| {
+        let DeliverBeaconPacket {
+            source_id: _,
+            randomness,
+            sender,
+            job_id,
+        } = from_binary(&packet.packet.data)?;
+        receive_deliver_beacon(randomness, sender, job_id)
+    })()
+    .or_else(|e| {
+        // we try to capture all app-level errors and convert them into
+        // acknowledgement packets that contain an error code.
+        let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
+        Ok(IbcReceiveResponse::new()
+            .set_ack(acknowledgement)
+            .add_event(Event::new("ibc").add_attribute("packet", "receive")))
+    })
+}
 
+fn receive_deliver_beacon(
+    randomness: HexBinary,
+    sender: String,
+    job_id: String,
+) -> Result<IbcReceiveResponse, ContractError> {
     // Create the message for executing the callback.
     // This can fail for various reasons, like
     // - `sender` not being a contract

@@ -52,19 +52,15 @@ pub enum StdAck {
 }
 
 impl StdAck {
-    // create a serialized success message
-    pub fn success(data: impl Serialize) -> Binary {
-        let res = to_binary(&data).unwrap();
-        StdAck::Result(res).ack()
+    /// Creates a result ack
+    pub fn success(result: impl Serialize) -> Self {
+        let serialized = to_binary(&result).unwrap();
+        StdAck::Result(serialized)
     }
 
-    // create a serialized error message
-    pub fn fail(err: String) -> Binary {
-        StdAck::Error(err).ack()
-    }
-
-    pub fn ack(&self) -> Binary {
-        to_binary(self).unwrap()
+    /// Creates an error ack
+    pub fn error(err: impl Into<String>) -> Self {
+        StdAck::Error(err.into())
     }
 
     pub fn unwrap(self) -> Binary {
@@ -83,5 +79,12 @@ impl StdAck {
             StdAck::Result(_) => panic!("not an error"),
             StdAck::Error(err) => err,
         }
+    }
+}
+
+impl From<StdAck> for Binary {
+    fn from(original: StdAck) -> Binary {
+        // pretty sure this cannot fail
+        to_binary(&original).unwrap()
     }
 }

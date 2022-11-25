@@ -129,7 +129,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-nois-delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - cargocache-contract_nois_delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Unit Tests
           environment:
@@ -142,7 +142,7 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: cargocache-nois-delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+          key: cargocache-contract_nois_delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   package_nois_protocol:
     docker:
@@ -156,7 +156,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version; rustup target list --installed
       - restore_cache:
           keys:
-            - cargocache-v2-nois-protocol:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+            - cargocache-v2-package_nois_protocol-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Build library for native target
           command: cargo build --locked
@@ -167,7 +167,7 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - target
-          key: cargocache-v2-nois-protocol:1.63.0-{{ checksum "~/project/Cargo.lock" }}
+          key: cargocache-v2-package_nois_protocol-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   lint:
     docker:
@@ -357,7 +357,7 @@ jobs:
       - run:
           name: Build development contracts
           command: |
-            docker run --volumes-from with_code cosmwasm/workspace-optimizer:0.12.9
+            docker run --volumes-from with_code cosmwasm/workspace-optimizer:0.12.10
             docker cp with_code:/code/artifacts ./artifacts
       - run:
           name: Show data
