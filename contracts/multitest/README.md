@@ -8,4 +8,4 @@ Steps:
 - Instantiate nois-proxy
 - Register a bot in nois-oracle
 - Add randomness round in nois-oracle
-- Check that the incentive has been paid from the delegator contract to thedrand-operator
+- Check that the incentive has been paid from the delegator contract to the drand-operator by checking the respective Bank balances

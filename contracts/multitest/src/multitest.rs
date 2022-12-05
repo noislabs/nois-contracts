@@ -1,9 +1,10 @@
 mod tests {
 
-    use cosmwasm_std::{Addr, Coin, HexBinary, Querier, Uint128};
-    use cw_multi_test::{App, ContractWrapper, Executor};
+    use cosmwasm_std::{Addr, Coin, HexBinary, Querier, Uint128,};
+    use cw_multi_test::{App, ContractWrapper, Executor, StakingInfo, StakeKeeper, };
 
     use cosmwasm_std::{from_binary, to_binary, BalanceResponse, BankQuery, QueryRequest};
+    
 
     fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
         let req: QueryRequest<BankQuery> = QueryRequest::Bank(BankQuery::Balance {
@@ -25,10 +26,15 @@ mod tests {
         .unwrap();
     }
 
+
+    
+
     #[test]
     fn integration_test() {
         // Insantiate a chain mock environment
         let mut app = App::default();
+        //TODO edit the staking denom from TOKEN to unois
+        
         // Storing nois-delegator code
         let code_nois_delegator = ContractWrapper::new(
             nois_delegator::contract::execute,
@@ -237,5 +243,32 @@ mod tests {
             balance,
             Uint128::new(100_000) //incentive
         );
+        
+
+        // Make nois-delegator delegate 
+        let msg = nois_delegator::msg::ExecuteMsg::Delegate { addr: "noislabs".to_string(), amount: Uint128::new(100) };
+        let err = app
+            .execute_contract(
+                Addr::unchecked("owner"),
+                addr_nois_delegator.to_owned(),
+                &msg,
+                &[],
+            )
+            .unwrap_err();
+        let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
+        // Make sure the the tx passed
+        assert_eq!(
+            nois_delegator::error::ContractError::ContractAlreadySet,
+            err.downcast().unwrap()
+        );
+        //assert_eq!(
+        //    wasm.attributes
+        //        .iter()
+        //        .find(|attr| attr.key == "contract")
+        //        .unwrap()
+        //        .value,
+        //    "contract1"
+        //);
+        
     }
 }
