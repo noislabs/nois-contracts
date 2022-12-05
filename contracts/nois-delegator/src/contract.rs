@@ -1,10 +1,10 @@
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg, Env,
-    MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
+    MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128, Attribute,
 };
 
 use crate::error::ContractError;
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,};
 use crate::state::{Config, CONFIG};
 
 // The staking, unbonding, redelegating, claim denom. It can be the same as the incentive denom
@@ -191,11 +191,14 @@ fn execute_set_nois_oracle_contract_addr(
         .api
         .addr_validate(&addr)
         .map_err(|_| ContractError::InvalidAddress)?;
-    config.nois_oracle_contract_addr = Some(nois_contract);
+    config.nois_oracle_contract_addr = Some(nois_contract.clone());
 
     CONFIG.save(deps.storage, &config)?;
+    let attributes = vec![
+        Attribute::new("nois-oracle-address", nois_contract.to_string()),
+    ];
 
-    Ok(Response::default())
+    Ok(Response::new().add_attributes(attributes))
 }
 
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
