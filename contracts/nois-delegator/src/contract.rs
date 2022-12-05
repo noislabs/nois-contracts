@@ -1,10 +1,10 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg, Env,
-    MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128, Attribute,
+    ensure_eq, entry_point, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, DistributionMsg,
+    Env, MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
 };
 
 use crate::error::ContractError;
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg,};
+use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
 // The staking, unbonding, redelegating, claim denom. It can be the same as the incentive denom
@@ -84,11 +84,17 @@ fn execute_incentivise_bot(
         nois_oracle_contract,
         ContractError::Unauthorized
     );
+    let attributes = vec![
+        Attribute::new("nois-delegator-sent-incentives-amount", incentive_amount),
+        Attribute::new("nois-delegator-sent-incentives-denom", &incentive_denom),
+    ];
 
-    Ok(Response::new().add_message(BankMsg::Send {
-        to_address: addr, //Not sure if here we can exract the drand_bot addr by info.sender. Is info.sender here the nois-oracle or the drand bot?
-        amount: vec![Coin::new(incentive_amount.into(), incentive_denom)],
-    }))
+    Ok(Response::new()
+        .add_attributes(attributes)
+        .add_message(BankMsg::Send {
+            to_address: addr, //Not sure if here we can exract the drand_bot addr by info.sender. Is info.sender here the nois-oracle or the drand bot?
+            amount: vec![Coin::new(incentive_amount.into(), incentive_denom)],
+        }))
 }
 
 /// This function will delegate staked coins
@@ -194,9 +200,10 @@ fn execute_set_nois_oracle_contract_addr(
     config.nois_oracle_contract_addr = Some(nois_contract.clone());
 
     CONFIG.save(deps.storage, &config)?;
-    let attributes = vec![
-        Attribute::new("nois-oracle-address", nois_contract.to_string()),
-    ];
+    let attributes = vec![Attribute::new(
+        "nois-oracle-address",
+        nois_contract.to_string(),
+    )];
 
     Ok(Response::new().add_attributes(attributes))
 }
