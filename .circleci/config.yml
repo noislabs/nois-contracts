@@ -147,7 +147,7 @@ jobs:
   cw-multitest:
     docker:
       - image: rust:1.65.0
-    working_directory: ~/project/contracts/multitest
+    working_directory: ~/project/packages/multitest
     steps:
       - checkout:
           path: ~/project

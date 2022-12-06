@@ -28,9 +28,9 @@ overflow-checks = true
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
-nois-delegator = { path = "../nois-delegator"}
-nois-oracle = { path = "../nois-oracle"}
-nois-proxy = { path = "../nois-proxy" }
+nois-delegator = { path = "../../contracts/nois-delegator"}
+nois-oracle = { path = "../../contracts/nois-oracle"}
+nois-proxy = { path = "../../contracts/nois-proxy" }
 
 cosmwasm-std = { version = "1.1.5", features = ["iterator", "ibc3"] }
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }
