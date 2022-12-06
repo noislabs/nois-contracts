@@ -1,10 +1,11 @@
 mod tests {
 
-    use cosmwasm_std::{Addr, Coin, HexBinary, Querier, Uint128,};
-    use cw_multi_test::{App, ContractWrapper, Executor, StakingInfo, StakeKeeper, };
+    use cosmwasm_std::{
+        testing::mock_env, Addr, Coin, Decimal, Delegation, HexBinary, Querier, Uint128, Validator,
+    };
+    use cw_multi_test::{App, AppBuilder, ContractWrapper, Executor, StakingInfo};
 
     use cosmwasm_std::{from_binary, to_binary, BalanceResponse, BankQuery, QueryRequest};
-    
 
     fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
         let req: QueryRequest<BankQuery> = QueryRequest::Bank(BankQuery::Balance {
@@ -26,15 +27,34 @@ mod tests {
         .unwrap();
     }
 
-
-    
-
     #[test]
     fn integration_test() {
         // Insantiate a chain mock environment
-        let mut app = App::default();
-        //TODO edit the staking denom from TOKEN to unois
-        
+        let mut app = AppBuilder::new().build(|router, api, storage| {
+            router
+                .staking
+                .setup(
+                    storage,
+                    StakingInfo {
+                        bonded_denom: "unois".to_string(),
+                        unbonding_time: 12,
+                        apr: Decimal::percent(12),
+                    },
+                )
+                .unwrap();
+            let valoper1 = Validator {
+                address: "noislabs".to_string(),
+                commission: Decimal::percent(1),
+                max_commission: Decimal::percent(100),
+                max_change_rate: Decimal::percent(1),
+            };
+            let block = mock_env().block;
+            router
+                .staking
+                .add_validator(api, storage, &block, valoper1)
+                .unwrap();
+        });
+
         // Storing nois-delegator code
         let code_nois_delegator = ContractWrapper::new(
             nois_delegator::contract::execute,
@@ -243,32 +263,56 @@ mod tests {
             balance,
             Uint128::new(100_000) //incentive
         );
-        
 
-        // Make nois-delegator delegate 
-        let msg = nois_delegator::msg::ExecuteMsg::Delegate { addr: "noislabs".to_string(), amount: Uint128::new(100) };
-        let err = app
-            .execute_contract(
-                Addr::unchecked("owner"),
-                addr_nois_delegator.to_owned(),
-                &msg,
-                &[],
-            )
-            .unwrap_err();
-        let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
-        // Make sure the the tx passed
+        // Make nois-delegator delegate
+        let msg = nois_delegator::msg::ExecuteMsg::Delegate {
+            addr: "noislabs".to_string(),
+            amount: Uint128::new(500_000),
+        };
+        app.execute_contract(
+            Addr::unchecked("owner"),
+            addr_nois_delegator.to_owned(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+        // Check balance nois-delegator
+        let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
         assert_eq!(
-            nois_delegator::error::ContractError::ContractAlreadySet,
-            err.downcast().unwrap()
+            balance,
+            Uint128::new(400_000) // 900_000 - 500_000(staked) = 400_000
         );
+        // Check staked amount
+        assert_eq!(
+            app.wrap()
+                .query_all_delegations(&addr_nois_delegator)
+                .unwrap()[0],
+            Delegation {
+                amount: Coin::new(500_000, "unois"),
+                delegator: Addr::unchecked("contract0"),
+                validator: "noislabs".to_string(),
+            }
+        );
+
+        //TODO simulte advance many blocks to accumulate some staking rewards
+
+        // Make nois-delegator claim
+        let msg = nois_delegator::msg::ExecuteMsg::ClaimRewards {
+            addr: "noislabs".to_string(),
+        };
+        let _err = app
+            .execute_contract(Addr::unchecked("owner"), addr_nois_delegator, &msg, &[])
+            .unwrap_err();
         //assert_eq!(
-        //    wasm.attributes
-        //        .iter()
-        //        .find(|attr| attr.key == "contract")
-        //        .unwrap()
-        //        .value,
-        //    "contract1"
+        //        nois_delegator::error::ContractError::ContractAlreadySet,
+        //        err.downcast().unwrap()
+        //
+        //    );
+        // Check balance nois-delegator
+        //let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
+        //assert_eq!(
+        //    balance,
+        //    Uint128::new(800_000) // 900_000 - 100_000(staked) = 800_000
         //);
-        
     }
 }
