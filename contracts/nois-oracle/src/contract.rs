@@ -840,79 +840,7 @@ mod tests {
     }
 
     #[test]
-    fn registered_bot_gets_incentives() {
-        let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
-
-        //instantiate delegator contract
-        let mut deps_delegator_contract = mock_dependencies();
-        let msg = nois_delegator::msg::InstantiateMsg {
-            admin_addr: info.sender.to_string(),
-        };
-
-        nois_delegator::contract::instantiate(
-            deps_delegator_contract.as_mut(),
-            mock_env(),
-            info.clone(),
-            msg,
-        )
-        .unwrap();
-        let env = mock_env();
-        let delegator_contract_address = env.contract.address;
-        //add balance to the delegator contract
-        deps.querier.update_balance(
-            delegator_contract_address.clone(),
-            vec![Coin {
-                denom: "unois".to_string(),
-                amount: Uint128::new(100_000_000),
-            }],
-        );
-
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-            delegator_contract: delegator_contract_address.clone().into_string(),
-        };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/public/72785
-            round: 72785,
-            previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
-            signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
-        };
-        let info = mock_info("registered_bot", &[]);
-        register_bot(deps.as_mut(), info.clone());
-        let response = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
-        let randomness_attr = response
-            .attributes
-            .iter()
-            .find(|Attribute { key, .. }| key == "randomness")
-            .unwrap();
-        assert_eq!(
-            randomness_attr.value,
-            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
-        );
-        //Check bot is incentivised
-        assert_eq!(response.messages.len(), 1);
-        //Check message is sent to the delegator contract
-        assert_eq!(
-            response.messages[0].msg,
-            CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: delegator_contract_address.into_string(),
-                msg: to_binary(&nois_delegator::msg::ExecuteMsg::IncentiviseBot {
-                    addr: "registered_bot".to_string(),
-                    incentive_amount: Uint128::new(1_000_000),
-                    incentive_denom: "unois".to_string(),
-                })
-                .unwrap(),
-                funds: info.funds
-            })
-        );
-    }
-    //
 
     #[test]
     fn only_top_x_bots_receive_incentive() {
