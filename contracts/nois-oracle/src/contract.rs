@@ -840,9 +840,6 @@ mod tests {
     }
 
     #[test]
-
-
-    #[test]
     fn only_top_x_bots_receive_incentive() {
         let mut deps = mock_dependencies();
 
