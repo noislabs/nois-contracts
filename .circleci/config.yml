@@ -8,6 +8,7 @@ workflows:
       - contract_nois_proxy
       - contract_nois_oracle
       - contract_nois_delegator
+      - cw-multitest
       - package_nois_protocol
       - lint
       - wasm-build
@@ -143,6 +144,14 @@ jobs:
             - /usr/local/cargo/registry
             - target
           key: cargocache-contract_nois_delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+  cw-multitest:
+    docker:
+      - image: rust:1.65.0
+    working_directory: ~/project/packages/multitest
+    steps:
+      - checkout:
+          path: ~/project
+      - run: cargo test --locked
 
   package_nois_protocol:
     docker:
