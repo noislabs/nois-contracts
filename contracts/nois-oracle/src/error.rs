@@ -13,6 +13,9 @@ pub enum ContractError {
     #[error("Moniker must not be empty.")]
     MonikerEmpty,
 
+    #[error("Invalid Address.")]
+    InvalidAddr,
+
     #[error("Moniker exceeds length limit.")]
     MonikerTooLong,
 

@@ -28,6 +28,10 @@ pub enum ExecuteMsg {
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
     RegisterBot { moniker: String },
+    UpdateWhitelistBots {
+        bots_to_whitelist: Vec<String>,
+        bots_to_dewhitelist: Vec<String>,
+    },
 }
 
 #[cw_serde]

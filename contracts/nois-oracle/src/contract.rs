@@ -1,3 +1,6 @@
+use std::env;
+use std::ops::Add;
+
 use cosmwasm_std::{
     entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg,
     Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
@@ -74,6 +77,10 @@ pub fn execute(
             signature,
         } => execute_add_round(deps, env, info, round, previous_signature, signature),
         ExecuteMsg::RegisterBot { moniker } => execute_register_bot(deps, env, info, moniker),
+        ExecuteMsg::UpdateWhitelistBots {
+            bots_to_whitelist,
+            bots_to_dewhitelist,
+        } => execute_update_whitelist_bots(deps, env, info, bots_to_whitelist, bots_to_dewhitelist),
     }
 }
 
@@ -367,6 +374,22 @@ fn execute_register_bot(
     };
     BOTS.save(deps.storage, &info.sender, &bot)?;
     Ok(Response::default())
+}
+
+fn execute_update_whitelist_bots(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    bots_to_whitelist: Vec<String>,
+    bots_to_dewhitelist: Vec<String>,
+) -> Result<Response, ContractError> {
+    //for bot in bots_to_dewhitelist {
+    //    if deps.api.addr_validate(bot)
+    //}
+    let bots_addr_to_dewhitelist: Vec<Addr> =
+        bots_to_dewhitelist.iter().map(|bot| parse_contract_addr);
+
+    Ok((Response::default()))
 }
 
 fn execute_add_round(
