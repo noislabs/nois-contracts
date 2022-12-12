@@ -345,7 +345,7 @@ fn receive_deliver_beacon(
     // Create the message for executing the callback.
     // This can fail for various reasons, like
     // - `sender` not being a contract
-    // - the contract does not provide the Receive {} interface
+    // - the contract does not provide the NoisReceive {} interface
     // - out of gas
     // - any other processing error in the callback implementation
     let msg = SubMsg::reply_on_error(

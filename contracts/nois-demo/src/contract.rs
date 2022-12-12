@@ -34,7 +34,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::EstimatePi { job_id } => execute_estimate_pi(deps, env, info, job_id),
-        ExecuteMsg::Receive { callback } => execute_receive(deps, env, info, callback),
+        ExecuteMsg::NoisReceive { callback } => execute_receive(deps, env, info, callback),
     }
 }
 
@@ -175,7 +175,7 @@ mod tests {
     fn execute_receive_works() {
         let mut deps = instantiate_proxy();
 
-        let msg = ExecuteMsg::Receive {
+        let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
                 randomness: HexBinary::from_hex(
@@ -192,7 +192,7 @@ mod tests {
     fn execute_receive_fails_for_wrong_sender() {
         let mut deps = instantiate_proxy();
 
-        let msg = ExecuteMsg::Receive {
+        let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
                 randomness: HexBinary::from_hex(

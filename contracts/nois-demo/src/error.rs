@@ -10,7 +10,7 @@ pub enum ContractError {
     #[error("Proxy address is not valid")]
     InvalidProxyAddress,
 
-    #[error("Unauthorized Receive execution")]
+    #[error("Unauthorized NoisReceive execution")]
     UnauthorizedReceive,
 
     #[error("Received invalid randomness")]

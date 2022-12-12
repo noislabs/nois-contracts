@@ -14,7 +14,7 @@ pub enum ExecuteMsg {
         /// An ID for this job which allows for gathering the results.
         job_id: String,
     },
-    Receive {
+    NoisReceive {
         callback: NoisCallback,
     },
 }
