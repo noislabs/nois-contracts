@@ -620,7 +620,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
- "schemars",
  "serde",
  "thiserror",
 ]
@@ -633,7 +632,6 @@ dependencies = [
  "cosmwasm-std",
  "cw-storage-plus",
  "nois",
- "schemars",
  "serde",
  "thiserror",
 ]
@@ -662,7 +660,6 @@ dependencies = [
  "nois",
  "nois-delegator",
  "nois-protocol",
- "schemars",
  "serde",
  "thiserror",
 ]
@@ -674,7 +671,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "nois",
- "schemars",
  "serde",
  "thiserror",
 ]
@@ -688,7 +684,6 @@ dependencies = [
  "cw-storage-plus",
  "nois",
  "nois-protocol",
- "schemars",
  "serde",
  "thiserror",
 ]
