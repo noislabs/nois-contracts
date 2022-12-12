@@ -345,13 +345,13 @@ fn receive_deliver_beacon(
     // Create the message for executing the callback.
     // This can fail for various reasons, like
     // - `sender` not being a contract
-    // - the contract does not provide the Receive {} interface
+    // - the contract does not provide the NoisReceive {} interface
     // - out of gas
     // - any other processing error in the callback implementation
     let msg = SubMsg::reply_on_error(
         WasmMsg::Execute {
             contract_addr: sender,
-            msg: to_binary(&ReceiverExecuteMsg::Receive {
+            msg: to_binary(&ReceiverExecuteMsg::NoisReceive {
                 callback: NoisCallback {
                     job_id: job_id.clone(),
                     randomness,
