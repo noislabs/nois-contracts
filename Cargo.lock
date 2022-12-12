@@ -645,7 +645,6 @@ dependencies = [
  "nois-delegator",
  "nois-oracle",
  "nois-proxy",
- "serde",
 ]
 
 [[package]]
