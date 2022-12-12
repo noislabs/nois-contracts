@@ -351,7 +351,7 @@ fn receive_deliver_beacon(
     let msg = SubMsg::reply_on_error(
         WasmMsg::Execute {
             contract_addr: sender,
-            msg: to_binary(&ReceiverExecuteMsg::Receive {
+            msg: to_binary(&ReceiverExecuteMsg::NoisReceive {
                 callback: NoisCallback {
                     job_id: job_id.clone(),
                     randomness,

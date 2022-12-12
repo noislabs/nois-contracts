@@ -2,10 +2,12 @@
 members = ["packages/*", "contracts/*"]
 resolver = "2"
 
+[workspace.dependencies]
+nois = { git = "https://github.com/noislabs/nois", rev = "v0.6.0-beta.0" }
+
 [patch.crates-io]
 # cosmwasm-std = { git = "https://github.com/CosmWasm/cosmwasm", rev = "2e215cf" }
 # cosmwasm-schema = { git = "https://github.com/CosmWasm/cosmwasm", rev = "2e215cf" }
-# nois = { git = "https://github.com/noislabs/nois", rev = "b71c505fdab347faf" }
 
 [profile.release.package.nois-proxy]
 codegen-units = 1
