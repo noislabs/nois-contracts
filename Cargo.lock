@@ -648,6 +648,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nois-monitoring"
+version = "0.7.3"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 1.0.1",
+ "nois",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "nois-multitest"
 version = "0.7.3"
 dependencies = [
