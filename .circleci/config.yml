@@ -51,7 +51,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-nois-demo-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-nois-demo-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Unit Tests
           environment:
@@ -66,7 +66,7 @@ jobs:
             - ~/project/target/debug/.fingerprint
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
-          key: cargocache-nois-demo-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+          key: v2-nois-demo-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_proxy:
     docker:
@@ -80,7 +80,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-nois-proxy-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-nois-proxy-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Unit Tests
           environment:
@@ -95,7 +95,7 @@ jobs:
             - ~/project/target/debug/.fingerprint
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
-          key: cargocache-nois-proxy-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+          key: v2-nois-proxy-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_monitoring:
     docker:
@@ -109,8 +109,8 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-nois-monitoring-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
-            - cargocache-nois-monitoring-rust:1.65.0-
+            - v2-nois-monitoring-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-nois-monitoring-rust:1.65.0-
       - run:
           name: Unit Tests
           environment:
@@ -125,7 +125,7 @@ jobs:
             - ~/project/target/debug/.fingerprint
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
-          key: cargocache-nois-monitoring-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+          key: v2-nois-monitoring-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_oracle:
     docker:
@@ -139,7 +139,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-nois-oracle-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-nois-oracle-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Unit Tests
           environment:
@@ -154,7 +154,7 @@ jobs:
             - ~/project/target/debug/.fingerprint
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
-          key: cargocache-nois-oracle-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+          key: v2-nois-oracle-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_delegator:
     docker:
@@ -168,7 +168,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-contract_nois_delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-contract_nois_delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Unit Tests
           environment:
@@ -183,7 +183,7 @@ jobs:
             - ~/project/target/debug/.fingerprint
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
-          key: cargocache-contract_nois_delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+          key: v2-contract_nois_delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   cw-multitest:
     docker:
@@ -206,7 +206,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version; rustup target list --installed
       - restore_cache:
           keys:
-            - cargocache-v2-package_nois_protocol-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-package_nois_protocol-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Build library for native target
           command: cargo build --locked
@@ -219,7 +219,7 @@ jobs:
             - ~/project/target/debug/.fingerprint
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
-          key: cargocache-v2-package_nois_protocol-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+          key: v2-package_nois_protocol-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   lint:
     docker:
@@ -231,7 +231,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version; rustup target list --installed
       - restore_cache:
           keys:
-            - cargocache-v2-lint-rust:1.65.0-{{ checksum "Cargo.lock" }}
+            - v2-lint-rust:1.65.0-{{ checksum "Cargo.lock" }}
       - run:
           name: Add rustfmt component
           command: rustup component add rustfmt
@@ -250,7 +250,7 @@ jobs:
             - ~/project/target/debug/.fingerprint
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
-          key: cargocache-v2-lint-rust:1.65.0-{{ checksum "Cargo.lock" }}
+          key: v2-lint-rust:1.65.0-{{ checksum "Cargo.lock" }}
 
   # This runs one time on the top level to ensure all contracts compile properly into wasm.
   # We don't run the wasm build per contract build, and then reuse a lot of the same dependencies, so this speeds up CI time
@@ -267,7 +267,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - cargocache-wasm-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-wasm-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - run:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
@@ -283,7 +283,7 @@ jobs:
           paths:
             - /usr/local/cargo/registry
             - ~/project/target
-          key: cargocache-wasm-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+          key: v2-wasm-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - persist_to_workspace:
           name: Save wasm contracts for integration test usage
           root: ./target/wasm32-unknown-unknown/release
