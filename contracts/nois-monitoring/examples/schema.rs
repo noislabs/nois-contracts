@@ -1,6 +1,6 @@
 use cosmwasm_schema::write_api;
 
-use monitoring::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use nois_monitoring::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
     write_api! {
