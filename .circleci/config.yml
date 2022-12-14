@@ -63,7 +63,9 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target
+            - ~/project/target/debug/.fingerprint
+            - ~/project/target/debug/build
+            - ~/project/target/debug/deps
           key: cargocache-nois-demo-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_proxy:
@@ -90,7 +92,9 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target
+            - ~/project/target/debug/.fingerprint
+            - ~/project/target/debug/build
+            - ~/project/target/debug/deps
           key: cargocache-nois-proxy-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_monitoring:
@@ -118,7 +122,9 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target
+            - ~/project/target/debug/.fingerprint
+            - ~/project/target/debug/build
+            - ~/project/target/debug/deps
           key: cargocache-nois-monitoring-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_oracle:
@@ -145,7 +151,9 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target
+            - ~/project/target/debug/.fingerprint
+            - ~/project/target/debug/build
+            - ~/project/target/debug/deps
           key: cargocache-nois-oracle-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_delegator:
@@ -172,8 +180,11 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target
+            - ~/project/target/debug/.fingerprint
+            - ~/project/target/debug/build
+            - ~/project/target/debug/deps
           key: cargocache-contract_nois_delegator-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+
   cw-multitest:
     docker:
       - image: rust:1.65.0
@@ -205,7 +216,9 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target
+            - ~/project/target/debug/.fingerprint
+            - ~/project/target/debug/build
+            - ~/project/target/debug/deps
           key: cargocache-v2-package_nois_protocol-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   lint:
@@ -234,9 +247,9 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target/debug/.fingerprint
-            - target/debug/build
-            - target/debug/deps
+            - ~/project/target/debug/.fingerprint
+            - ~/project/target/debug/build
+            - ~/project/target/debug/deps
           key: cargocache-v2-lint-rust:1.65.0-{{ checksum "Cargo.lock" }}
 
   # This runs one time on the top level to ensure all contracts compile properly into wasm.
@@ -269,7 +282,7 @@ jobs:
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - target
+            - ~/project/target
           key: cargocache-wasm-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
       - persist_to_workspace:
           name: Save wasm contracts for integration test usage
