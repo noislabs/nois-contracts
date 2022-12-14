@@ -1,0 +1,32 @@
+[package]
+name = "nois-monitoring"
+version = "0.7.3"
+authors = ["Katarina | Nois Network", "Simon Warta <webmaster128@users.noreply.github.com>"]
+edition = "2021"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = 3
+debug = false
+rpath = false
+lto = true
+debug-assertions = false
+codegen-units = 1
+panic = 'abort'
+incremental = false
+overflow-checks = true
+
+[dependencies]
+cosmwasm-std = "1.0.0"
+cosmwasm-schema = { version = "1.1.5" }
+cw-storage-plus = { version = "1.0.0" }
+nois.workspace = true
+serde = { version = "1.0.137", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.31" }
+
+[dev-dependencies]
