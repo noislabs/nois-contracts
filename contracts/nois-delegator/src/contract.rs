@@ -33,11 +33,9 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::IncentiviseBot {
-            addr,
-            incentive_amount,
-            incentive_denom,
-        } => execute_incentivise_bot(deps.as_ref(), info, addr, incentive_amount, incentive_denom),
+        ExecuteMsg::SendFundsToOracle { amount } => {
+            execute_send_funds_to_oracle(deps.as_ref(), env, amount)
+        }
         ExecuteMsg::Delegate { addr, amount } => {
             execute_delegate(deps.as_ref(), info, addr, amount)
         }
@@ -68,32 +66,29 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 /// The bot is normally incentivised for bringing randomness on chain
 /// But could also be incentivised for executing extra things
 /// like callback jobs
-fn execute_incentivise_bot(
+fn execute_send_funds_to_oracle(
     deps: Deps,
-    info: MessageInfo,
-    addr: String,
-    incentive_amount: Uint128,
-    incentive_denom: String,
+    env: Env,
+    amount: Uint128,
 ) -> Result<Response, ContractError> {
     let Some(nois_oracle_contract) = CONFIG.load(deps.storage).unwrap().nois_oracle_contract_addr else {
         return Err(ContractError::NoisOracleContractAddressUnset);
     };
 
-    ensure_eq!(
-        info.sender,
-        nois_oracle_contract,
-        ContractError::Unauthorized
-    );
-    let attributes = vec![
-        Attribute::new("nois-delegator-sent-incentives-amount", incentive_amount),
-        Attribute::new("nois-delegator-sent-incentives-denom", &incentive_denom),
-    ];
+    // Check that this contract has the requested amount
+    let contract_balance = deps
+        .querier
+        .query_balance(&env.contract.address, STAKING_DENOM)?
+        .amount;
+    if contract_balance < amount {
+        return Err(ContractError::InsufficientBalance);
+    }
 
     Ok(Response::new()
-        .add_attributes(attributes)
+        .add_attribute("nois-delegator-sent-amount", amount)
         .add_message(BankMsg::Send {
-            to_address: addr, //Not sure if here we can exract the drand_bot addr by info.sender. Is info.sender here the nois-oracle or the drand bot?
-            amount: vec![Coin::new(incentive_amount.into(), incentive_denom)],
+            to_address: nois_oracle_contract.to_string(),
+            amount: vec![Coin::new(amount.into(), STAKING_DENOM)],
         }))
 }
 

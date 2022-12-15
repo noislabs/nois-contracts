@@ -7,6 +7,9 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
+    #[error("Delegator contract doesnot have enough balance.")]
+    InsufficientBalance,
+
     #[error("Unauthorized.")]
     Unauthorized,
 

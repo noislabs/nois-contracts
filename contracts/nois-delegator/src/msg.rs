@@ -12,20 +12,6 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    /// Add drand beacon
-    IncentiviseBot {
-        addr: String,
-        /// Bot incentive amount.
-        ///
-        /// A round submission currently consumes 620k. Using a gas limit of
-        /// 700k and a gas cost of 0.05unois/gas this is a fee of 35000unois.
-        /// Anything above that is a useful incentive.
-        incentive_amount: Uint128,
-        /// Bot incentive denom
-        incentive_denom: String,
-    },
-    /// Registers a bot using on the sender address of the message.
-    /// A re-registation updates the information of the bot.
     Delegate {
         addr: String,
         amount: Uint128,
@@ -44,6 +30,9 @@ pub enum ExecuteMsg {
     },
     SetNoisOracleContractAddr {
         addr: String,
+    },
+    SendFundsToOracle {
+        amount: Uint128,
     },
 }
 
