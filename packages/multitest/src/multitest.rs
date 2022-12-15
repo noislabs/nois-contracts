@@ -111,7 +111,6 @@ mod tests {
                 code_id_nois_oracle,
                 Addr::unchecked("owner"),
                 &nois_oracle::msg::InstantiateMsg {
-                    delegator_contract: addr_nois_delegator.to_string(),
                     incentive_amount: Uint128::new(100_000),
                     incentive_denom: "unois".to_string(),
                     min_round: 0,
@@ -133,7 +132,6 @@ mod tests {
                 min_round: 0,
                 incentive_amount: Uint128::new(100_000),
                 incentive_denom: "unois".to_string(),
-                delegator_contract: Addr::unchecked("contract0"),
             }
         );
         // Make the nois-delegator contract aware of the nois-oracle contract by setting the oracle address in its state
@@ -179,7 +177,7 @@ mod tests {
         );
         let code_id_nois_proxy = app.store_code(Box::new(code_nois_proxy));
 
-        // Instantiating nois-oracle contract
+        // Instantiating nois-proxy contract
         let addr_nois_proxy = app
             .instantiate_contract(
                 code_id_nois_proxy,
@@ -210,6 +208,20 @@ mod tests {
                 },
             }
         );
+        // Withdraw funds from the delegator contract to the oracle contract
+        let msg = nois_delegator::msg::ExecuteMsg::SendFundsToOracle {
+            amount: Uint128::new(300_000),
+        };
+        app.execute_contract(
+            Addr::unchecked("an_unhappy_drand_bot_operator"),
+            addr_nois_delegator.to_owned(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+        // Check balance nois-oracle
+        let balance = query_balance_native(&app, &addr_nois_oracle, "unois").amount;
+        assert_eq!(balance, Uint128::new(300_000));
 
         // register bot
         let msg = nois_oracle::msg::ExecuteMsg::RegisterBot {
@@ -239,7 +251,7 @@ mod tests {
             .unwrap();
 
         let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
-        // Make sure the the there is an incentive for the registered bot
+        // Make sure that there is an incentive for the registered bot
         assert_eq!(
             wasm.attributes
                 .iter()
@@ -252,11 +264,11 @@ mod tests {
         let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
         assert_eq!(
             balance,
-            Uint128::new(900_000) // 1_000_000(initial_balance) - 100_000(incentive) = 900_000
+            Uint128::new(700_000) // 1_000_000(initial_balance) - 300_000(withdrawn) = 700_000
         );
         // Check balance nois-oracle
         let balance = query_balance_native(&app, &addr_nois_oracle, "unois").amount;
-        assert_eq!(balance, Uint128::new(0));
+        assert_eq!(balance, Uint128::new(200_000));
         // Check balance nois-drand-bot-operator
         let balance = query_balance_native(&app, &Addr::unchecked("drand_bot"), "unois").amount;
         assert_eq!(
@@ -280,7 +292,7 @@ mod tests {
         let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
         assert_eq!(
             balance,
-            Uint128::new(400_000) // 900_000 - 500_000(staked) = 400_000
+            Uint128::new(200_000) // 700_000 - 500_000(staked) = 200_000
         );
         // Check staked amount
         assert_eq!(
