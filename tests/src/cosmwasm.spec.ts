@@ -31,7 +31,6 @@ interface OracleInstantiateMsg {
   readonly min_round: number;
   readonly incentive_amount: string;
   readonly incentive_denom: string;
-  readonly delegator_contract: string;
 }
 
 interface ProxyInstantiateMsg {
@@ -80,7 +79,6 @@ test.serial("Bot can submit to Oracle", async (t) => {
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
-    delegator_contract: delegatorAddress,
   };
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -146,7 +144,6 @@ test.serial("set up channel", async (t) => {
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
-    delegator_contract: delegatorAddress,
   };
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -220,7 +217,6 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
-    delegator_contract: delegatorAddress,
   };
   const { contractAddress: noisOracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
