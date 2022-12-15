@@ -453,7 +453,7 @@ fn execute_add_round(
             "bot_incentive",
             bot_desired_incentive.to_string(),
         ));
-        if contract_balance > bot_desired_incentive.amount {
+        if contract_balance >= bot_desired_incentive.amount {
             out_msgs.push(
                 BankMsg::Send {
                     to_address: info.sender.to_string(),
