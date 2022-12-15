@@ -717,19 +717,6 @@ mod tests {
 
         let info = mock_info("creator", &[]);
 
-        //instantiate delegator contract
-        let mut deps_delegator_contract = mock_dependencies();
-        let msg = nois_delegator::msg::InstantiateMsg {
-            admin_addr: info.sender.to_string(),
-        };
-
-        nois_delegator::contract::instantiate(
-            deps_delegator_contract.as_mut(),
-            mock_env(),
-            info.clone(),
-            msg,
-        )
-        .unwrap();
         let env = mock_env();
         let contract = env.contract.address;
         //add balance to the delegator contract
@@ -773,14 +760,8 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        //instantiate delegator contract
-        let mut contract = mock_dependencies();
-        let msg = nois_delegator::msg::InstantiateMsg {
-            admin_addr: info.sender.to_string(),
-        };
+        //instantiate contract
 
-        nois_delegator::contract::instantiate(contract.as_mut(), mock_env(), info.clone(), msg)
-            .unwrap();
         let env = mock_env();
         let contract = env.contract.address;
         //add balance to the delegator contract
