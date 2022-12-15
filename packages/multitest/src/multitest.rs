@@ -210,7 +210,7 @@ mod tests {
         );
         // Withdraw funds from the delegator contract to the oracle contract
         let msg = nois_delegator::msg::ExecuteMsg::SendFundsToOracle {
-            amount: (Uint128::new(300_000)),
+            amount: Uint128::new(300_000),
         };
         app.execute_contract(
             Addr::unchecked("an_unhappy_drand_bot_operator"),
