@@ -48,6 +48,7 @@ impl QueriedBeacon {
 pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
 
 pub const BOTS: Map<&Addr, Bot> = Map::new("bots");
+pub const WHITELIST: Map<&Addr, ()> = Map::new("whitelist");
 
 #[cw_serde]
 pub struct StoredSubmission {

@@ -1,6 +1,3 @@
-use std::env;
-use std::ops::Add;
-
 use cosmwasm_std::{
     entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg,
     Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
@@ -28,6 +25,7 @@ use crate::state::{
     get_processed_jobs, increment_processed_jobs, unprocessed_jobs_dequeue,
     unprocessed_jobs_enqueue, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
     StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    WHITELIST,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -80,7 +78,7 @@ pub fn execute(
         ExecuteMsg::UpdateWhitelistBots {
             bots_to_whitelist,
             bots_to_dewhitelist,
-        } => execute_update_whitelist_bots(deps, env, info, bots_to_whitelist, bots_to_dewhitelist),
+        } => execute_update_whitelist_bots(deps, bots_to_whitelist, bots_to_dewhitelist),
     }
 }
 
@@ -378,18 +376,24 @@ fn execute_register_bot(
 
 fn execute_update_whitelist_bots(
     deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
     bots_to_whitelist: Vec<String>,
     bots_to_dewhitelist: Vec<String>,
 ) -> Result<Response, ContractError> {
-    //for bot in bots_to_dewhitelist {
-    //    if deps.api.addr_validate(bot)
-    //}
-    let bots_addr_to_dewhitelist: Vec<Addr> =
-        bots_to_dewhitelist.iter().map(|bot| parse_contract_addr);
+    bots_to_dewhitelist.into_iter().for_each(|bot| {
+        let addr = deps.api.addr_validate(&bot).unwrap();
+        if WHITELIST.has(deps.storage, &addr) {
+            WHITELIST.remove(deps.storage, &addr);
+        }
+    });
 
-    Ok((Response::default()))
+    bots_to_whitelist.into_iter().for_each(|bot| {
+        let addr = deps.api.addr_validate(&bot).unwrap();
+        if !WHITELIST.has(deps.storage, &addr) {
+            WHITELIST.save(deps.storage, &addr, &()).unwrap();
+        }
+    });
+
+    Ok(Response::default())
 }
 
 fn execute_add_round(
@@ -438,6 +442,10 @@ fn execute_add_round(
         bot.rounds_added += 1;
         BOTS.save(deps.storage, &info.sender, &bot)?;
     }
+    let mut is_whitelisted = false;
+    if WHITELIST.has(deps.storage, &info.sender) {
+        is_whitelisted = true;
+    }
 
     SUBMISSIONS.save(
         deps.storage,
@@ -465,7 +473,8 @@ fn execute_add_round(
     let mut out_msgs = Vec::<CosmosMsg>::new();
 
     // Pay the bot incentive
-    let is_eligible = is_registered && next_index < NUMBER_OF_INCENTIVES_PER_ROUND; // top X submissions can receive a reward
+    let is_eligible =
+        is_registered && is_whitelisted && next_index < NUMBER_OF_INCENTIVES_PER_ROUND; // top X submissions can receive a reward
     if is_eligible {
         let contract_balance = deps
             .querier
