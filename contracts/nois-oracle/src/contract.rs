@@ -453,10 +453,7 @@ fn execute_add_round(
         bot.rounds_added += 1;
         BOTS.save(deps.storage, &info.sender, &bot)?;
     }
-    let mut is_whitelisted = false;
-    if WHITELIST.has(deps.storage, &info.sender) {
-        is_whitelisted = true;
-    }
+    let is_whitelisted = WHITELIST.has(deps.storage, &info.sender);
 
     SUBMISSIONS.save(
         deps.storage,
