@@ -28,7 +28,7 @@ interface DelegatorInstantiateMsg {
 }
 
 interface OracleInstantiateMsg {
-  readonly admin_addr: string;
+  readonly manager: string;
   readonly min_round: number;
   readonly incentive_amount: string;
   readonly incentive_denom: string;
@@ -77,7 +77,7 @@ test.serial("Bot can submit to Oracle", async (t) => {
   t.truthy(delegatorAddress);
 
   const msg: OracleInstantiateMsg = {
-    admin_addr: "admin",
+    manager: "admin",
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
@@ -143,7 +143,7 @@ test.serial("set up channel", async (t) => {
   );
   t.truthy(delegatorAddress);
   const msg: OracleInstantiateMsg = {
-    admin_addr: "admin",
+    manager: "admin",
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
@@ -217,7 +217,7 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
 
   // Instantiate Oracle on Osmosis
   const msg: OracleInstantiateMsg = {
-    admin_addr: "admin",
+    manager: "admin",
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",

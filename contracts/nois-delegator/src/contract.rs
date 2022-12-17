@@ -17,8 +17,13 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
+    let admin_addr = deps
+        .api
+        .addr_validate(&msg.admin_addr)
+        .map_err(|_| ContractError::InvalidAddress)
+        .unwrap();
     let config = Config {
-        admin_addr: msg.admin_addr,
+        admin_addr,
         nois_oracle_contract_addr: None,
     };
     CONFIG.save(deps.storage, &config)?;
@@ -215,7 +220,7 @@ mod tests {
     use cosmwasm_std::{
         from_binary,
         testing::{mock_dependencies, mock_env, mock_info},
-        CosmosMsg, Uint128,
+        Addr, CosmosMsg, Uint128,
     };
 
     const CREATOR: &str = "creator";
@@ -234,7 +239,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                admin_addr: "admin".to_string(),
+                admin_addr: Addr::unchecked("admin"),
                 nois_oracle_contract_addr: None,
             }
         );

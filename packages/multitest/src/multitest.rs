@@ -92,7 +92,7 @@ mod tests {
         assert_eq!(
             resp,
             nois_delegator::msg::ConfigResponse {
-                admin_addr: "owner".to_string(),
+                admin_addr: Addr::unchecked("owner"),
                 nois_oracle_contract_addr: Option::None
             }
         );
@@ -111,7 +111,7 @@ mod tests {
                 code_id_nois_oracle,
                 Addr::unchecked("owner"),
                 &nois_oracle::msg::InstantiateMsg {
-                    admin_addr: "admin".to_string(),
+                    manager: "manager".to_string(),
                     incentive_amount: Uint128::new(100_000),
                     incentive_denom: "unois".to_string(),
                     min_round: 0,
@@ -130,7 +130,7 @@ mod tests {
         assert_eq!(
             resp,
             nois_oracle::msg::ConfigResponse {
-                admin_addr: "admin".to_string(),
+                manager: Addr::unchecked("manager"),
                 min_round: 0,
                 incentive_amount: Uint128::new(100_000),
                 incentive_denom: "unois".to_string(),
@@ -166,7 +166,7 @@ mod tests {
         assert_eq!(
             resp,
             nois_delegator::msg::ConfigResponse {
-                admin_addr: "owner".to_string(),
+                admin_addr: Addr::unchecked("owner"),
                 nois_oracle_contract_addr: Option::Some(Addr::unchecked("contract1"))
             }
         );
@@ -238,9 +238,9 @@ mod tests {
         .unwrap();
 
         // whitelist bot doesn't work by non admin
-        let msg = nois_oracle::msg::ExecuteMsg::UpdateWhitelistBots {
-            bots_to_whitelist: vec!["drand_bot".to_string()],
-            bots_to_dewhitelist: vec![],
+        let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
+            add: vec!["drand_bot".to_string()],
+            remove: vec![],
         };
         let err = app
             .execute_contract(
@@ -256,13 +256,13 @@ mod tests {
             nois_oracle::error::ContractError::Unauthorized
         ));
 
-        // whitelist bot
-        let msg = nois_oracle::msg::ExecuteMsg::UpdateWhitelistBots {
-            bots_to_whitelist: vec!["drand_bot".to_string()],
-            bots_to_dewhitelist: vec![],
+        // add  bot to allow list
+        let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
+            add: vec!["drand_bot".to_string()],
+            remove: vec![],
         };
         app.execute_contract(
-            Addr::unchecked("admin"),
+            Addr::unchecked("manager"),
             addr_nois_oracle.to_owned(),
             &msg,
             &[],

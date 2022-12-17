@@ -25,8 +25,8 @@ use crate::msg::{
 use crate::state::{
     get_processed_jobs, increment_processed_jobs, unprocessed_jobs_dequeue,
     unprocessed_jobs_enqueue, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
-    StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
-    WHITELIST,
+    StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS, BOTS, CONFIG, SUBMISSIONS,
+    SUBMISSIONS_ORDER,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -46,8 +46,13 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    let manager = deps
+        .api
+        .addr_validate(&msg.manager)
+        .map_err(|_| ContractError::InvalidAddress)
+        .unwrap();
     let config = Config {
-        admin_addr: msg.admin_addr,
+        manager,
         min_round: msg.min_round,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
@@ -77,10 +82,9 @@ pub fn execute(
             signature,
         } => execute_add_round(deps, env, info, round, previous_signature, signature),
         ExecuteMsg::RegisterBot { moniker } => execute_register_bot(deps, env, info, moniker),
-        ExecuteMsg::UpdateWhitelistBots {
-            bots_to_whitelist,
-            bots_to_dewhitelist,
-        } => execute_update_whitelist_bots(deps, info, bots_to_whitelist, bots_to_dewhitelist),
+        ExecuteMsg::UpdateAllowlistBots { add, remove } => {
+            execute_update_allowlist_bots(deps, info, add, remove)
+        }
     }
 }
 
@@ -99,7 +103,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
         QueryMsg::JobStats { round } => to_binary(&query_job_stats(deps, round)?)?,
-        // TODO Add query for whitelisted bots
+        // TODO Add query for allowlisted bots
     };
     Ok(response)
 }
@@ -377,30 +381,31 @@ fn execute_register_bot(
     Ok(Response::default())
 }
 
-fn execute_update_whitelist_bots(
+fn execute_update_allowlist_bots(
     deps: DepsMut,
     info: MessageInfo,
-    bots_to_whitelist: Vec<String>,
-    bots_to_dewhitelist: Vec<String>,
+    add: Vec<String>,
+    remove: Vec<String>,
 ) -> Result<Response, ContractError> {
     // check the calling address is the authorised multisig
     ensure_eq!(
         info.sender,
-        CONFIG.load(deps.storage)?.admin_addr,
+        CONFIG.load(deps.storage)?.manager,
         ContractError::Unauthorized
     );
 
-    bots_to_dewhitelist.into_iter().for_each(|bot| {
-        let addr = deps.api.addr_validate(&bot)?;
-        if WHITELIST.has(deps.storage, &addr) {
-            WHITELIST.remove(deps.storage, &addr);
+    remove.into_iter().for_each(|bot| {
+        let addr = deps.api.addr_validate(&bot).unwrap();
+
+        if ALLOWLIST.has(deps.storage, &addr) {
+            ALLOWLIST.remove(deps.storage, &addr);
         }
     });
 
-    bots_to_whitelist.into_iter().for_each(|bot| {
-        let addr = deps.api.addr_validate(&bot)?;
-        if !WHITELIST.has(deps.storage, &addr) {
-            WHITELIST.save(deps.storage, &addr, &()).unwrap();
+    add.into_iter().for_each(|bot| {
+        let addr = deps.api.addr_validate(&bot).unwrap();
+        if !ALLOWLIST.has(deps.storage, &addr) {
+            ALLOWLIST.save(deps.storage, &addr, &()).unwrap();
         }
     });
 
@@ -453,7 +458,7 @@ fn execute_add_round(
         bot.rounds_added += 1;
         BOTS.save(deps.storage, &info.sender, &bot)?;
     }
-    let is_whitelisted = WHITELIST.has(deps.storage, &info.sender);
+    let is_allowlisted = ALLOWLIST.has(deps.storage, &info.sender);
 
     SUBMISSIONS.save(
         deps.storage,
@@ -481,11 +486,11 @@ fn execute_add_round(
     let mut out_msgs = Vec::<CosmosMsg>::new();
 
     // Pay the bot incentive
-    // For now a bot needs to be registered, whitelisted and fast to  get incentives.
+    // For now a bot needs to be registered, allowlisted and fast to  get incentives.
     // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
     let is_eligible =
-        is_registered && is_whitelisted && next_index < NUMBER_OF_INCENTIVES_PER_ROUND; // top X submissions can receive a reward
+        is_registered && is_allowlisted && next_index < NUMBER_OF_INCENTIVES_PER_ROUND; // top X submissions can receive a reward
     if is_eligible {
         let contract_balance = deps
             .querier
@@ -559,7 +564,7 @@ mod tests {
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -664,7 +669,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -678,7 +683,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                admin_addr: "admin".to_string(),
+                manager: Addr::unchecked("manager"),
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
                 incentive_denom: "unois".to_string(),
@@ -702,7 +707,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -735,7 +740,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -777,7 +782,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -805,11 +810,11 @@ mod tests {
     }
 
     #[test]
-    fn whitelisting_and_dewhitelisting_work() {
+    fn allowlisting_and_deallowlisting_work() {
         // First we will register a bot
         // Then check that the bot doesnt get incentives by submitting
-        // Then whitelist the bot and check that this time it gets incentives
-        // Then dewhitelist the bot and make sure it doesnt get incentives anymore
+        // Then add the bot to the allowlist and check that this time it gets incentives
+        // Then deallowlist the bot and make sure it doesnt get incentives anymore
         // Note that we need submit different randomness rounds each time
         // because the same bot operator is not allowed to submit the same randomness
         let mut deps = mock_dependencies();
@@ -828,7 +833,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -860,12 +865,12 @@ mod tests {
         // no incentives
         assert_eq!(response.messages.len(), 0);
 
-        // whitelist
-        let msg = msg::ExecuteMsg::UpdateWhitelistBots {
-            bots_to_whitelist: vec!["registered_bot".to_string()],
-            bots_to_dewhitelist: vec![],
+        // allowlist
+        let msg = msg::ExecuteMsg::UpdateAllowlistBots {
+            add: vec!["registered_bot".to_string()],
+            remove: vec![],
         };
-        let info = mock_info("admin", &[]);
+        let info = mock_info("manager", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // submit randomness
@@ -881,12 +886,12 @@ mod tests {
         // receives incentives
         assert_eq!(response.messages.len(), 1);
 
-        // dewhitelist
-        let msg = msg::ExecuteMsg::UpdateWhitelistBots {
-            bots_to_whitelist: vec![],
-            bots_to_dewhitelist: vec!["registered_bot".to_string()],
+        // deallowlist
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec![],
+            remove: vec!["registered_bot".to_string()],
         };
-        let info = mock_info("admin", &[]);
+        let info = mock_info("manager", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // submit randomness
@@ -922,7 +927,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -933,12 +938,12 @@ mod tests {
         let info = mock_info("registered_bot", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        // Whitelist bot
-        let msg = msg::ExecuteMsg::UpdateWhitelistBots {
-            bots_to_whitelist: vec!["registered_bot".to_string()],
-            bots_to_dewhitelist: vec![],
+        // add bot to allowlist
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec!["registered_bot".to_string()],
+            remove: vec![],
         };
-        let info = mock_info("admin", &[]);
+        let info = mock_info("manager", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let randomness_attr = response
@@ -970,7 +975,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -993,9 +998,9 @@ mod tests {
         register_bot(deps.as_mut(), mock_info(bot6, &[]));
         register_bot(deps.as_mut(), mock_info(bot7, &[]));
 
-        // Whitelistbbots
-        let msg = ExecuteMsg::UpdateWhitelistBots {
-            bots_to_whitelist: vec![
+        // add bots to allowlist
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec![
                 "registered_bot1".to_string(),
                 "registered_bot2".to_string(),
                 "registered_bot3".to_string(),
@@ -1004,9 +1009,9 @@ mod tests {
                 "registered_bot6".to_string(),
                 "registered_bot7".to_string(),
             ],
-            bots_to_dewhitelist: vec![],
+            remove: vec![],
         };
-        let info = mock_info("admin", &[]);
+        let info = mock_info("manager", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Same msg for all submissions
@@ -1054,7 +1059,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1081,7 +1086,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1109,7 +1114,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1149,7 +1154,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1194,7 +1199,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1231,7 +1236,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1406,7 +1411,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1505,7 +1510,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1604,7 +1609,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1718,7 +1723,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: "manager".to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),

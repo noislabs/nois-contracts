@@ -6,8 +6,8 @@ use crate::drand::time_of_round;
 
 #[cw_serde]
 pub struct Config {
-    /// Admin for bot addr de/whitelist
-    pub admin_addr: String,
+    /// manager for bot addr de/allowlist
+    pub manager: Addr,
     /// The lowest drand round this contracts accepts for verification and storage.
     pub min_round: u64,
     /// Bot incentive amount
@@ -50,7 +50,7 @@ impl QueriedBeacon {
 pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
 
 pub const BOTS: Map<&Addr, Bot> = Map::new("bots");
-pub const WHITELIST: Map<&Addr, ()> = Map::new("whitelist");
+pub const ALLOWLIST: Map<&Addr, ()> = Map::new("allowlist");
 
 #[cw_serde]
 pub struct StoredSubmission {
