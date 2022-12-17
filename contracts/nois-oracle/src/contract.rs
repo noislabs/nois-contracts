@@ -398,7 +398,7 @@ fn execute_update_whitelist_bots(
     });
 
     bots_to_whitelist.into_iter().for_each(|bot| {
-        let addr = deps.api.addr_validate(&bot).unwrap();
+        let addr = deps.api.addr_validate(&bot)?;
         if !WHITELIST.has(deps.storage, &addr) {
             WHITELIST.save(deps.storage, &addr, &()).unwrap();
         }
