@@ -28,7 +28,7 @@ interface DelegatorInstantiateMsg {
 }
 
 interface OracleInstantiateMsg {
-  admin_addr: string;
+  readonly admin_addr: string;
   readonly min_round: number;
   readonly incentive_amount: string;
   readonly incentive_denom: string;
