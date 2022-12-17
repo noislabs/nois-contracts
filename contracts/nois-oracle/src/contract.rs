@@ -994,7 +994,7 @@ mod tests {
         register_bot(deps.as_mut(), mock_info(bot7, &[]));
 
         // Whitelistbbots
-        let msg = msg::ExecuteMsg::UpdateWhitelistBots {
+        let msg = ExecuteMsg::UpdateWhitelistBots {
             bots_to_whitelist: vec![
                 "registered_bot1".to_string(),
                 "registered_bot2".to_string(),
