@@ -13,6 +13,9 @@ pub enum ContractError {
     #[error("Moniker must not be empty.")]
     MonikerEmpty,
 
+    #[error("Unauthorized.")]
+    Unauthorized,
+
     #[error("Invalid Address.")]
     InvalidAddr,
 

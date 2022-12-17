@@ -111,6 +111,7 @@ mod tests {
                 code_id_nois_oracle,
                 Addr::unchecked("owner"),
                 &nois_oracle::msg::InstantiateMsg {
+                    admin_addr: "admin".to_string(),
                     incentive_amount: Uint128::new(100_000),
                     incentive_denom: "unois".to_string(),
                     min_round: 0,
@@ -129,6 +130,7 @@ mod tests {
         assert_eq!(
             resp,
             nois_oracle::msg::ConfigResponse {
+                admin_addr: "admin".to_string(),
                 min_round: 0,
                 incentive_amount: Uint128::new(100_000),
                 incentive_denom: "unois".to_string(),
@@ -234,6 +236,39 @@ mod tests {
             &[],
         )
         .unwrap();
+
+        // whitelist bot doesn't work by non admin
+        let msg = nois_oracle::msg::ExecuteMsg::UpdateWhitelistBots {
+            bots_to_whitelist: vec!["drand_bot".to_string()],
+            bots_to_dewhitelist: vec![],
+        };
+        let err = app
+            .execute_contract(
+                Addr::unchecked("drand_bot"),
+                addr_nois_oracle.to_owned(),
+                &msg,
+                &[],
+            )
+            .unwrap_err();
+
+        assert!(matches!(
+            err.downcast().unwrap(),
+            nois_oracle::error::ContractError::Unauthorized
+        ));
+
+        // whitelist bot
+        let msg = nois_oracle::msg::ExecuteMsg::UpdateWhitelistBots {
+            bots_to_whitelist: vec!["drand_bot".to_string()],
+            bots_to_dewhitelist: vec![],
+        };
+        app.execute_contract(
+            Addr::unchecked("admin"),
+            addr_nois_oracle.to_owned(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
         // Add round
         let msg = nois_oracle::msg::ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785

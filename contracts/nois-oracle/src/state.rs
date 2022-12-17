@@ -6,6 +6,8 @@ use crate::drand::time_of_round;
 
 #[cw_serde]
 pub struct Config {
+    /// Admin for bot addr de/whitelist
+    pub admin_addr: String,
     /// The lowest drand round this contracts accepts for verification and storage.
     pub min_round: u64,
     /// Bot incentive amount
