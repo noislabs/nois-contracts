@@ -22,7 +22,7 @@ use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
     InstantiateMsg, JobStatsResponse, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
-use crate::request_router::commit_to_drand_round;
+use crate::request_router::{route, RoutingReceipt};
 use crate::state::{
     get_processed_jobs, increment_processed_jobs, unprocessed_jobs_dequeue,
     unprocessed_jobs_enqueue, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
@@ -271,9 +271,11 @@ fn receive_request_beacon(
 ) -> Result<IbcReceiveResponse, ContractError> {
     validate_job_id(&job_id)?;
 
-    let (round, source_id) = commit_to_drand_round(after);
-
-    let beacon = BEACONS.may_load(deps.storage, round)?;
+    let RoutingReceipt {
+        round,
+        source_id,
+        randomness,
+    } = route(deps.storage, after)?;
 
     let job = Job {
         source_id: source_id.clone(),
@@ -284,10 +286,10 @@ fn receive_request_beacon(
 
     let mut msgs = Vec::<CosmosMsg>::new();
 
-    let acknowledgement = if let Some(beacon) = beacon.as_ref() {
+    let acknowledgement = if let Some(randomness) = randomness {
         //If the drand round already exists we send it
         increment_processed_jobs(deps.storage, round)?;
-        let msg = create_deliver_beacon_ibc_message(env.block.time, job, beacon)?;
+        let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness)?;
         msgs.push(msg.into());
         StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
     } else {
@@ -305,12 +307,12 @@ fn receive_request_beacon(
 fn create_deliver_beacon_ibc_message(
     blocktime: Timestamp,
     job: Job,
-    beacon: &VerifiedBeacon,
+    randomness: HexBinary,
 ) -> Result<IbcMsg, ContractError> {
     let packet = DeliverBeaconPacket {
         sender: job.sender,
         job_id: job.job_id,
-        randomness: beacon.randomness.clone(),
+        randomness,
         source_id: job.source_id,
     };
     let msg = IbcMsg::SendPacket {
@@ -512,7 +514,8 @@ fn execute_add_round(
     while let Some(job) = unprocessed_jobs_dequeue(deps.storage, round)? {
         increment_processed_jobs(deps.storage, round)?;
         // Use IbcMsg::SendPacket to send packages to the proxies.
-        let msg = create_deliver_beacon_ibc_message(env.block.time, job, beacon)?;
+        let msg =
+            create_deliver_beacon_ibc_message(env.block.time, job, beacon.randomness.clone())?;
         out_msgs.push(msg.into());
         jobs_processed += 1;
         if jobs_processed >= MAX_JOBS_PER_SUBMISSION {

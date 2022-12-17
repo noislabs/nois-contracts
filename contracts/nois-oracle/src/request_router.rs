@@ -1,11 +1,32 @@
 //! The request router module decides which randomness backend is used
 
-use cosmwasm_std::Timestamp;
+use cosmwasm_std::{HexBinary, StdResult, Storage, Timestamp};
 
-use crate::drand::{round_after, DRAND_CHAIN_HASH};
+use crate::{
+    drand::{round_after, DRAND_CHAIN_HASH},
+    state::BEACONS,
+};
+
+pub struct RoutingReceipt {
+    pub round: u64,
+    pub source_id: String,
+    pub randomness: Option<HexBinary>,
+}
+
+pub fn route(storage: &dyn Storage, after: Timestamp) -> StdResult<RoutingReceipt> {
+    let (round, source_id) = commit_to_drand_round(after);
+
+    let randomness = BEACONS.may_load(storage, round)?.map(|b| b.randomness);
+
+    Ok(RoutingReceipt {
+        round,
+        source_id,
+        randomness,
+    })
+}
 
 /// Calculates the next round in the future, i.e. publish time > base time.
-pub fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
+fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
     let round = round_after(after);
     let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
     (round, source_id)
