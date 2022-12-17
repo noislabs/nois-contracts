@@ -22,7 +22,7 @@ use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
     InstantiateMsg, JobStatsResponse, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
-use crate::request_router::{route, RoutingReceipt};
+use crate::request_router::{RequestRouter, RoutingReceipt};
 use crate::state::{
     get_processed_jobs, increment_processed_jobs, unprocessed_jobs_dequeue,
     unprocessed_jobs_enqueue, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
@@ -271,11 +271,12 @@ fn receive_request_beacon(
 ) -> Result<IbcReceiveResponse, ContractError> {
     validate_job_id(&job_id)?;
 
+    let router = RequestRouter {};
     let RoutingReceipt {
         round,
         source_id,
         randomness,
-    } = route(deps.storage, after)?;
+    } = router.route(deps.as_ref(), after)?;
 
     let job = Job {
         source_id: source_id.clone(),
