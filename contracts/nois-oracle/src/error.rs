@@ -16,9 +16,6 @@ pub enum ContractError {
     #[error("Unauthorized.")]
     Unauthorized,
 
-    #[error("Invalid Address.")]
-    InvalidAddr,
-
     #[error("Moniker exceeds length limit.")]
     MonikerTooLong,
 
