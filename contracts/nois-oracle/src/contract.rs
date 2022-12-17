@@ -482,7 +482,7 @@ fn execute_add_round(
 
     // Pay the bot incentive
     // For now a bot needs to be registered, whitelisted and fast to  get incentives.
-    // We can easily make unregistered bots eligible forincentives aswell by changing
+    // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
     let is_eligible =
         is_registered && is_whitelisted && next_index < NUMBER_OF_INCENTIVES_PER_ROUND; // top X submissions can receive a reward
