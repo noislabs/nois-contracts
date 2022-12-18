@@ -272,7 +272,7 @@ fn receive_request_beacon(
     } = msg;
     validate_job_id(&job_id)?;
 
-    let router = RequestRouter {};
+    let router = RequestRouter::new();
     let RoutingReceipt {
         acknowledgement,
         msgs,

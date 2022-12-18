@@ -17,6 +17,10 @@ pub struct RoutingReceipt {
 pub struct RequestRouter {}
 
 impl RequestRouter {
+    pub fn new() -> Self {
+        Self {}
+    }
+
     pub fn route(
         &self,
         deps: DepsMut,
