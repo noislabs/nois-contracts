@@ -461,19 +461,35 @@ fn execute_add_round(
         // get a wrong `verified` timestamp.
     }
 
+    let (msgs, internal_attributes) = execute_new_round(deps, env, round, randomness)?;
+
+    out_msgs.extend(msgs);
+    attributes.extend(internal_attributes);
+    Ok(Response::new()
+        .add_messages(out_msgs)
+        .add_attributes(attributes))
+}
+
+/// This method simulates how the drand contract will call the front-desk contract to inform
+/// it when there are is a new round. Here the verification was done at a trusted source so
+/// we only send the raw randomness.
+fn execute_new_round(
+    deps: DepsMut,
+    env: Env,
+    round: u64,
+    randomness: HexBinary,
+) -> Result<(Vec<CosmosMsg>, Vec<Attribute>), ContractError> {
+    let mut attributes = Vec::<Attribute>::new();
     let router = RequestRouter::new();
     let NewDrand {
         msgs,
         jobs_processed,
         jobs_left,
     } = router.new_drand(deps, env, round, &randomness)?;
-    out_msgs.extend(msgs);
     attributes.push(Attribute::new("jobs_processed", jobs_processed.to_string()));
     attributes.push(Attribute::new("jobs_left", jobs_left.to_string()));
 
-    Ok(Response::new()
-        .add_messages(out_msgs)
-        .add_attributes(attributes))
+    Ok((msgs, attributes))
 }
 
 fn incentive_amount(config: &Config) -> Coin {
