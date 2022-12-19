@@ -40,6 +40,12 @@ Compile the contracts for uploading.
 ./devtools/build_integration_wasm.sh
 ```
 
+Copy the compiled wasm into .internal
+
+```sh
+cp target/wasm32-unknown-unknown/release/*.wasm tests/internal/
+```
+
 NOTE: you need to run this each time your contract changes.
 
 ### Run two chains in docker

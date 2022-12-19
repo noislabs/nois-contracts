@@ -5,6 +5,7 @@ use crate::state::{Config, QueriedBeacon, QueriedBot, StoredSubmission};
 
 #[cw_serde]
 pub struct InstantiateMsg {
+    pub manager: String,
     /// The lowest drand round this contracts accepts for verification and storage.
     pub min_round: u64,
     /// Bot incentive amount.
@@ -28,6 +29,10 @@ pub enum ExecuteMsg {
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
     RegisterBot { moniker: String },
+    UpdateAllowlistBots {
+        add: Vec<String>,
+        remove: Vec<String>,
+    },
 }
 
 #[cw_serde]
