@@ -111,7 +111,6 @@ mod tests {
                 code_id_nois_oracle,
                 Addr::unchecked("owner"),
                 &nois_oracle::msg::InstantiateMsg {
-                    manager: "manager".to_string(),
                     incentive_amount: Uint128::new(100_000),
                     incentive_denom: "unois".to_string(),
                     min_round: 0,
@@ -130,7 +129,6 @@ mod tests {
         assert_eq!(
             resp,
             nois_oracle::msg::ConfigResponse {
-                manager: Addr::unchecked("manager"),
                 drand_contract: Addr::unchecked("contract1"),
                 min_round: 0,
                 incentive_amount: Uint128::new(100_000),
@@ -239,36 +237,36 @@ mod tests {
         .unwrap();
 
         // whitelist bot doesn't work by non admin
-        let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
-            add: vec!["drand_bot".to_string()],
-            remove: vec![],
-        };
-        let err = app
-            .execute_contract(
-                Addr::unchecked("drand_bot"),
-                addr_nois_oracle.to_owned(),
-                &msg,
-                &[],
-            )
-            .unwrap_err();
+        // let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
+        //     add: vec!["drand_bot".to_string()],
+        //     remove: vec![],
+        // };
+        // let err = app
+        //     .execute_contract(
+        //         Addr::unchecked("drand_bot"),
+        //         addr_nois_oracle.to_owned(),
+        //         &msg,
+        //         &[],
+        //     )
+        //     .unwrap_err();
+        //
+        // assert!(matches!(
+        //     err.downcast().unwrap(),
+        //     nois_oracle::error::ContractError::Unauthorized
+        // ));
 
-        assert!(matches!(
-            err.downcast().unwrap(),
-            nois_oracle::error::ContractError::Unauthorized
-        ));
-
-        // add  bot to allow list
-        let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
-            add: vec!["drand_bot".to_string()],
-            remove: vec![],
-        };
-        app.execute_contract(
-            Addr::unchecked("manager"),
-            addr_nois_oracle.to_owned(),
-            &msg,
-            &[],
-        )
-        .unwrap();
+        // // add  bot to allow list
+        // let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
+        //     add: vec!["drand_bot".to_string()],
+        //     remove: vec![],
+        // };
+        // app.execute_contract(
+        //     Addr::unchecked("manager"),
+        //     addr_nois_oracle.to_owned(),
+        //     &msg,
+        //     &[],
+        // )
+        // .unwrap();
 
         // Add round
         let msg = nois_oracle::msg::ExecuteMsg::AddRound {
@@ -277,7 +275,7 @@ mod tests {
             previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
             signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
-        let resp = app
+        let _resp = app
             .execute_contract(
                 Addr::unchecked("drand_bot"),
                 addr_nois_oracle.to_owned(),
@@ -286,16 +284,16 @@ mod tests {
             )
             .unwrap();
 
-        let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
+        // let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
         // Make sure that there is an incentive for the registered bot
-        assert_eq!(
-            wasm.attributes
-                .iter()
-                .find(|attr| attr.key == "bot_incentive")
-                .unwrap()
-                .value,
-            "100000unois"
-        );
+        // assert_eq!(
+        //     wasm.attributes
+        //         .iter()
+        //         .find(|attr| attr.key == "bot_incentive")
+        //         .unwrap()
+        //         .value,
+        //     "100000unois"
+        // );
         // Check balance nois-delegator
         let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
         assert_eq!(
@@ -305,12 +303,13 @@ mod tests {
         // Check balance nois-oracle
         let balance = query_balance_native(&app, &addr_nois_oracle, "unois").amount;
         assert_eq!(balance, Uint128::new(200_000));
+
         // Check balance nois-drand-bot-operator
-        let balance = query_balance_native(&app, &Addr::unchecked("drand_bot"), "unois").amount;
-        assert_eq!(
-            balance,
-            Uint128::new(100_000) //incentive
-        );
+        // let balance = query_balance_native(&app, &Addr::unchecked("drand_bot"), "unois").amount;
+        // assert_eq!(
+        //     balance,
+        //     Uint128::new(100_000) //incentive
+        // );
 
         // Make nois-delegator delegate
         let msg = nois_delegator::msg::ExecuteMsg::Delegate {

@@ -35,7 +35,6 @@ interface DrandInstantiateMsg {
 }
 
 interface OracleInstantiateMsg {
-  readonly manager: string;
   readonly min_round: number;
   readonly incentive_amount: string;
   readonly incentive_denom: string;
@@ -68,48 +67,36 @@ test.before(async (t) => {
   t.pass();
 });
 
-test.serial("Bot can submit to Oracle", async (t) => {
-  // Instantiate Oracle on osmosis
+test.serial("Bot can submit to drand", async (t) => {
+  // Instantiate Drand on osmosis
   const osmoClient = await setupOsmosisClient();
-  const delegatorMsg: DelegatorInstantiateMsg = {
-    admin_addr: osmoClient.senderAddress,
-  };
-  const { contractAddress: delegatorAddress } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    osmosisCodeIds.delegator,
-    delegatorMsg,
-    "Delegator instance",
-    "auto"
-  );
-  t.log(`Instantiated delegator at ${delegatorAddress} with msg ${JSON.stringify(delegatorMsg)}`);
-  t.truthy(delegatorAddress);
 
-  const msg: OracleInstantiateMsg = {
+  const msg: DrandInstantiateMsg = {
     manager: osmoClient.senderAddress,
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
   };
-  const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
+  const { contractAddress: drandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisCodeIds.oracle,
+    osmosisCodeIds.drand,
     msg,
-    "Oracle instance",
+    "Drand instance",
     "auto"
   );
-  t.log(`Instantiated oracle at ${oracleAddress} with msg ${JSON.stringify(msg)}`);
-  t.truthy(oracleAddress);
+  t.log(`Instantiated drand at ${drandAddress} with msg ${JSON.stringify(msg)}`);
+  t.truthy(drandAddress);
 
-  const before = await osmoClient.sign.queryContractSmart(oracleAddress, {
+  const before = await osmoClient.sign.queryContractSmart(drandAddress, {
     beacon: { round: 2183666 },
   });
   t.deepEqual(before, { beacon: null });
 
-  const bot = await Bot.connect(oracleAddress);
+  const bot = await Bot.connect(drandAddress);
   const res = await bot.submitRound(2183666);
   t.log(`Gas used: ${res.gasUsed}/${res.gasWanted}`);
 
-  const after = await osmoClient.sign.queryContractSmart(oracleAddress, {
+  const after = await osmoClient.sign.queryContractSmart(drandAddress, {
     beacon: { round: 2183666 },
   });
   t.regex(after.beacon.published, /^1660941000000000000$/);
@@ -139,7 +126,6 @@ test.serial("set up channel", async (t) => {
 
   const osmoClient = await setupOsmosisClient();
   const msg: OracleInstantiateMsg = {
-    manager: osmoClient.senderAddress,
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
@@ -223,7 +209,7 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
   };
   const { contractAddress: noisDrandAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisCodeIds.oracle,
+    osmosisCodeIds.drand,
     drandMsg,
     "Drand instance",
     "auto"
@@ -231,7 +217,6 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
 
   // Instantiate Oracle on Osmosis
   const msg: OracleInstantiateMsg = {
-    manager: osmoClient.senderAddress,
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
