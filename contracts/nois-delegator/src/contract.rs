@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, DistributionMsg,
-    Env, MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
+    ensure_eq, entry_point, to_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg, Env,
+    MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
 };
 
 use crate::error::ContractError;
@@ -17,18 +17,9 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    // TODO validate addr
-    // I added a deps.api  address validate check on the instantation of the delegator contract (admin_addr) but now the js ci-scripts will fail unless I give it a real address. How should we address this issue?
-    // A- Make real bech32 keys  for the ci-test
-    // B- Make a "test" parameter on the smart-contract so we don't validate the addr?
-    // C- Something else
-    // let admin_addr = deps
-    //     .api
-    //     .addr_validate(&msg.admin_addr)
-    //     .map_err(|_| ContractError::InvalidAddress)
-    //     .unwrap();
+    let admin = deps.api.addr_validate(&msg.admin_addr)?;
     let config = Config {
-        admin_addr: msg.admin_addr,
+        admin_addr: admin,
         nois_oracle_contract_addr: None,
     };
     CONFIG.save(deps.storage, &config)?;
@@ -198,19 +189,12 @@ fn execute_set_nois_oracle_contract_addr(
         return Err(ContractError::ContractAlreadySet {});
     }
 
-    let nois_contract = deps
-        .api
-        .addr_validate(&addr)
-        .map_err(|_| ContractError::InvalidAddress)?;
-    config.nois_oracle_contract_addr = Some(nois_contract.clone());
+    let nois_oracle = deps.api.addr_validate(&addr)?;
+    config.nois_oracle_contract_addr = Some(nois_oracle.clone());
 
     CONFIG.save(deps.storage, &config)?;
-    let attributes = vec![Attribute::new(
-        "nois-oracle-address",
-        nois_contract.to_string(),
-    )];
 
-    Ok(Response::new().add_attributes(attributes))
+    Ok(Response::new().add_attribute("nois-oracle-address", nois_oracle))
 }
 
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
@@ -225,7 +209,7 @@ mod tests {
     use cosmwasm_std::{
         from_binary,
         testing::{mock_dependencies, mock_env, mock_info},
-        CosmosMsg, Uint128,
+        Addr, CosmosMsg, Uint128,
     };
 
     const CREATOR: &str = "creator";
@@ -244,7 +228,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                admin_addr: "admin".to_string(),
+                admin_addr: Addr::unchecked("admin"),
                 nois_oracle_contract_addr: None,
             }
         );
