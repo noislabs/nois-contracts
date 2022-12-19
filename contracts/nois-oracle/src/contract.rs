@@ -384,11 +384,8 @@ fn execute_update_allowlist_bots(
     remove: Vec<String>,
 ) -> Result<Response, ContractError> {
     // check the calling address is the authorised multisig
-    ensure_eq!(
-        info.sender,
-        CONFIG.load(deps.storage)?.manager,
-        ContractError::Unauthorized
-    );
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     // We add first to ensure an address that is included in both lists
     // is removed and not added.
