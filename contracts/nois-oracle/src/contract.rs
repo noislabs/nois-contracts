@@ -33,13 +33,14 @@ const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let manager = deps.api.addr_validate(&msg.manager)?;
     let config = Config {
         manager,
+        drand_contract: env.contract.address,
         min_round: msg.min_round,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
@@ -68,6 +69,9 @@ pub fn execute(
             previous_signature,
             signature,
         } => execute_add_round(deps, env, info, round, previous_signature, signature),
+        ExecuteMsg::AddVerifiedRound { round, randomness } => {
+            execute_add_verified_round(deps, env, info, round, randomness)
+        }
         ExecuteMsg::RegisterBot { moniker } => execute_register_bot(deps, env, info, moniker),
         ExecuteMsg::UpdateAllowlistBots { add, remove } => {
             execute_update_allowlist_bots(deps, info, add, remove)
@@ -461,24 +465,36 @@ fn execute_add_round(
         // get a wrong `verified` timestamp.
     }
 
-    let (msgs, internal_attributes) = execute_new_round(deps, env, round, randomness)?;
+    let Response {
+        messages,
+        attributes: internal_attributes,
+        ..
+    } = execute_add_verified_round(deps, env, info, round, randomness)?;
 
-    out_msgs.extend(msgs);
     attributes.extend(internal_attributes);
     Ok(Response::new()
         .add_messages(out_msgs)
+        .add_submessages(messages)
         .add_attributes(attributes))
 }
 
 /// This method simulates how the drand contract will call the front-desk contract to inform
 /// it when there are is a new round. Here the verification was done at a trusted source so
 /// we only send the raw randomness.
-fn execute_new_round(
+fn execute_add_verified_round(
     deps: DepsMut,
     env: Env,
+    _info: MessageInfo,
     round: u64,
     randomness: HexBinary,
-) -> Result<(Vec<CosmosMsg>, Vec<Attribute>), ContractError> {
+) -> Result<Response, ContractError> {
+    // let config = CONFIG.load(deps.storage)?;
+    // ensure_eq!(
+    //     info.sender,
+    //     config.drand_contract,
+    //     ContractError::UnauthorizedAddVerifiedRound
+    // );
+
     let mut attributes = Vec::<Attribute>::new();
     let router = RequestRouter::new();
     let NewDrand {
@@ -489,7 +505,9 @@ fn execute_new_round(
     attributes.push(Attribute::new("jobs_processed", jobs_processed.to_string()));
     attributes.push(Attribute::new("jobs_left", jobs_left.to_string()));
 
-    Ok((msgs, attributes))
+    Ok(Response::new()
+        .add_messages(msgs)
+        .add_attributes(attributes))
 }
 
 fn incentive_amount(config: &Config) -> Coin {
@@ -512,6 +530,7 @@ mod tests {
     };
     use cosmwasm_std::{coin, from_binary, Addr, IbcMsg, OwnedDeps, Timestamp, Uint128};
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
+    use sha2::Digest;
 
     const CREATOR: &str = "creator";
     const TESTING_MIN_ROUND: u64 = 72785;
@@ -584,6 +603,20 @@ mod tests {
         }
     }
 
+    fn make_add_verified_round_msg(round: u64) -> ExecuteMsg {
+        let (round, signature) = match make_add_round_msg(round) {
+            ExecuteMsg::AddRound {
+                round, signature, ..
+            } => (round, signature),
+            _ => panic!("Got unexpected enum case"),
+        };
+        let randomness = sha2::Sha256::digest(signature.as_ref());
+        ExecuteMsg::AddVerifiedRound {
+            round,
+            randomness: randomness.to_vec().into(),
+        }
+    }
+
     /// Adds round 72785, 72786, 72787
     fn add_test_rounds(mut deps: DepsMut, bot_addr: &str) {
         let msg = make_add_round_msg(72785);
@@ -641,7 +674,8 @@ mod tests {
             incentive_denom: "unois".to_string(),
         };
         let info = mock_info("creator", &[]);
-        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let env = mock_env();
+        let res = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let config: ConfigResponse =
@@ -650,6 +684,7 @@ mod tests {
             config,
             ConfigResponse {
                 manager: Addr::unchecked("manager"),
+                drand_contract: env.contract.address,
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
                 incentive_denom: "unois".to_string(),
@@ -1269,12 +1304,16 @@ mod tests {
         ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
 
         // Previous round processes no job
-        let msg = make_add_round_msg(2183668);
+        let msg = make_add_verified_round_msg(2183668);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 0);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "0");
+        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
+        assert_eq!(jobs_left, "0");
 
         // Process one job
-        let msg = make_add_round_msg(2183669);
+        let msg = make_add_verified_round_msg(2183669);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
@@ -1302,7 +1341,7 @@ mod tests {
         }
 
         // Process 3 jobs
-        let msg = make_add_round_msg(2183670);
+        let msg = make_add_verified_round_msg(2183670);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
         assert_eq!(res.messages[0].gas_limit, None);
@@ -1340,7 +1379,7 @@ mod tests {
         }
 
         // Process first 3 jobs
-        let msg = make_add_round_msg(2183671);
+        let msg = make_add_verified_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon1", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
@@ -1349,7 +1388,7 @@ mod tests {
         assert_eq!(jobs_left, "4");
 
         // Process next 3 jobs
-        let msg = make_add_round_msg(2183671);
+        let msg = make_add_verified_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon2", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
@@ -1358,7 +1397,7 @@ mod tests {
         assert_eq!(jobs_left, "1");
 
         // Process last 1 jobs
-        let msg = make_add_round_msg(2183671);
+        let msg = make_add_verified_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon3", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
@@ -1367,7 +1406,7 @@ mod tests {
         assert_eq!(jobs_left, "0");
 
         // No jobs left for later submissions
-        let msg = make_add_round_msg(2183671);
+        let msg = make_add_verified_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon4", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();

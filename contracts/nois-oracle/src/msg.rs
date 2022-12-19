@@ -26,6 +26,8 @@ pub enum ExecuteMsg {
         previous_signature: HexBinary,
         signature: HexBinary,
     },
+    /// Add drand beacon
+    AddVerifiedRound { round: u64, randomness: HexBinary },
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
     RegisterBot { moniker: String },

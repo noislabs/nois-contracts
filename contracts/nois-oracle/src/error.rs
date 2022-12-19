@@ -23,6 +23,9 @@ pub enum ContractError {
     #[error("Job ID exceeds length limit.")]
     JobIdTooLong,
 
+    #[error("Sender is unauthorized tp add verified round.")]
+    UnauthorizedAddVerifiedRound,
+
     // IBC
     #[error("{0}")]
     ChannelError(#[from] ChannelError),

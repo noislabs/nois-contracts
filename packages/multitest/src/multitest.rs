@@ -131,6 +131,7 @@ mod tests {
             resp,
             nois_oracle::msg::ConfigResponse {
                 manager: Addr::unchecked("manager"),
+                drand_contract: Addr::unchecked("contract1"),
                 min_round: 0,
                 incentive_amount: Uint128::new(100_000),
                 incentive_denom: "unois".to_string(),
