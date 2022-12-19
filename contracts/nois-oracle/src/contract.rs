@@ -543,7 +543,7 @@ fn incentive_amount(config: &Config) -> Coin {
 #[cfg(test)]
 mod tests {
 
-    use crate::msg::{self, ExecuteMsg};
+    use crate::msg::ExecuteMsg;
 
     use super::*;
     use cosmwasm_std::testing::{
@@ -865,7 +865,7 @@ mod tests {
         assert_eq!(response.messages.len(), 0);
 
         // allowlist
-        let msg = msg::ExecuteMsg::UpdateAllowlistBots {
+        let msg = ExecuteMsg::UpdateAllowlistBots {
             add: vec!["registered_bot".to_string()],
             remove: vec![],
         };
