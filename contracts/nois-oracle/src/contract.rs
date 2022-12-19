@@ -21,22 +21,15 @@ use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
     InstantiateMsg, JobStatsResponse, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
-use crate::request_router::{RequestRouter, RoutingReceipt};
+use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_jobs, increment_processed_jobs, unprocessed_jobs_dequeue, unprocessed_jobs_len,
-    Bot, Config, Job, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST,
-    BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    get_processed_jobs, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
+    StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS, BOTS, CONFIG, SUBMISSIONS,
+    SUBMISSIONS_ORDER,
 };
 
 /// Constant defining how many submissions per round will be rewarded
 const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
-
-/// The number of jobs that are processed per submission. Use this limit
-/// to ensure the gas usage for the submissions is relatively stable.
-///
-/// Currently a submission without jobs consumes ~600k gas. Every job adds
-/// ~50k gas.
-const MAX_JOBS_PER_SUBMISSION: u32 = 3;
 
 #[entry_point]
 pub fn instantiate(
@@ -491,18 +484,15 @@ fn execute_add_round(
         // get a wrong `verified` timestamp.
     }
 
-    let mut jobs_processed = 0;
-    while let Some(job) = unprocessed_jobs_dequeue(deps.storage, round)? {
-        increment_processed_jobs(deps.storage, round)?;
-        // Use IbcMsg::SendPacket to send packages to the proxies.
-        let msg =
-            create_deliver_beacon_ibc_message(env.block.time, job, beacon.randomness.clone())?;
-        out_msgs.push(msg.into());
-        jobs_processed += 1;
-        if jobs_processed >= MAX_JOBS_PER_SUBMISSION {
-            break;
-        }
-    }
+    let router = RequestRouter::new();
+    let NewDrand {
+        msgs,
+        jobs_processed,
+        jobs_left,
+    } = router.new_drand(deps, env, round, &randomness)?;
+    out_msgs.extend(msgs);
+    attributes.push(Attribute::new("jobs_processed", jobs_processed.to_string()));
+    attributes.push(Attribute::new("jobs_left", jobs_left.to_string()));
 
     Ok(Response::new()
         .add_messages(out_msgs)
@@ -1299,8 +1289,12 @@ mod tests {
             res.messages[0].msg,
             CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
         ));
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "1");
+        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
+        assert_eq!(jobs_left, "0");
 
-        // Create five job
+        // Create 3 job
         for i in 0..3 {
             let msg = mock_ibc_packet_recv(
                 "foo",
@@ -1314,7 +1308,7 @@ mod tests {
             ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
         }
 
-        // Process five jobs
+        // Process 3 jobs
         let msg = make_add_round_msg(2183670);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
@@ -1333,6 +1327,10 @@ mod tests {
             res.messages[2].msg,
             CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
         ));
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "3");
+        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
+        assert_eq!(jobs_left, "0");
 
         // Create 7 job
         for i in 0..7 {
@@ -1352,21 +1350,37 @@ mod tests {
         let msg = make_add_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon1", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "3");
+        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
+        assert_eq!(jobs_left, "4");
 
         // Process next 3 jobs
         let msg = make_add_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon2", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "3");
+        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
+        assert_eq!(jobs_left, "1");
 
         // Process last 1 jobs
         let msg = make_add_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon3", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "1");
+        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
+        assert_eq!(jobs_left, "0");
 
         // No jobs left for later submissions
         let msg = make_add_round_msg(2183671);
         let res = execute(deps.as_mut(), mock_env(), mock_info("anon4", &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 0);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "0");
+        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
+        assert_eq!(jobs_left, "0");
     }
 
     #[test]

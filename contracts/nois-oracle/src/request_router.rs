@@ -1,17 +1,33 @@
 //! The request router module decides which randomness backend is used
 
-use cosmwasm_std::{CosmosMsg, DepsMut, Env, StdResult, Timestamp};
+use cosmwasm_std::{CosmosMsg, DepsMut, Env, HexBinary, StdResult, Timestamp};
 use nois_protocol::{RequestBeaconPacketAck, StdAck};
 
 use crate::{
     contract::create_deliver_beacon_ibc_message,
     drand::{round_after, DRAND_CHAIN_HASH},
-    state::{increment_processed_jobs, unprocessed_jobs_enqueue, Job, BEACONS},
+    state::{
+        increment_processed_jobs, unprocessed_jobs_dequeue, unprocessed_jobs_enqueue,
+        unprocessed_jobs_len, Job, BEACONS,
+    },
 };
+
+/// The number of jobs that are processed per submission. Use this limit
+/// to ensure the gas usage for the submissions is relatively stable.
+///
+/// Currently a submission without jobs consumes ~600k gas. Every job adds
+/// ~50k gas.
+const MAX_JOBS_PER_SUBMISSION: u32 = 3;
 
 pub struct RoutingReceipt {
     pub acknowledgement: StdAck,
     pub msgs: Vec<CosmosMsg>,
+}
+
+pub struct NewDrand {
+    pub msgs: Vec<CosmosMsg>,
+    pub jobs_processed: u32,
+    pub jobs_left: u32,
 }
 
 pub struct RequestRouter {}
@@ -66,6 +82,33 @@ impl RequestRouter {
         Ok(RoutingReceipt {
             acknowledgement,
             msgs,
+        })
+    }
+
+    pub fn new_drand(
+        &self,
+        deps: DepsMut,
+        env: Env,
+        round: u64,
+        randomness: &HexBinary,
+    ) -> StdResult<NewDrand> {
+        let mut msgs = Vec::<CosmosMsg>::new();
+        let mut jobs_processed = 0;
+        while let Some(job) = unprocessed_jobs_dequeue(deps.storage, round)? {
+            increment_processed_jobs(deps.storage, round)?;
+            // Use IbcMsg::SendPacket to send packages to the proxies.
+            let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness.clone())?;
+            msgs.push(msg.into());
+            jobs_processed += 1;
+            if jobs_processed >= MAX_JOBS_PER_SUBMISSION {
+                break;
+            }
+        }
+        let jobs_left = unprocessed_jobs_len(deps.storage, round)?;
+        Ok(NewDrand {
+            msgs,
+            jobs_processed,
+            jobs_left,
         })
     }
 }
