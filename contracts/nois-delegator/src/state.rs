@@ -6,7 +6,7 @@ use cw_storage_plus::Item;
 pub struct Config {
     /// The multisig admin wallet that controls the incentive and delegation.
     /// The admin should not be able to withdraw funds from the contract
-    pub admin_addr: Addr,
+    pub admin_addr: String,
     // Nois Oracle contract. Not set during instatiation but once set should become immutable
     pub nois_oracle_contract_addr: Option<Addr>,
 }
