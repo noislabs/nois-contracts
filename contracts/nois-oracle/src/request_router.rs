@@ -1,10 +1,13 @@
 //! The request router module decides which randomness backend is used
 
-use cosmwasm_std::{CosmosMsg, DepsMut, Env, HexBinary, StdResult, Timestamp};
-use nois_protocol::{RequestBeaconPacketAck, StdAck};
+use cosmwasm_std::{
+    to_binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
+};
+use nois_protocol::{
+    DeliverBeaconPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME,
+};
 
 use crate::{
-    contract::create_deliver_beacon_ibc_message,
     drand::{round_after, DRAND_CHAIN_HASH},
     state::{
         increment_processed_jobs, unprocessed_jobs_dequeue, unprocessed_jobs_enqueue,
@@ -111,6 +114,28 @@ impl RequestRouter {
             jobs_left,
         })
     }
+}
+
+/// Takes the job and turns it into a an IBC message with a `DeliverBeaconPacket`.
+fn create_deliver_beacon_ibc_message(
+    blocktime: Timestamp,
+    job: Job,
+    randomness: HexBinary,
+) -> Result<IbcMsg, StdError> {
+    let packet = DeliverBeaconPacket {
+        sender: job.sender,
+        job_id: job.job_id,
+        randomness,
+        source_id: job.source_id,
+    };
+    let msg = IbcMsg::SendPacket {
+        channel_id: job.channel,
+        data: to_binary(&packet)?,
+        timeout: blocktime
+            .plus_seconds(DELIVER_BEACON_PACKET_LIFETIME)
+            .into(),
+    };
+    Ok(msg)
 }
 
 /// Calculates the next round in the future, i.e. publish time > base time.

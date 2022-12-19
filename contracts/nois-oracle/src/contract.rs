@@ -2,15 +2,14 @@ use cosmwasm_std::{
     ensure_eq, entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Coin,
     CosmosMsg, Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse,
     IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg,
-    IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
+    IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
     IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
-    Timestamp,
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
-    RequestBeaconPacket, StdAck, DELIVER_BEACON_PACKET_LIFETIME, IBC_APP_VERSION,
+    check_order, check_version, DeliverBeaconPacketAck, Never, RequestBeaconPacket, StdAck,
+    IBC_APP_VERSION,
 };
 
 use crate::bots::validate_moniker;
@@ -23,7 +22,7 @@ use crate::msg::{
 };
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_jobs, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
+    get_processed_jobs, unprocessed_jobs_len, Bot, Config, QueriedBeacon, QueriedBot,
     StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS, BOTS, CONFIG, SUBMISSIONS,
     SUBMISSIONS_ORDER,
 };
@@ -277,28 +276,6 @@ fn receive_request_beacon(
         .add_attribute("action", "receive_request_beacon"))
 }
 
-/// Takes the job and turns it into a an IBC message with a `DeliverBeaconPacket`.
-pub fn create_deliver_beacon_ibc_message(
-    blocktime: Timestamp,
-    job: Job,
-    randomness: HexBinary,
-) -> Result<IbcMsg, StdError> {
-    let packet = DeliverBeaconPacket {
-        sender: job.sender,
-        job_id: job.job_id,
-        randomness,
-        source_id: job.source_id,
-    };
-    let msg = IbcMsg::SendPacket {
-        channel_id: job.channel,
-        data: to_binary(&packet)?,
-        timeout: blocktime
-            .plus_seconds(DELIVER_BEACON_PACKET_LIFETIME)
-            .into(),
-    };
-    Ok(msg)
-}
-
 #[entry_point]
 pub fn ibc_packet_ack(
     _deps: DepsMut,
@@ -517,7 +494,7 @@ mod tests {
         mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_ibc_packet_recv, mock_info,
         MockApi, MockQuerier, MockStorage,
     };
-    use cosmwasm_std::{coin, from_binary, Addr, OwnedDeps, Uint128};
+    use cosmwasm_std::{coin, from_binary, Addr, IbcMsg, OwnedDeps, Timestamp, Uint128};
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
