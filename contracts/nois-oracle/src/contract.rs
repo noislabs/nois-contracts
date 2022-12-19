@@ -384,26 +384,24 @@ fn execute_update_allowlist_bots(
     remove: Vec<String>,
 ) -> Result<Response, ContractError> {
     // check the calling address is the authorised multisig
-    ensure_eq!(
-        info.sender,
-        CONFIG.load(deps.storage)?.manager,
-        ContractError::Unauthorized
-    );
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
-    remove.into_iter().for_each(|bot| {
-        let addr = deps.api.addr_validate(&bot).unwrap();
+    // We add first to ensure an address that is included in both lists
+    // is removed and not added.
+    for bot in add {
+        let addr = deps.api.addr_validate(&bot)?;
+        if !ALLOWLIST.has(deps.storage, &addr) {
+            ALLOWLIST.save(deps.storage, &addr, &())?;
+        }
+    }
 
+    for bot in remove {
+        let addr = deps.api.addr_validate(&bot)?;
         if ALLOWLIST.has(deps.storage, &addr) {
             ALLOWLIST.remove(deps.storage, &addr);
         }
-    });
-
-    add.into_iter().for_each(|bot| {
-        let addr = deps.api.addr_validate(&bot).unwrap();
-        if !ALLOWLIST.has(deps.storage, &addr) {
-            ALLOWLIST.save(deps.storage, &addr, &()).unwrap();
-        }
-    });
+    }
 
     Ok(Response::default())
 }
@@ -543,7 +541,7 @@ fn incentive_amount(config: &Config) -> Coin {
 #[cfg(test)]
 mod tests {
 
-    use crate::msg::{self, ExecuteMsg};
+    use crate::msg::ExecuteMsg;
 
     use super::*;
     use cosmwasm_std::testing::{
@@ -865,7 +863,7 @@ mod tests {
         assert_eq!(response.messages.len(), 0);
 
         // allowlist
-        let msg = msg::ExecuteMsg::UpdateAllowlistBots {
+        let msg = ExecuteMsg::UpdateAllowlistBots {
             add: vec!["registered_bot".to_string()],
             remove: vec![],
         };
@@ -905,6 +903,77 @@ mod tests {
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         // no incentives
         assert_eq!(response.messages.len(), 0);
+    }
+
+    #[test]
+    fn updateallowlistbots_handles_invalid_addresses() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+
+        let msg = InstantiateMsg {
+            manager: "manager".to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // add: Empty value
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec!["".to_string()],
+            remove: vec![],
+        };
+        let info = mock_info("manager", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        match err {
+            ContractError::Std(StdError::GenericErr { msg }) => {
+                assert_eq!(msg, "Invalid input: human address too short")
+            }
+            _ => panic!("Unexpected error: {err:?}"),
+        }
+
+        // add: Upper case address
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec!["theADDRESS".to_string()],
+            remove: vec![],
+        };
+        let info = mock_info("manager", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        match err {
+            ContractError::Std(StdError::GenericErr { msg }) => {
+                assert_eq!(msg, "Invalid input: address not normalized")
+            }
+            _ => panic!("Unexpected error: {err:?}"),
+        }
+
+        // remove: Empty value
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec![],
+            remove: vec!["".to_string()],
+        };
+        let info = mock_info("manager", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        match err {
+            ContractError::Std(StdError::GenericErr { msg }) => {
+                assert_eq!(msg, "Invalid input: human address too short")
+            }
+            _ => panic!("Unexpected error: {err:?}"),
+        }
+
+        // remove: Upper case address
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec![],
+            remove: vec!["theADDRESS".to_string()],
+        };
+        let info = mock_info("manager", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        match err {
+            ContractError::Std(StdError::GenericErr { msg }) => {
+                assert_eq!(msg, "Invalid input: address not normalized")
+            }
+            _ => panic!("Unexpected error: {err:?}"),
+        }
     }
 
     #[test]
