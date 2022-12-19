@@ -1,11 +1,10 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg,
-    Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    entry_point, from_binary, from_slice, to_binary, Attribute, BankMsg, Coin, CosmosMsg, Deps,
+    DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
     Order, QueryResponse, Response, StdError, StdResult,
 };
-use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacketAck, Never, RequestBeaconPacket, StdAck,
@@ -15,14 +14,11 @@ use nois_protocol::{
 use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
 use crate::job_id::validate_job_id;
-use crate::msg::{
-    BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
-    InstantiateMsg, JobStatsResponse, QueriedSubmission, QueryMsg, SubmissionsResponse,
-};
+use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, JobStatsResponse, QueryMsg};
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_jobs, unprocessed_jobs_len, Config, QueriedBeacon, QueriedBot, StoredSubmission,
-    VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    get_processed_jobs, unprocessed_jobs_len, Config, StoredSubmission, VerifiedBeacon, BEACONS,
+    BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -75,16 +71,6 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
-        QueryMsg::Beacon { round } => to_binary(&query_beacon(deps, round)?)?,
-        QueryMsg::BeaconsAsc { start_after, limit } => {
-            to_binary(&query_beacons(deps, start_after, limit, Order::Ascending)?)?
-        }
-        QueryMsg::BeaconsDesc { start_after, limit } => {
-            to_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
-        }
-        QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
-        QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
-        QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
         QueryMsg::JobStats { round } => to_binary(&query_job_stats(deps, round)?)?,
     };
     Ok(response)
@@ -93,69 +79,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config)
-}
-
-// Query beacon by round
-fn query_beacon(deps: Deps, round: u64) -> StdResult<BeaconResponse> {
-    let beacon = BEACONS.may_load(deps.storage, round)?;
-    Ok(BeaconResponse {
-        beacon: beacon.map(|b| QueriedBeacon::make(b, round)),
-    })
-}
-
-fn query_beacons(
-    deps: Deps,
-    start_after: Option<u64>,
-    limit: Option<u32>,
-    order: Order,
-) -> StdResult<BeaconsResponse> {
-    let limit: usize = limit.unwrap_or(100) as usize;
-    let (low_bound, top_bound) = match order {
-        Order::Ascending => (start_after.map(Bound::exclusive), None),
-        Order::Descending => (None, start_after.map(Bound::exclusive)),
-    };
-    let beacons: Vec<QueriedBeacon> = BEACONS
-        .range(deps.storage, low_bound, top_bound, order)
-        .take(limit)
-        .map(|c| c.map(|(round, beacon)| QueriedBeacon::make(beacon, round)))
-        .collect::<Result<_, _>>()?;
-    Ok(BeaconsResponse { beacons })
-}
-
-fn query_bot(deps: Deps, address: String) -> StdResult<BotResponse> {
-    let address = deps.api.addr_validate(&address)?;
-    let bot = BOTS
-        .may_load(deps.storage, &address)?
-        .map(|bot| QueriedBot::make(bot, address));
-    Ok(BotResponse { bot })
-}
-
-fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
-    // No pagination here yet 🤷‍♂️
-    let bots = BOTS
-        .range(deps.storage, None, None, Order::Ascending)
-        .map(|result| {
-            let (address, bot) = result.unwrap();
-            QueriedBot::make(bot, address)
-        })
-        .collect();
-    Ok(BotsResponse { bots })
-}
-
-// Query submissions by round
-fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
-    let prefix = SUBMISSIONS_ORDER.prefix(round);
-
-    let submission_addresses: Vec<Addr> = prefix
-        .range(deps.storage, None, None, Order::Ascending)
-        .map(|item| -> StdResult<_> { Ok(item?.1) })
-        .collect::<Result<_, _>>()?;
-    let mut submissions: Vec<QueriedSubmission> = Vec::with_capacity(submission_addresses.len());
-    for addr in submission_addresses {
-        let stored = SUBMISSIONS.load(deps.storage, (round, &addr))?;
-        submissions.push(QueriedSubmission::make(stored, addr));
-    }
-    Ok(SubmissionsResponse { round, submissions })
 }
 
 // Query job stats by round
@@ -464,7 +387,7 @@ mod tests {
         mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_ibc_packet_recv, mock_info,
         MockApi, MockQuerier, MockStorage,
     };
-    use cosmwasm_std::{coin, from_binary, Addr, IbcMsg, OwnedDeps, Timestamp, Uint128};
+    use cosmwasm_std::{coin, from_binary, IbcMsg, OwnedDeps, Timestamp, Uint128};
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
     use sha2::Digest;
 
@@ -550,16 +473,6 @@ mod tests {
             round,
             randomness: randomness.to_vec().into(),
         }
-    }
-
-    /// Adds round 72785, 72786, 72787
-    fn add_test_rounds(mut deps: DepsMut, bot_addr: &str) {
-        let msg = make_add_round_msg(72785);
-        execute(deps.branch(), mock_env(), mock_info(bot_addr, &[]), msg).unwrap();
-        let msg = make_add_round_msg(72786);
-        execute(deps.branch(), mock_env(), mock_info(bot_addr, &[]), msg).unwrap();
-        let msg = make_add_round_msg(72787);
-        execute(deps.branch(), mock_env(), mock_info(bot_addr, &[]), msg).unwrap();
     }
 
     /// Gets the value of the first attribute with the given key
@@ -650,15 +563,6 @@ mod tests {
             signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        let response: BeaconResponse = from_binary(
-            &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72785 }).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(
-            response.beacon.unwrap().randomness.to_hex(),
-            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
-        );
     }
 
     #[test]
@@ -1018,306 +922,6 @@ mod tests {
     //
     // Query tests
     //
-
-    #[test]
-    fn query_beacons_asc_works() {
-        let mut deps = mock_dependencies();
-
-        let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        add_test_rounds(deps.as_mut(), "anyone");
-
-        // Unlimited
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsAsc {
-                    start_after: None,
-                    limit: None,
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72785, 72786, 72787]);
-
-        // Limit 2
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsAsc {
-                    start_after: None,
-                    limit: Some(2),
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72785, 72786]);
-
-        // After 0
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsAsc {
-                    start_after: Some(0),
-                    limit: None,
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72785, 72786, 72787]);
-
-        // After 72785
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsAsc {
-                    start_after: Some(72785),
-                    limit: None,
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72786, 72787]);
-
-        // After 72787
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsAsc {
-                    start_after: Some(72787),
-                    limit: None,
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, Vec::<u64>::new());
-    }
-
-    #[test]
-    fn query_beacons_desc_works() {
-        let mut deps = mock_dependencies();
-
-        let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        add_test_rounds(deps.as_mut(), "anyone");
-
-        // Unlimited
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsDesc {
-                    start_after: None,
-                    limit: None,
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72787, 72786, 72785]);
-
-        // Limit 2
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsDesc {
-                    start_after: None,
-                    limit: Some(2),
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72787, 72786]);
-
-        // After 99999
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsDesc {
-                    start_after: Some(99999),
-                    limit: None,
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72787, 72786, 72785]);
-
-        // After 72787
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsDesc {
-                    start_after: Some(72787),
-                    limit: None,
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72786, 72785]);
-
-        // After 72785
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::BeaconsDesc {
-                    start_after: Some(72785),
-                    limit: None,
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, Vec::<u64>::new());
-    }
-
-    #[test]
-    fn query_submissions_works() {
-        let mut deps = mock_dependencies();
-
-        let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        // Address order is not submission order
-        let bot1 = "beta1";
-        let bot2 = "gamma2";
-        let bot3 = "alpha3";
-
-        add_test_rounds(deps.as_mut(), bot1);
-
-        // No submissions
-        let response: SubmissionsResponse = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::Submissions { round: 72777 },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(response.round, 72777);
-        assert_eq!(response.submissions, Vec::<_>::new());
-
-        // One submission
-        let response: SubmissionsResponse = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::Submissions { round: 72785 },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(response.round, 72785);
-        assert_eq!(
-            response.submissions,
-            [QueriedSubmission {
-                bot: Addr::unchecked(bot1),
-                time: Timestamp::from_nanos(1571797419879305533),
-            }]
-        );
-
-        add_test_rounds(deps.as_mut(), bot2);
-
-        // Two submissions
-        let response: SubmissionsResponse = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::Submissions { round: 72785 },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(response.round, 72785);
-        assert_eq!(
-            response.submissions,
-            [
-                QueriedSubmission {
-                    bot: Addr::unchecked(bot1),
-                    time: Timestamp::from_nanos(1571797419879305533),
-                },
-                QueriedSubmission {
-                    bot: Addr::unchecked(bot2),
-                    time: Timestamp::from_nanos(1571797419879305533),
-                },
-            ]
-        );
-
-        add_test_rounds(deps.as_mut(), bot3);
-
-        // Three submissions
-        let response: SubmissionsResponse = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::Submissions { round: 72785 },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        assert_eq!(response.round, 72785);
-        assert_eq!(
-            response.submissions,
-            [
-                QueriedSubmission {
-                    bot: Addr::unchecked(bot1),
-                    time: Timestamp::from_nanos(1571797419879305533),
-                },
-                QueriedSubmission {
-                    bot: Addr::unchecked(bot2),
-                    time: Timestamp::from_nanos(1571797419879305533),
-                },
-                QueriedSubmission {
-                    bot: Addr::unchecked(bot3),
-                    time: Timestamp::from_nanos(1571797419879305533),
-                },
-            ]
-        );
-    }
 
     #[test]
     fn query_job_stats_works() {

@@ -2,8 +2,6 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, HexBinary, StdResult, Storage, Timestamp, Uint128};
 use cw_storage_plus::{Deque, Item, Map};
 
-use crate::drand::time_of_round;
-
 #[cw_serde]
 pub struct Config {
     /// The address of the drand contract
@@ -23,27 +21,6 @@ pub struct VerifiedBeacon {
     pub verified: Timestamp,
     /// The sha256(signature) in lower case hex
     pub randomness: HexBinary,
-}
-
-/// Like VerifiedBeacon but plus round
-#[cw_serde]
-pub struct QueriedBeacon {
-    pub round: u64,
-    pub published: Timestamp,
-    pub verified: Timestamp,
-    /// The sha256(signature) in lower case hex
-    pub randomness: HexBinary,
-}
-
-impl QueriedBeacon {
-    pub fn make(beacon: VerifiedBeacon, round: u64) -> Self {
-        Self {
-            round,
-            published: time_of_round(round),
-            verified: beacon.verified,
-            randomness: beacon.randomness,
-        }
-    }
 }
 
 // A map from round number to drand beacon
@@ -73,25 +50,6 @@ pub struct Bot {
     pub moniker: String,
     /// Number of rounds added
     pub rounds_added: u64,
-}
-
-/// Like [`Bot`] but with address
-#[cw_serde]
-pub struct QueriedBot {
-    pub moniker: String,
-    pub address: Addr,
-    /// Number of rounds added
-    pub rounds_added: u64,
-}
-
-impl QueriedBot {
-    pub fn make(beacon: Bot, address: Addr) -> Self {
-        Self {
-            address,
-            moniker: beacon.moniker,
-            rounds_added: beacon.rounds_added,
-        }
-    }
 }
 
 #[cw_serde]

@@ -15,11 +15,6 @@ pub const DRAND_CHAIN_HASH: &str =
 pub const DRAND_GENESIS: Timestamp = Timestamp::from_seconds(1595431050);
 pub const DRAND_ROUND_LENGTH: u64 = 30_000_000_000; // in nanoseconds
 
-// See TimeOfRound implementation: https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L30-L33
-pub fn time_of_round(round: u64) -> Timestamp {
-    DRAND_GENESIS.plus_nanos((round - 1) * DRAND_ROUND_LENGTH)
-}
-
 pub fn round_after(base: Timestamp) -> u64 {
     // Losely ported from https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L49-L63
     if base < DRAND_GENESIS {
@@ -35,19 +30,6 @@ pub fn round_after(base: Timestamp) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn time_of_round_works() {
-        assert_eq!(time_of_round(1), DRAND_GENESIS);
-        assert_eq!(time_of_round(2), DRAND_GENESIS.plus_seconds(30));
-        assert_eq!(time_of_round(2238596), Timestamp::from_seconds(1662588900));
-    }
-
-    #[test]
-    #[should_panic(expected = "overflow")]
-    fn time_of_round_panics_for_round_0() {
-        time_of_round(0);
-    }
 
     #[test]
     fn round_after_works() {
