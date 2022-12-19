@@ -1,22 +1,31 @@
 //! The request router module decides which randomness backend is used
 
-use cosmwasm_std::{Deps, HexBinary, StdResult, Timestamp};
+use cosmwasm_std::{CosmosMsg, DepsMut, Env, StdResult, Timestamp};
+use nois_protocol::{RequestBeaconPacketAck, StdAck};
 
 use crate::{
+    contract::create_deliver_beacon_ibc_message,
     drand::{round_after, DRAND_CHAIN_HASH},
-    state::BEACONS,
+    state::{increment_processed_jobs, unprocessed_jobs_enqueue, Job, BEACONS},
 };
 
 pub struct RoutingReceipt {
-    pub round: u64,
-    pub source_id: String,
-    pub randomness: Option<HexBinary>,
+    pub acknowledgement: StdAck,
+    pub msgs: Vec<CosmosMsg>,
 }
 
 pub struct RequestRouter {}
 
 impl RequestRouter {
-    pub fn route(&self, deps: Deps, after: Timestamp) -> StdResult<RoutingReceipt> {
+    pub fn route(
+        &self,
+        deps: DepsMut,
+        env: Env,
+        channel: String,
+        after: Timestamp,
+        sender: String,
+        job_id: String,
+    ) -> StdResult<RoutingReceipt> {
         let (round, source_id) = commit_to_drand_round(after);
 
         // Does round exist already?
@@ -30,10 +39,29 @@ impl RequestRouter {
         // Implementation using storage
         let randomness = BEACONS.may_load(deps.storage, round)?.map(|b| b.randomness);
 
+        let job = Job {
+            source_id: source_id.clone(),
+            channel,
+            sender,
+            job_id,
+        };
+
+        let mut msgs = Vec::<CosmosMsg>::new();
+
+        let acknowledgement = if let Some(randomness) = randomness {
+            //If the drand round already exists we send it
+            increment_processed_jobs(deps.storage, round)?;
+            let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness)?;
+            msgs.push(msg.into());
+            StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
+        } else {
+            unprocessed_jobs_enqueue(deps.storage, round, &job)?;
+            StdAck::success(&RequestBeaconPacketAck::Queued { source_id })
+        };
+
         Ok(RoutingReceipt {
-            round,
-            source_id,
-            randomness,
+            acknowledgement,
+            msgs,
         })
     }
 }

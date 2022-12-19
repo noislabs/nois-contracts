@@ -10,8 +10,7 @@ use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
-    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME,
-    IBC_APP_VERSION,
+    RequestBeaconPacket, StdAck, DELIVER_BEACON_PACKET_LIFETIME, IBC_APP_VERSION,
 };
 
 use crate::bots::validate_moniker;
@@ -24,10 +23,9 @@ use crate::msg::{
 };
 use crate::request_router::{RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_jobs, increment_processed_jobs, unprocessed_jobs_dequeue,
-    unprocessed_jobs_enqueue, unprocessed_jobs_len, Bot, Config, Job, QueriedBeacon, QueriedBot,
-    StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS, BOTS, CONFIG, SUBMISSIONS,
-    SUBMISSIONS_ORDER,
+    get_processed_jobs, increment_processed_jobs, unprocessed_jobs_dequeue, unprocessed_jobs_len,
+    Bot, Config, Job, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST,
+    BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -249,7 +247,7 @@ pub fn ibc_packet_receive(
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
         let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-        receive_request_beacon(deps, env, channel, msg.after, msg.sender, msg.job_id)
+        receive_request_beacon(deps, env, channel, msg)
     })()
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
@@ -265,38 +263,20 @@ fn receive_request_beacon(
     deps: DepsMut,
     env: Env,
     channel: String,
-    after: Timestamp,
-    sender: String,
-    job_id: String,
+    msg: RequestBeaconPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
+    let RequestBeaconPacket {
+        sender,
+        after,
+        job_id,
+    } = msg;
     validate_job_id(&job_id)?;
 
     let router = RequestRouter {};
     let RoutingReceipt {
-        round,
-        source_id,
-        randomness,
-    } = router.route(deps.as_ref(), after)?;
-
-    let job = Job {
-        source_id: source_id.clone(),
-        channel,
-        sender,
-        job_id,
-    };
-
-    let mut msgs = Vec::<CosmosMsg>::new();
-
-    let acknowledgement = if let Some(randomness) = randomness {
-        //If the drand round already exists we send it
-        increment_processed_jobs(deps.storage, round)?;
-        let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness)?;
-        msgs.push(msg.into());
-        StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
-    } else {
-        unprocessed_jobs_enqueue(deps.storage, round, &job)?;
-        StdAck::success(&RequestBeaconPacketAck::Queued { source_id })
-    };
+        acknowledgement,
+        msgs,
+    } = router.route(deps, env, channel, after, sender, job_id)?;
 
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
@@ -305,11 +285,11 @@ fn receive_request_beacon(
 }
 
 /// Takes the job and turns it into a an IBC message with a `DeliverBeaconPacket`.
-fn create_deliver_beacon_ibc_message(
+pub fn create_deliver_beacon_ibc_message(
     blocktime: Timestamp,
     job: Job,
     randomness: HexBinary,
-) -> Result<IbcMsg, ContractError> {
+) -> Result<IbcMsg, StdError> {
     let packet = DeliverBeaconPacket {
         sender: job.sender,
         job_id: job.job_id,
