@@ -467,7 +467,7 @@ test.serial("demo contract can be used", async (t) => {
     await bot.submitNext();
 
     const jobId = Date.now().toString();
-    const getRoundQuery = await wasmClient.sign.execute(
+    await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
       { estimate_pi: { job_id: jobId } },
@@ -475,7 +475,6 @@ test.serial("demo contract can be used", async (t) => {
       undefined,
       [payment]
     );
-    t.log(getRoundQuery);
 
     // RequestBeacon packet
     const infoA2B = await link.relayAll();
@@ -504,7 +503,7 @@ test.serial("demo contract can be used", async (t) => {
   // Round submitted after request
   {
     const jobId = Date.now().toString();
-    const getRoundQuery = await wasmClient.sign.execute(
+    await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisDemoAddress,
       { estimate_pi: { job_id: jobId } },
@@ -512,7 +511,6 @@ test.serial("demo contract can be used", async (t) => {
       undefined,
       [payment]
     );
-    t.log(getRoundQuery);
 
     // RequestBeacon packet
     const infoA2B = await link.relayAll();
