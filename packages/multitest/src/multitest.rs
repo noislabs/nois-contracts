@@ -92,7 +92,7 @@ mod tests {
         assert_eq!(
             resp,
             nois_delegator::msg::ConfigResponse {
-                admin_addr: "owner".to_string(),
+                admin_addr: Addr::unchecked("owner"),
                 nois_oracle_contract_addr: Option::None
             }
         );
@@ -130,7 +130,7 @@ mod tests {
         assert_eq!(
             resp,
             nois_oracle::msg::ConfigResponse {
-                manager: "manager".to_string(),
+                manager: Addr::unchecked("manager"),
                 min_round: 0,
                 incentive_amount: Uint128::new(100_000),
                 incentive_denom: "unois".to_string(),
@@ -166,7 +166,7 @@ mod tests {
         assert_eq!(
             resp,
             nois_delegator::msg::ConfigResponse {
-                admin_addr: "owner".to_string(),
+                admin_addr: Addr::unchecked("owner"),
                 nois_oracle_contract_addr: Option::Some(Addr::unchecked("contract1"))
             }
         );

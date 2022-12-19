@@ -64,7 +64,7 @@ test.serial("Bot can submit to Oracle", async (t) => {
   // Instantiate Oracle on osmosis
   const osmoClient = await setupOsmosisClient();
   const delegatorMsg: DelegatorInstantiateMsg = {
-    admin_addr: "admin_addr",
+    admin_addr: osmoClient.senderAddress,
   };
   const { contractAddress: delegatorAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -77,7 +77,7 @@ test.serial("Bot can submit to Oracle", async (t) => {
   t.truthy(delegatorAddress);
 
   const msg: OracleInstantiateMsg = {
-    manager: "admin",
+    manager: osmoClient.senderAddress,
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
@@ -132,7 +132,7 @@ test.serial("set up channel", async (t) => {
   const osmoClient = await setupOsmosisClient();
   // Instantiate Delegator on osmosis
   const delegatorMsg: DelegatorInstantiateMsg = {
-    admin_addr: "admin-addr",
+    admin_addr: osmoClient.senderAddress,
   };
   const { contractAddress: delegatorAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -143,7 +143,7 @@ test.serial("set up channel", async (t) => {
   );
   t.truthy(delegatorAddress);
   const msg: OracleInstantiateMsg = {
-    manager: "admin",
+    manager: osmoClient.senderAddress,
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",
@@ -205,7 +205,7 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
 
   // Instantiate Delegator on osmosis
   const delegatorMsg: DelegatorInstantiateMsg = {
-    admin_addr: "admin-addr",
+    admin_addr: osmoClient.senderAddress,
   };
   const { contractAddress: delegatorAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
@@ -217,7 +217,7 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
 
   // Instantiate Oracle on Osmosis
   const msg: OracleInstantiateMsg = {
-    manager: "admin",
+    manager: osmoClient.senderAddress,
     min_round: 2183660,
     incentive_amount: "0",
     incentive_denom: "unois",

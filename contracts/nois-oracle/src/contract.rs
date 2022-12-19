@@ -46,18 +46,9 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    // TODO validate addr
-    // I added a deps.api  address validate check on the instantation of the delegator contract (admin_addr) but now the js ci-scripts will fail unless I give it a real address. How should we address this issue?
-    // A- Make real bech32 keys  for the ci-test
-    // B- Make a "test" parameter on the smart-contract so we don't validate the addr?
-    // C- Something else
-    //let manager = deps
-    //    .api
-    //    .addr_validate(&msg.manager)
-    //    .map_err(|_| ContractError::InvalidAddress)
-    //    .unwrap();
+    let manager = deps.api.addr_validate(&msg.manager)?;
     let config = Config {
-        manager: msg.manager,
+        manager,
         min_round: msg.min_round,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
@@ -688,7 +679,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                manager: "manager".to_string(),
+                manager: Addr::unchecked("manager"),
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
                 incentive_denom: "unois".to_string(),
