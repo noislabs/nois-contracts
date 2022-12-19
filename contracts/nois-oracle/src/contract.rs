@@ -12,7 +12,6 @@ use nois_protocol::{
     IBC_APP_VERSION,
 };
 
-use crate::bots::validate_moniker;
 use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
 use crate::job_id::validate_job_id;
@@ -22,8 +21,8 @@ use crate::msg::{
 };
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_jobs, unprocessed_jobs_len, Bot, Config, QueriedBeacon, QueriedBot,
-    StoredSubmission, VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    get_processed_jobs, unprocessed_jobs_len, Config, QueriedBeacon, QueriedBot, StoredSubmission,
+    VerifiedBeacon, BEACONS, BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -69,7 +68,6 @@ pub fn execute(
         ExecuteMsg::AddVerifiedRound { round, randomness } => {
             execute_add_verified_round(deps, env, info, round, randomness)
         }
-        ExecuteMsg::RegisterBot { moniker } => execute_register_bot(deps, env, info, moniker),
     }
 }
 
@@ -298,27 +296,6 @@ pub fn ibc_packet_timeout(
     _msg: IbcPacketTimeoutMsg,
 ) -> StdResult<IbcBasicResponse> {
     Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_timeout"))
-}
-
-fn execute_register_bot(
-    deps: DepsMut,
-    _env: Env,
-    info: MessageInfo,
-    moniker: String,
-) -> Result<Response, ContractError> {
-    validate_moniker(&moniker)?;
-    let bot = match BOTS.may_load(deps.storage, &info.sender)? {
-        Some(mut bot) => {
-            bot.moniker = moniker;
-            bot
-        }
-        _ => Bot {
-            moniker,
-            rounds_added: 0,
-        },
-    };
-    BOTS.save(deps.storage, &info.sender, &bot)?;
-    Ok(Response::default())
 }
 
 fn execute_add_round(
@@ -651,12 +628,6 @@ mod tests {
     //
     // Execute tests
     //
-    fn register_bot(deps: DepsMut, info: MessageInfo) {
-        let register_bot_msg = ExecuteMsg::RegisterBot {
-            moniker: "Best Bot".to_string(),
-        };
-        execute(deps, mock_env(), info, register_bot_msg).unwrap();
-    }
 
     #[test]
     fn add_round_verifies_and_stores_randomness() {
@@ -671,7 +642,6 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
 
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
@@ -794,7 +764,6 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/public/72785
             round: 72785,
@@ -851,7 +820,6 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
@@ -863,7 +831,6 @@ mod tests {
 
         // Execute 1
         let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
@@ -873,7 +840,6 @@ mod tests {
 
         // Execute 2
         let info = mock_info("someone else", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
@@ -887,7 +853,6 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
@@ -899,21 +864,17 @@ mod tests {
 
         // Execute A1
         let info = mock_info("bot_alice", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         // Execute B1
         let info = mock_info("bot_bob", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // Execute A2
         let info = mock_info("bot_alice", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
         // Execute B2
         let info = mock_info("bot_alice", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
     }
@@ -923,7 +884,6 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
@@ -1055,68 +1015,6 @@ mod tests {
         assert_eq!(jobs_left, "0");
     }
 
-    #[test]
-    fn register_bot_works_for_updates() {
-        let mut deps = mock_dependencies();
-        let bot_addr = "bot_addr".to_string();
-
-        // first registration
-
-        let info = mock_info(&bot_addr, &[]);
-        let register_bot_msg = ExecuteMsg::RegisterBot {
-            moniker: "Nickname1".to_string(),
-        };
-        execute(deps.as_mut(), mock_env(), info, register_bot_msg).unwrap();
-        let BotResponse { bot } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::Bot {
-                    address: bot_addr.clone(),
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let bot = bot.unwrap();
-        assert_eq!(
-            bot,
-            QueriedBot {
-                moniker: "Nickname1".to_string(),
-                address: Addr::unchecked(&bot_addr),
-                rounds_added: 0,
-            }
-        );
-
-        // re-register
-
-        let info = mock_info(&bot_addr, &[]);
-        let register_bot_msg = ExecuteMsg::RegisterBot {
-            moniker: "Another nickname".to_string(),
-        };
-        execute(deps.as_mut(), mock_env(), info, register_bot_msg).unwrap();
-        let BotResponse { bot } = from_binary(
-            &query(
-                deps.as_ref(),
-                mock_env(),
-                QueryMsg::Bot {
-                    address: bot_addr.clone(),
-                },
-            )
-            .unwrap(),
-        )
-        .unwrap();
-        let bot = bot.unwrap();
-        assert_eq!(
-            bot,
-            QueriedBot {
-                moniker: "Another nickname".to_string(),
-                address: Addr::unchecked(&bot_addr),
-                rounds_added: 0,
-            }
-        );
-    }
-
     //
     // Query tests
     //
@@ -1133,8 +1031,6 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info);
         add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
@@ -1223,7 +1119,6 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
@@ -1231,8 +1126,6 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info);
         add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
@@ -1321,7 +1214,6 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
@@ -1334,8 +1226,6 @@ mod tests {
         let bot2 = "gamma2";
         let bot3 = "alpha3";
 
-        let info = mock_info(bot1, &[]);
-        register_bot(deps.as_mut(), info);
         add_test_rounds(deps.as_mut(), bot1);
 
         // No submissions
@@ -1434,7 +1324,6 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),

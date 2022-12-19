@@ -225,16 +225,16 @@ mod tests {
         assert_eq!(balance, Uint128::new(300_000));
 
         // register bot
-        let msg = nois_oracle::msg::ExecuteMsg::RegisterBot {
-            moniker: "drand_bot".to_string(),
-        };
-        app.execute_contract(
-            Addr::unchecked("drand_bot"),
-            addr_nois_oracle.to_owned(),
-            &msg,
-            &[],
-        )
-        .unwrap();
+        // let msg = nois_oracle::msg::ExecuteMsg::RegisterBot {
+        //     moniker: "drand_bot".to_string(),
+        // };
+        // app.execute_contract(
+        //     Addr::unchecked("drand_bot"),
+        //     addr_nois_oracle.to_owned(),
+        //     &msg,
+        //     &[],
+        // )
+        // .unwrap();
 
         // whitelist bot doesn't work by non admin
         // let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
@@ -302,7 +302,7 @@ mod tests {
         );
         // Check balance nois-oracle
         let balance = query_balance_native(&app, &addr_nois_oracle, "unois").amount;
-        assert_eq!(balance, Uint128::new(200_000));
+        assert_eq!(balance, Uint128::new(300_000));
 
         // Check balance nois-drand-bot-operator
         // let balance = query_balance_native(&app, &Addr::unchecked("drand_bot"), "unois").amount;
