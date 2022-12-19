@@ -110,6 +110,19 @@ export class Bot {
     );
     return res;
   }
+
+  public async register(moniker: string): Promise<ExecuteResult> {
+    return this.client.execute(
+      this.address,
+      this.drandAddress,
+      {
+        register_bot: {
+          moniker,
+        },
+      },
+      "auto"
+    );
+  }
 }
 
 export function ibcPacketsSent(resultLogs: readonly logs.Log[]): number {

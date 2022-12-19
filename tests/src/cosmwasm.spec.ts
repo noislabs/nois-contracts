@@ -78,8 +78,13 @@ test.serial("Bot can submit to drand", async (t) => {
   t.deepEqual(before, { beacon: null });
 
   const bot = await Bot.connect(drandAddress);
-  const res = await bot.submitRound(2183666);
-  t.log(`Gas used: ${res.gasUsed}/${res.gasWanted}`);
+
+  // Register
+  await bot.register("joe");
+
+  // Submit
+  const addRundRes = await bot.submitRound(2183666);
+  t.log(`Gas used: ${addRundRes.gasUsed}/${addRundRes.gasWanted}`);
 
   const after = await osmoClient.sign.queryContractSmart(drandAddress, {
     beacon: { round: 2183666 },
