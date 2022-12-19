@@ -12,7 +12,7 @@ const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 export const NoisProtocolIbcVersion = "nois-v3";
 
-export async function setupContracts(
+export async function uploadContracts(
   t: ExecutionContext,
   cosmwasm: CosmWasmSigner,
   contracts: Record<string, string>

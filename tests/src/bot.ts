@@ -70,20 +70,20 @@ const localDataSource: Map<number, Beacon> = new Map(
 );
 
 export class Bot {
-  public static async connect(oracleAddress: string): Promise<Bot> {
+  public static async connect(drandAddress: string): Promise<Bot> {
     const signer = await setupOsmosisClient();
-    return new Bot(signer.senderAddress, signer.sign, oracleAddress);
+    return new Bot(signer.senderAddress, signer.sign, drandAddress);
   }
 
   private readonly address: string;
   private readonly client: SigningCosmWasmClient;
-  private readonly oracleAddress: string;
+  private readonly drandAddress: string;
   private nextRound = 2183660;
 
-  private constructor(address: string, client: SigningCosmWasmClient, oracleAddress: string) {
+  private constructor(address: string, client: SigningCosmWasmClient, drandAddress: string) {
     this.address = address;
     this.client = client;
-    this.oracleAddress = oracleAddress;
+    this.drandAddress = drandAddress;
   }
 
   public async submitNext(): Promise<ExecuteResult> {
@@ -98,7 +98,7 @@ export class Bot {
 
     const res = await this.client.execute(
       this.address,
-      this.oracleAddress,
+      this.drandAddress,
       {
         add_round: {
           round: beacon.round,
