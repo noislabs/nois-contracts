@@ -635,6 +635,17 @@ mod tests {
         execute(deps.branch(), mock_env(), mock_info(bot_addr, &[]), msg).unwrap();
     }
 
+    /// Gets the value of the first attribute with the given key
+    fn first_attr(data: impl AsRef<[Attribute]>, search_key: &str) -> Option<String> {
+        data.as_ref().iter().find_map(|a| {
+            if a.key == search_key {
+                Some(a.value.clone())
+            } else {
+                None
+            }
+        })
+    }
+
     // connect will run through the entire handshake to set up a proper connect and
     // save the account (tested in detail in `proper_handshake_flow`)
     fn connect(mut deps: DepsMut, channel_id: &str, account: impl Into<String>) {
@@ -793,13 +804,9 @@ mod tests {
         };
         let info = mock_info("unregistered_bot", &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        let randomness_attr = response
-            .attributes
-            .iter()
-            .find(|Attribute { key, .. }| key == "randomness")
-            .unwrap();
+        let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
-            randomness_attr.value,
+            randomness,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
         assert_eq!(response.messages.len(), 0);
@@ -849,13 +856,9 @@ mod tests {
             };
 
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        let randomness_attr = response
-            .attributes
-            .iter()
-            .find(|Attribute { key, .. }| key == "randomness")
-            .unwrap();
+        let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
-            randomness_attr.value,
+            randomness,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
         // no incentives
@@ -942,13 +945,9 @@ mod tests {
         let info = mock_info("manager", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let randomness_attr = response
-            .attributes
-            .iter()
-            .find(|Attribute { key, .. }| key == "randomness")
-            .unwrap();
+        let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
-            randomness_attr.value,
+            randomness,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
         assert_eq!(response.messages.len(), 0)
@@ -1065,13 +1064,9 @@ mod tests {
         let msg = make_add_round_msg(72785);
         let info = mock_info("unregistered_bot", &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        let randomness_attr = response
-            .attributes
-            .iter()
-            .find(|Attribute { key, .. }| key == "randomness")
-            .unwrap();
+        let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
-            randomness_attr.value,
+            randomness,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
     }
@@ -1163,13 +1158,9 @@ mod tests {
         let info = mock_info("anyone", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
-        let randomness_attr = response
-            .attributes
-            .iter()
-            .find(|Attribute { key, .. }| key == "randomness")
-            .unwrap();
+        let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
-            randomness_attr.value,
+            randomness,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
 
@@ -1177,13 +1168,9 @@ mod tests {
         let info = mock_info("someone else", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        let randomness_attr = response
-            .attributes
-            .iter()
-            .find(|Attribute { key, .. }| key == "randomness")
-            .unwrap();
+        let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
-            randomness_attr.value,
+            randomness,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
     }
