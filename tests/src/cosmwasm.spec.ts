@@ -9,12 +9,20 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { Bot, ibcPacketsSent } from "./bot";
 import {
+  DelegatorInstantiateMsg,
+  DrandInstantiateMsg,
+  OracleInstantiateMsg,
+  OsmosisContractPaths,
+  ProxyInstantiateMsg,
+  uploadContracts,
+  WasmdContractPaths,
+} from "./contracts";
+import {
   assertPacketsFromA,
   assertPacketsFromB,
   NoisProtocolIbcVersion,
   setupOsmosisClient,
   setupWasmClient,
-  uploadContracts,
 } from "./utils";
 
 const { osmosis: oldOsmo, setup, wasmd, fundAccount } = testutils;
@@ -23,32 +31,9 @@ const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 let wasmCodeIds: Record<string, number> = {};
 let osmosisCodeIds: Record<string, number> = {};
 
-interface DelegatorInstantiateMsg {
-  readonly admin_addr: string;
-}
-
-interface DrandInstantiateMsg {
-  readonly manager: string;
-  readonly min_round: number;
-  readonly incentive_amount: string;
-  readonly incentive_denom: string;
-}
-
-interface OracleInstantiateMsg {
-  readonly min_round: number;
-  readonly incentive_amount: string;
-  readonly incentive_denom: string;
-}
-
-interface ProxyInstantiateMsg {
-  readonly prices: Array<Coin>;
-  readonly withdrawal_address: string;
-  readonly test_mode: boolean;
-}
-
 test.before(async (t) => {
   t.log("Upload contracts to wasmd...");
-  const wasmContracts = {
+  const wasmContracts: WasmdContractPaths = {
     proxy: "./internal/nois_proxy.wasm",
     demo: "./internal/nois_demo.wasm",
   };
@@ -56,7 +41,7 @@ test.before(async (t) => {
   wasmCodeIds = await uploadContracts(t, wasmSign, wasmContracts);
 
   t.log("Upload contracts to osmosis...");
-  const osmosisContracts = {
+  const osmosisContracts: OsmosisContractPaths = {
     delegator: "./internal/nois_delegator.wasm",
     oracle: "./internal/nois_oracle.wasm",
     drand: "./internal/nois_drand.wasm",
