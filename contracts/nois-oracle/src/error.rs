@@ -30,9 +30,6 @@ pub enum ContractError {
     ChannelAlreadyRegistered,
 
     // Other
-    #[error("Invalid reply id")]
-    InvalidReplyId,
-
     #[error("Invalid public key")]
     InvalidPubkey,
 

@@ -28,9 +28,6 @@ pub enum ContractError {
     UnauthorizedAddVerifiedRound,
 
     // Other
-    #[error("Invalid reply id")]
-    InvalidReplyId,
-
     #[error("Invalid public key")]
     InvalidPubkey,
 
