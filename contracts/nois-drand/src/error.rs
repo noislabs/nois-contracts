@@ -20,10 +20,6 @@ pub enum ContractError {
     #[error("Moniker exceeds length limit.")]
     MonikerTooLong,
 
-    // Jobs
-    #[error("Job ID exceeds length limit.")]
-    JobIdTooLong,
-
     #[error("Sender is unauthorized tp add verified round.")]
     UnauthorizedAddVerifiedRound,
 
@@ -36,12 +32,6 @@ pub enum ContractError {
 
     #[error("Invalid signature")]
     InvalidSignature,
-
-    #[error("Invalid Delegator/Incentive Contract")]
-    InvalidDelegatorAddress,
-
-    #[error("Foreign error: {err}")]
-    ForeignError { err: String },
 
     #[error("A submission for the same round from the same bot exists already")]
     SubmissionExists,

@@ -29,22 +29,6 @@ pub enum ContractError {
     #[error("Cannot register over an existing channel")]
     ChannelAlreadyRegistered,
 
-    // Other
-    #[error("Invalid public key")]
-    InvalidPubkey,
-
-    #[error("Round {round} lower than min round {min_round}")]
-    RoundTooLow { round: u64, min_round: u64 },
-
-    #[error("Invalid signature")]
-    InvalidSignature,
-
-    #[error("Invalid Delegator/Incentive Contract")]
-    InvalidDelegatorAddress,
-
     #[error("Foreign error: {err}")]
     ForeignError { err: String },
-
-    #[error("A submission for the same round from the same bot exists already")]
-    SubmissionExists,
 }
