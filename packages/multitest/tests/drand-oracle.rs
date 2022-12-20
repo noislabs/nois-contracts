@@ -145,7 +145,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_oracle::msg::ConfigResponse {
-            drand_contract: addr_nois_oracle.clone(), // this is a bit pointless
+            drand_contract: None,
             min_round: 0,
             incentive_amount: Uint128::new(100_000),
             incentive_denom: "unois".to_string(),
@@ -244,12 +244,7 @@ fn integration_test() {
             signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
         };
     let resp = app
-        .execute_contract(
-            Addr::unchecked("drand_bot"),
-            addr_nois_drand,
-            &msg,
-            &[],
-        )
+        .execute_contract(Addr::unchecked("drand_bot"), addr_nois_drand, &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();

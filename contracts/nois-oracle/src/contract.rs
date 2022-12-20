@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    entry_point, from_binary, from_slice, to_binary, Attribute, BankMsg, Coin, CosmosMsg, Deps,
-    DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse,
-    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    Order, QueryResponse, Response, StdError, StdResult,
+    ensure_eq, entry_point, from_binary, from_slice, to_binary, Attribute, BankMsg, Coin,
+    CosmosMsg, Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse,
+    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg,
+    IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
+    IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
 };
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use nois_protocol::{
@@ -27,12 +27,12 @@ const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let config = Config {
-        drand_contract: env.contract.address,
+        drand_contract: None,
         min_round: msg.min_round,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
@@ -343,16 +343,18 @@ fn execute_add_round(
 fn execute_add_verified_round(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     round: u64,
     randomness: HexBinary,
 ) -> Result<Response, ContractError> {
-    // let config = CONFIG.load(deps.storage)?;
-    // ensure_eq!(
-    //     info.sender,
-    //     config.drand_contract,
-    //     ContractError::UnauthorizedAddVerifiedRound
-    // );
+    let config = CONFIG.load(deps.storage)?;
+    if let Some(drand_contract) = config.drand_contract {
+        ensure_eq!(
+            info.sender,
+            drand_contract,
+            ContractError::UnauthorizedAddVerifiedRound
+        );
+    }
 
     let mut attributes = Vec::<Attribute>::new();
     let router = RequestRouter::new();
@@ -522,7 +524,7 @@ mod tests {
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
-        let res = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
+        let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let config: ConfigResponse =
@@ -530,7 +532,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                drand_contract: env.contract.address,
+                drand_contract: None,
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
                 incentive_denom: "unois".to_string(),
