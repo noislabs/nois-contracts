@@ -1,30 +1,20 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Coin,
-    CosmosMsg, Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse,
-    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg,
-    IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
-    IbcReceiveResponse, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
+    ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut,
+    Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
-use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, Never, RequestBeaconPacket, StdAck,
-    IBC_APP_VERSION,
-};
 
 use crate::bots::validate_moniker;
 use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
-use crate::job_id::validate_job_id;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
-    InstantiateMsg, JobStatsResponse, QueriedSubmission, QueryMsg, SubmissionsResponse,
+    InstantiateMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
-use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_jobs, unprocessed_jobs_len, Bot, Config, QueriedBeacon, QueriedBot,
-    StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS, BOTS, CONFIG, SUBMISSIONS,
-    SUBMISSIONS_ORDER,
+    Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
+    BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -69,9 +59,6 @@ pub fn execute(
             previous_signature,
             signature,
         } => execute_add_round(deps, env, info, round, previous_signature, signature),
-        ExecuteMsg::AddVerifiedRound { round, randomness } => {
-            execute_add_verified_round(deps, env, info, round, randomness)
-        }
         ExecuteMsg::RegisterBot { moniker } => execute_register_bot(deps, env, info, moniker),
         ExecuteMsg::UpdateAllowlistBots { add, remove } => {
             execute_update_allowlist_bots(deps, info, add, remove)
@@ -93,7 +80,6 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
-        QueryMsg::JobStats { round } => to_binary(&query_job_stats(deps, round)?)?,
         // TODO Add query for allowlisted bots
     };
     Ok(response)
@@ -165,146 +151,6 @@ fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
         submissions.push(QueriedSubmission::make(stored, addr));
     }
     Ok(SubmissionsResponse { round, submissions })
-}
-
-// Query job stats by round
-fn query_job_stats(deps: Deps, round: u64) -> StdResult<JobStatsResponse> {
-    let unprocessed = unprocessed_jobs_len(deps.storage, round)?;
-    let processed = get_processed_jobs(deps.storage, round)?;
-    Ok(JobStatsResponse {
-        round,
-        unprocessed,
-        processed,
-    })
-}
-
-#[entry_point]
-/// enforces ordering and versioing constraints
-pub fn ibc_channel_open(
-    _deps: DepsMut,
-    _env: Env,
-    msg: IbcChannelOpenMsg,
-) -> Result<IbcChannelOpenResponse, ContractError> {
-    let channel = msg.channel();
-
-    check_order(&channel.order)?;
-    // In ibcv3 we don't check the version string passed in the message
-    // and only check the counterparty version.
-    if let Some(counter_version) = msg.counterparty_version() {
-        check_version(counter_version)?;
-    }
-
-    // We return the version we need (which could be different than the counterparty version)
-    Ok(Some(Ibc3ChannelOpenResponse {
-        version: IBC_APP_VERSION.to_string(),
-    }))
-}
-
-#[entry_point]
-pub fn ibc_channel_connect(
-    _deps: DepsMut,
-    _env: Env,
-    msg: IbcChannelConnectMsg,
-) -> StdResult<IbcBasicResponse> {
-    let channel = msg.channel();
-    let chan_id = &channel.endpoint.channel_id;
-
-    Ok(IbcBasicResponse::new()
-        .add_attribute("action", "ibc_connect")
-        .add_attribute("channel_id", chan_id)
-        .add_event(Event::new("ibc").add_attribute("channel", "connect")))
-}
-
-#[entry_point]
-pub fn ibc_channel_close(
-    _deps: DepsMut,
-    _env: Env,
-    msg: IbcChannelCloseMsg,
-) -> StdResult<IbcBasicResponse> {
-    let channel = msg.channel();
-    // get contract address and remove lookup
-    let channel_id = channel.endpoint.channel_id.as_str();
-
-    Ok(IbcBasicResponse::new()
-        .add_attribute("action", "ibc_close")
-        .add_attribute("channel_id", channel_id))
-}
-
-#[entry_point]
-pub fn ibc_packet_receive(
-    deps: DepsMut,
-    env: Env,
-    msg: IbcPacketReceiveMsg,
-) -> Result<IbcReceiveResponse, Never> {
-    let packet = msg.packet;
-    // which local channel did this packet come on
-    let channel = packet.dest.channel_id;
-
-    // put this in a closure so we can convert all error responses into acknowledgements
-    (|| {
-        let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-        receive_request_beacon(deps, env, channel, msg)
-    })()
-    .or_else(|e| {
-        // we try to capture all app-level errors and convert them into
-        // acknowledgement packets that contain an error code.
-        let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
-        Ok(IbcReceiveResponse::new()
-            .set_ack(acknowledgement)
-            .add_event(Event::new("ibc").add_attribute("packet", "receive")))
-    })
-}
-
-fn receive_request_beacon(
-    deps: DepsMut,
-    env: Env,
-    channel: String,
-    msg: RequestBeaconPacket,
-) -> Result<IbcReceiveResponse, ContractError> {
-    let RequestBeaconPacket {
-        sender,
-        after,
-        job_id,
-    } = msg;
-    validate_job_id(&job_id)?;
-
-    let router = RequestRouter::new();
-    let RoutingReceipt {
-        acknowledgement,
-        msgs,
-    } = router.route(deps, env, channel, after, sender, job_id)?;
-
-    Ok(IbcReceiveResponse::new()
-        .set_ack(acknowledgement)
-        .add_messages(msgs)
-        .add_attribute("action", "receive_request_beacon"))
-}
-
-#[entry_point]
-pub fn ibc_packet_ack(
-    _deps: DepsMut,
-    _env: Env,
-    msg: IbcPacketAckMsg,
-) -> Result<IbcBasicResponse, ContractError> {
-    let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
-    match ack {
-        StdAck::Result(data) => {
-            let _response: DeliverBeaconPacketAck = from_binary(&data)?;
-            // alright
-            Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_ack"))
-        }
-        StdAck::Error(err) => Err(ContractError::ForeignError { err }),
-    }
-}
-
-#[entry_point]
-/// never should be called as we do not send packets
-pub fn ibc_packet_timeout(
-    _deps: DepsMut,
-    _env: Env,
-    _msg: IbcPacketTimeoutMsg,
-) -> StdResult<IbcBasicResponse> {
-    Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_timeout"))
 }
 
 fn execute_register_bot(
@@ -465,48 +311,8 @@ fn execute_add_round(
         // get a wrong `verified` timestamp.
     }
 
-    let Response {
-        messages,
-        attributes: internal_attributes,
-        ..
-    } = execute_add_verified_round(deps, env, info, round, randomness)?;
-
-    attributes.extend(internal_attributes);
     Ok(Response::new()
         .add_messages(out_msgs)
-        .add_submessages(messages)
-        .add_attributes(attributes))
-}
-
-/// This method simulates how the drand contract will call the front-desk contract to inform
-/// it when there are is a new round. Here the verification was done at a trusted source so
-/// we only send the raw randomness.
-fn execute_add_verified_round(
-    deps: DepsMut,
-    env: Env,
-    _info: MessageInfo,
-    round: u64,
-    randomness: HexBinary,
-) -> Result<Response, ContractError> {
-    // let config = CONFIG.load(deps.storage)?;
-    // ensure_eq!(
-    //     info.sender,
-    //     config.drand_contract,
-    //     ContractError::UnauthorizedAddVerifiedRound
-    // );
-
-    let mut attributes = Vec::<Attribute>::new();
-    let router = RequestRouter::new();
-    let NewDrand {
-        msgs,
-        jobs_processed,
-        jobs_left,
-    } = router.new_drand(deps, env, round, &randomness)?;
-    attributes.push(Attribute::new("jobs_processed", jobs_processed.to_string()));
-    attributes.push(Attribute::new("jobs_left", jobs_left.to_string()));
-
-    Ok(Response::new()
-        .add_messages(msgs)
         .add_attributes(attributes))
 }
 
@@ -519,35 +325,13 @@ fn incentive_amount(config: &Config) -> Coin {
 
 #[cfg(test)]
 mod tests {
-
+    use super::*;
     use crate::msg::ExecuteMsg;
 
-    use super::*;
-    use cosmwasm_std::testing::{
-        mock_dependencies, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_ack,
-        mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_ibc_packet_recv, mock_info,
-        MockApi, MockQuerier, MockStorage,
-    };
-    use cosmwasm_std::{coin, from_binary, Addr, IbcMsg, OwnedDeps, Timestamp, Uint128};
-    use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
-    use sha2::Digest;
+    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::{from_binary, Addr, Timestamp, Uint128};
 
-    const CREATOR: &str = "creator";
     const TESTING_MIN_ROUND: u64 = 72785;
-
-    fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
-        let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {
-            manager: "manager".to_string(),
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
-        let info = mock_info(CREATOR, &[]);
-        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-        deps
-    }
 
     fn make_add_round_msg(round: u64) -> ExecuteMsg {
         match round {
@@ -603,20 +387,6 @@ mod tests {
         }
     }
 
-    fn make_add_verified_round_msg(round: u64) -> ExecuteMsg {
-        let (round, signature) = match make_add_round_msg(round) {
-            ExecuteMsg::AddRound {
-                round, signature, ..
-            } => (round, signature),
-            _ => panic!("Got unexpected enum case"),
-        };
-        let randomness = sha2::Sha256::digest(signature.as_ref());
-        ExecuteMsg::AddVerifiedRound {
-            round,
-            randomness: randomness.to_vec().into(),
-        }
-    }
-
     /// Adds round 72785, 72786, 72787
     fn add_test_rounds(mut deps: DepsMut, bot_addr: &str) {
         let msg = make_add_round_msg(72785);
@@ -636,27 +406,6 @@ mod tests {
                 None
             }
         })
-    }
-
-    // connect will run through the entire handshake to set up a proper connect and
-    // save the account (tested in detail in `proper_handshake_flow`)
-    fn connect(mut deps: DepsMut, channel_id: &str, account: impl Into<String>) {
-        let _account: String = account.into();
-
-        let handshake_open = mock_ibc_channel_open_init(channel_id, APP_ORDER, IBC_APP_VERSION);
-        // first we try to open with a valid handshake
-        ibc_channel_open(deps.branch(), mock_env(), handshake_open).unwrap();
-
-        // then we connect (with counter-party version set)
-        let handshake_connect =
-            mock_ibc_channel_connect_ack(channel_id, APP_ORDER, IBC_APP_VERSION);
-        let res = ibc_channel_connect(deps.branch(), mock_env(), handshake_connect).unwrap();
-        assert_eq!(res.messages.len(), 0);
-        assert_eq!(res.events.len(), 1);
-        assert_eq!(
-            res.events[0],
-            Event::new("ibc").add_attribute("channel", "connect"),
-        );
     }
 
     //
@@ -1278,144 +1027,6 @@ mod tests {
     }
 
     #[test]
-    fn add_round_processes_jobs() {
-        let mut deps = mock_dependencies();
-
-        let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
-        let msg = InstantiateMsg {
-            manager: "manager".to_string(),
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        // Create one job
-        let msg = mock_ibc_packet_recv(
-            "foo",
-            &RequestBeaconPacket {
-                after: Timestamp::from_seconds(1660941090 - 1),
-                job_id: "test 1".to_string(),
-                sender: "my_dapp".to_string(),
-            },
-        )
-        .unwrap();
-        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
-
-        // Previous round processes no job
-        let msg = make_add_verified_round_msg(2183668);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 0);
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "0");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
-
-        // Process one job
-        let msg = make_add_verified_round_msg(2183669);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 1);
-        assert_eq!(res.messages[0].gas_limit, None);
-        assert!(matches!(
-            res.messages[0].msg,
-            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
-        ));
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "1");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
-
-        // Create 3 job
-        for i in 0..3 {
-            let msg = mock_ibc_packet_recv(
-                "foo",
-                &RequestBeaconPacket {
-                    after: Timestamp::from_seconds(1660941120 - 1),
-                    job_id: format!("test {i}"),
-                    sender: "my_dapp".to_string(),
-                },
-            )
-            .unwrap();
-            ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
-        }
-
-        // Process 3 jobs
-        let msg = make_add_verified_round_msg(2183670);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 3);
-        assert_eq!(res.messages[0].gas_limit, None);
-        assert_eq!(res.messages[1].gas_limit, None);
-        assert_eq!(res.messages[2].gas_limit, None);
-        assert!(matches!(
-            res.messages[0].msg,
-            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
-        ));
-        assert!(matches!(
-            res.messages[1].msg,
-            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
-        ));
-        assert!(matches!(
-            res.messages[2].msg,
-            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
-        ));
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "3");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
-
-        // Create 7 job
-        for i in 0..7 {
-            let msg = mock_ibc_packet_recv(
-                "foo",
-                &RequestBeaconPacket {
-                    after: Timestamp::from_seconds(1660941150 - 1),
-                    job_id: format!("test {i}"),
-                    sender: "my_dapp".to_string(),
-                },
-            )
-            .unwrap();
-            ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
-        }
-
-        // Process first 3 jobs
-        let msg = make_add_verified_round_msg(2183671);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon1", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 3);
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "3");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "4");
-
-        // Process next 3 jobs
-        let msg = make_add_verified_round_msg(2183671);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon2", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 3);
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "3");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "1");
-
-        // Process last 1 jobs
-        let msg = make_add_verified_round_msg(2183671);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon3", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 1);
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "1");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
-
-        // No jobs left for later submissions
-        let msg = make_add_verified_round_msg(2183671);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon4", &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 0);
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "0");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
-    }
-
-    #[test]
     fn register_bot_works_for_updates() {
         let mut deps = mock_dependencies();
         let bot_addr = "bot_addr".to_string();
@@ -1790,185 +1401,5 @@ mod tests {
                 },
             ]
         );
-    }
-
-    #[test]
-    fn query_job_stats_works() {
-        let mut deps = mock_dependencies();
-
-        let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
-        let msg = InstantiateMsg {
-            manager: "manager".to_string(),
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        fn job_stats(deps: Deps, round: u64) -> JobStatsResponse {
-            from_binary(&query(deps, mock_env(), QueryMsg::JobStats { round }).unwrap()).unwrap()
-        }
-
-        // No jobs by default
-        assert_eq!(
-            job_stats(deps.as_ref(), 2183669),
-            JobStatsResponse {
-                round: 2183669,
-                processed: 0,
-                unprocessed: 0,
-            }
-        );
-
-        // Create one job
-        let msg = mock_ibc_packet_recv(
-            "foo",
-            &RequestBeaconPacket {
-                after: Timestamp::from_seconds(1660941090 - 1),
-                job_id: "test 1".to_string(),
-                sender: "my_dapp".to_string(),
-            },
-        )
-        .unwrap();
-        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
-
-        // One unprocessed job
-        assert_eq!(
-            job_stats(deps.as_ref(), 2183669),
-            JobStatsResponse {
-                round: 2183669,
-                processed: 0,
-                unprocessed: 1,
-            }
-        );
-
-        let msg = make_add_round_msg(2183669);
-        execute(deps.as_mut(), mock_env(), mock_info("bot", &[]), msg).unwrap();
-
-        // 1 processed job, no unprocessed jobs
-        assert_eq!(
-            job_stats(deps.as_ref(), 2183669),
-            JobStatsResponse {
-                round: 2183669,
-                processed: 1,
-                unprocessed: 0,
-            }
-        );
-
-        // New job for existing round gets processed immediately
-        let msg = mock_ibc_packet_recv(
-            "foo",
-            &RequestBeaconPacket {
-                after: Timestamp::from_seconds(1660941090 - 1),
-                job_id: "test 2".to_string(),
-                sender: "my_dapp".to_string(),
-            },
-        )
-        .unwrap();
-        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
-
-        // 2 processed job, no unprocessed jobs
-        assert_eq!(
-            job_stats(deps.as_ref(), 2183669),
-            JobStatsResponse {
-                round: 2183669,
-                processed: 2,
-                unprocessed: 0,
-            }
-        );
-
-        // Create 20 jobs
-        for i in 0..20 {
-            let msg = mock_ibc_packet_recv(
-                "foo",
-                &RequestBeaconPacket {
-                    after: Timestamp::from_seconds(1660941150 - 1),
-                    job_id: format!("job {i}"),
-                    sender: "my_dapp".to_string(),
-                },
-            )
-            .unwrap();
-            ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
-        }
-
-        // 20 unprocessed
-        assert_eq!(
-            job_stats(deps.as_ref(), 2183671),
-            JobStatsResponse {
-                round: 2183671,
-                processed: 0,
-                unprocessed: 20,
-            }
-        );
-
-        // process some
-        let msg = make_add_round_msg(2183671);
-        execute(deps.as_mut(), mock_env(), mock_info("bot", &[]), msg).unwrap();
-
-        // Some processed, rest unprocessed
-        assert_eq!(
-            job_stats(deps.as_ref(), 2183671),
-            JobStatsResponse {
-                round: 2183671,
-                processed: 3,
-                unprocessed: 17,
-            }
-        );
-    }
-
-    //
-    // IBC tests
-    //
-
-    #[test]
-    fn ibc_channel_open_checks_version_and_order() {
-        let mut deps = setup();
-
-        // All good
-        let valid_handshake = mock_ibc_channel_open_try("channel-12", APP_ORDER, IBC_APP_VERSION);
-        ibc_channel_open(deps.as_mut(), mock_env(), valid_handshake).unwrap();
-
-        // Wrong order
-        let wrong_order = mock_ibc_channel_open_try("channel-12", BAD_APP_ORDER, IBC_APP_VERSION);
-        let res = ibc_channel_open(deps.as_mut(), mock_env(), wrong_order).unwrap_err();
-        assert!(matches!(res, ContractError::ChannelError(..)));
-
-        // Wrong version
-        let wrong_version = mock_ibc_channel_open_try("channel-12", APP_ORDER, "another version");
-        let res = ibc_channel_open(deps.as_mut(), mock_env(), wrong_version).unwrap_err();
-        assert!(matches!(res, ContractError::ChannelError(..)));
-    }
-
-    #[test]
-    fn proper_handshake_flow() {
-        let mut deps = setup();
-        let channel_id = "channel-1234";
-
-        // first we try to open with a valid handshake
-        let handshake_open = mock_ibc_channel_open_init(channel_id, APP_ORDER, IBC_APP_VERSION);
-        ibc_channel_open(deps.as_mut(), mock_env(), handshake_open).unwrap();
-
-        // then we connect (with counter-party version set)
-        let handshake_connect =
-            mock_ibc_channel_connect_ack(channel_id, APP_ORDER, IBC_APP_VERSION);
-        let _res = ibc_channel_connect(deps.as_mut(), mock_env(), handshake_connect).unwrap();
-    }
-
-    #[test]
-    fn check_close_channel() {
-        let mut deps = setup();
-
-        let channel_id = "channel-123";
-        let account = "acct-123";
-
-        // register the channel
-        connect(deps.as_mut(), channel_id, account);
-        // assign it some funds
-        let funds = vec![coin(123456, "uatom"), coin(7654321, "tgrd")];
-        deps.querier.update_balance(account, funds);
-
-        // close the channel
-        let channel = mock_ibc_channel_close_init(channel_id, APP_ORDER, IBC_APP_VERSION);
-        let _res = ibc_channel_close(deps.as_mut(), mock_env(), channel).unwrap();
     }
 }

@@ -2,8 +2,6 @@ use thiserror::Error;
 
 use cosmwasm_std::StdError;
 
-use nois_protocol::ChannelError;
-
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
     #[error("{0}")]
@@ -25,13 +23,6 @@ pub enum ContractError {
 
     #[error("Sender is unauthorized tp add verified round.")]
     UnauthorizedAddVerifiedRound,
-
-    // IBC
-    #[error("{0}")]
-    ChannelError(#[from] ChannelError),
-
-    #[error("Cannot register over an existing channel")]
-    ChannelAlreadyRegistered,
 
     // Other
     #[error("Invalid reply id")]

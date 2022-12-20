@@ -26,8 +26,6 @@ pub enum ExecuteMsg {
         previous_signature: HexBinary,
         signature: HexBinary,
     },
-    /// Add drand beacon
-    AddVerifiedRound { round: u64, randomness: HexBinary },
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
     RegisterBot { moniker: String },
@@ -72,9 +70,6 @@ pub enum QueryMsg {
     Bots {},
     #[returns(SubmissionsResponse)]
     Submissions { round: u64 },
-    /// Gets basic statistics about jobs in this round.
-    #[returns(JobStatsResponse)]
-    JobStats { round: u64 },
 }
 
 // We define a custom struct for each query response
@@ -123,13 +118,4 @@ impl QueriedSubmission {
 pub struct SubmissionsResponse {
     pub round: u64,
     pub submissions: Vec<QueriedSubmission>,
-}
-
-#[cw_serde]
-pub struct JobStatsResponse {
-    pub round: u64,
-    /// Number of unprocessed jobs
-    pub unprocessed: u32,
-    /// Number of processed jobs
-    pub processed: u32,
 }
