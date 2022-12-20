@@ -9,18 +9,11 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    // Bots
-    #[error("Moniker must not be empty.")]
-    MonikerEmpty,
-
     #[error("Unauthorized.")]
     Unauthorized,
 
     #[error("Unauthorized. Contract is already set")]
     ContractAlreadySet,
-
-    #[error("Moniker exceeds length limit.")]
-    MonikerTooLong,
 
     // Jobs
     #[error("Job ID exceeds length limit.")]
