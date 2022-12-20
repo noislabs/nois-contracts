@@ -24,7 +24,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let config = Config {
-        drand_contract: None,
+        drand: None,
         min_round: msg.min_round,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
@@ -51,6 +51,7 @@ pub fn execute(
         ExecuteMsg::AddVerifiedRound { round, randomness } => {
             execute_add_verified_round(deps, env, info, round, randomness)
         }
+        ExecuteMsg::SetDrandAddr { addr } => execute_set_drand_addr(deps, env, addr),
     }
 }
 
@@ -219,10 +220,10 @@ fn execute_add_verified_round(
     randomness: HexBinary,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    if let Some(drand_contract) = config.drand_contract {
+    if let Some(drand) = config.drand {
         ensure_eq!(
             info.sender,
-            drand_contract,
+            drand,
             ContractError::UnauthorizedAddVerifiedRound
         );
     }
@@ -240,6 +241,31 @@ fn execute_add_verified_round(
     Ok(Response::new()
         .add_messages(msgs)
         .add_attributes(attributes))
+}
+
+/// In order not to fall in the chicken egg problem where you need
+/// to instantiate two or more contracts that need to be aware of each other
+/// in a context where the contract addresses generration is not known
+/// in advance, we set the contract address at a later stage after the
+/// instantation and make sure it is immutable once set
+fn execute_set_drand_addr(
+    deps: DepsMut,
+    _env: Env,
+    addr: String,
+) -> Result<Response, ContractError> {
+    let mut config = CONFIG.load(deps.storage)?;
+
+    // ensure immutability
+    if config.drand.is_some() {
+        return Err(ContractError::ContractAlreadySet {});
+    }
+
+    let nois_drand = deps.api.addr_validate(&addr)?;
+    config.drand = Some(nois_drand.clone());
+
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(Response::new().add_attribute("nois-drand-address", nois_drand))
 }
 
 #[cfg(test)]
@@ -397,7 +423,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                drand_contract: None,
+                drand: None,
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
                 incentive_denom: "unois".to_string(),

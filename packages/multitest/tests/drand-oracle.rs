@@ -145,7 +145,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_oracle::msg::ConfigResponse {
-            drand_contract: None,
+            drand: None,
             min_round: 0,
             incentive_amount: Uint128::new(100_000),
             incentive_denom: "unois".to_string(),
@@ -171,6 +171,30 @@ fn integration_test() {
         nois_drand::msg::ConfigResponse {
             manager: Addr::unchecked("bossman"),
             oracle: Some(addr_nois_oracle.clone()),
+            min_round: 0,
+            incentive_amount: Uint128::new(100_000),
+            incentive_denom: "unois".to_string(),
+        }
+    );
+
+    // Set drand address to oracle
+    app.execute_contract(
+        Addr::unchecked("guest"),
+        addr_nois_oracle.to_owned(),
+        &nois_oracle::msg::ExecuteMsg::SetDrandAddr {
+            addr: addr_nois_drand.to_string(),
+        },
+        &[],
+    )
+    .unwrap();
+    let resp: nois_oracle::msg::ConfigResponse = app
+        .wrap()
+        .query_wasm_smart(&addr_nois_oracle, &nois_oracle::msg::QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(
+        resp,
+        nois_oracle::msg::ConfigResponse {
+            drand: Some(addr_nois_drand.clone()),
             min_round: 0,
             incentive_amount: Uint128::new(100_000),
             incentive_denom: "unois".to_string(),

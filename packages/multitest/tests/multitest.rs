@@ -128,7 +128,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_oracle::msg::ConfigResponse {
-            drand_contract: None,
+            drand: None,
             min_round: 0,
             incentive_amount: Uint128::new(100_000),
             incentive_denom: "unois".to_string(),

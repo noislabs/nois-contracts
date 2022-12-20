@@ -16,6 +16,9 @@ pub enum ContractError {
     #[error("Unauthorized.")]
     Unauthorized,
 
+    #[error("Unauthorized. Contract is already set")]
+    ContractAlreadySet,
+
     #[error("Moniker exceeds length limit.")]
     MonikerTooLong,
 

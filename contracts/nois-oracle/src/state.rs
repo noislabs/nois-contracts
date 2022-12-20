@@ -5,7 +5,7 @@ use cw_storage_plus::{Deque, Item, Map};
 #[cw_serde]
 pub struct Config {
     /// The address of the drand contract
-    pub drand_contract: Option<Addr>,
+    pub drand: Option<Addr>,
     /// The lowest drand round this contracts accepts for verification and storage.
     pub min_round: u64,
     /// Bot incentive amount

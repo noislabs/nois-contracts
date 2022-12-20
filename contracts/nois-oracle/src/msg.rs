@@ -21,6 +21,8 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     /// Add drand beacon
     AddVerifiedRound { round: u64, randomness: HexBinary },
+    /// Set the address of the drand beackend contract
+    SetDrandAddr { addr: String },
 }
 
 #[cw_serde]
