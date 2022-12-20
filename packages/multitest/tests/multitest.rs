@@ -14,10 +14,16 @@ fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
 
     balance.amount
 }
-fn mint_native(app: &mut App, beneficiary: String, denom: String, amount: u128) {
+
+fn mint_native(
+    app: &mut App,
+    beneficiary: impl Into<String>,
+    denom: impl Into<String>,
+    amount: u128,
+) {
     app.sudo(cw_multi_test::SudoMsg::Bank(
         cw_multi_test::BankSudo::Mint {
-            to_address: beneficiary,
+            to_address: beneficiary.into(),
             amount: vec![Coin::new(amount, denom)],
         },
     ))
@@ -59,13 +65,9 @@ fn integration_test() {
         nois_delegator::contract::query,
     );
     let code_id_nois_delegator = app.store_code(Box::new(code_nois_delegator));
+
     //Mint some coins for owner
-    mint_native(
-        &mut app,
-        "owner".to_string(),
-        "unois".to_string(),
-        100_000_000,
-    );
+    mint_native(&mut app, "owner", "unois", 100_000_000);
 
     // Instantiating nois-delegator contract
     let addr_nois_delegator = app
