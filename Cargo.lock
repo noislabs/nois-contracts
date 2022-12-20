@@ -682,6 +682,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-multi-test",
  "nois-delegator",
+ "nois-drand",
  "nois-oracle",
  "nois-proxy",
 ]
