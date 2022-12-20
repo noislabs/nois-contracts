@@ -15,10 +15,28 @@ export interface DrandInstantiateMsg {
   readonly incentive_denom: string;
 }
 
+export interface DrandExecuteMsg {
+  readonly add_round?: {
+    readonly round: number;
+    readonly signature: string;
+    readonly previous_signature: string;
+  };
+  readonly register_bot?: {
+    readonly moniker: string;
+  };
+}
+
 export interface OracleInstantiateMsg {
   readonly min_round: number;
   readonly incentive_amount: string;
   readonly incentive_denom: string;
+}
+
+export interface OracleExecuteMsg {
+  readonly add_verified_round: {
+    readonly round: number;
+    readonly randomness: string;
+  };
 }
 
 export interface ProxyInstantiateMsg {
