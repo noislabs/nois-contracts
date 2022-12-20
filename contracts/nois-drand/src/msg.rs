@@ -28,10 +28,15 @@ pub enum ExecuteMsg {
     },
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
-    RegisterBot { moniker: String },
+    RegisterBot {
+        moniker: String,
+    },
     UpdateAllowlistBots {
         add: Vec<String>,
         remove: Vec<String>,
+    },
+    SetOracleAddr {
+        addr: String,
     },
 }
 
@@ -118,4 +123,10 @@ impl QueriedSubmission {
 pub struct SubmissionsResponse {
     pub round: u64,
     pub submissions: Vec<QueriedSubmission>,
+}
+
+#[cw_serde]
+pub enum NoisOracleExecuteMsg {
+    /// Add drand beacon
+    AddVerifiedRound { round: u64, randomness: HexBinary },
 }

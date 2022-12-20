@@ -219,6 +219,14 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     "auto"
   );
 
+  // Set oracle address to drand
+  await osmoClient.sign.execute(
+    osmoClient.senderAddress,
+    noisDrandAddress,
+    { set_oracle_addr: { addr: noisOracleAddress } },
+    "auto"
+  );
+
   const [noisProxyInfo, noisOracleInfo] = await Promise.all([
     wasmClient.sign.getContract(noisProxyAddress),
     osmoClient.sign.getContract(noisOracleAddress),

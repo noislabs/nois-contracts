@@ -8,8 +8,8 @@ use crate::drand::time_of_round;
 pub struct Config {
     /// manager for bot addr de/allowlist
     pub manager: Addr,
-    /// The address of the drand contract
-    pub drand_contract: Addr,
+    /// The address of the oracle contract
+    pub oracle: Option<Addr>,
     /// The lowest drand round this contracts accepts for verification and storage.
     pub min_round: u64,
     /// Bot incentive amount

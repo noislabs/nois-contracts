@@ -1,6 +1,7 @@
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut,
     Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
+    WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
@@ -10,7 +11,7 @@ use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
-    InstantiateMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
+    InstantiateMsg, NoisOracleExecuteMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
@@ -23,14 +24,14 @@ const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let manager = deps.api.addr_validate(&msg.manager)?;
     let config = Config {
         manager,
-        drand_contract: env.contract.address,
+        oracle: None,
         min_round: msg.min_round,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
@@ -63,6 +64,7 @@ pub fn execute(
         ExecuteMsg::UpdateAllowlistBots { add, remove } => {
             execute_update_allowlist_bots(deps, info, add, remove)
         }
+        ExecuteMsg::SetOracleAddr { addr } => execute_set_oracle_addr(deps, env, addr),
     }
 }
 
@@ -311,9 +313,45 @@ fn execute_add_round(
         // get a wrong `verified` timestamp.
     }
 
+    if let Some(oracle) = config.oracle {
+        out_msgs.push(
+            WasmMsg::Execute {
+                contract_addr: oracle.into(),
+                msg: to_binary(&NoisOracleExecuteMsg::AddVerifiedRound { round, randomness })?,
+                funds: vec![],
+            }
+            .into(),
+        )
+    }
+
     Ok(Response::new()
         .add_messages(out_msgs)
         .add_attributes(attributes))
+}
+
+/// In order not to fall in the chicken egg problem where you need
+/// to instantiate two or more contracts that need to be aware of each other
+/// in a context where the contract addresses generration is not known
+/// in advance, we set the contract address at a later stage after the
+/// instantation and make sure it is immutable once set
+fn execute_set_oracle_addr(
+    deps: DepsMut,
+    _env: Env,
+    addr: String,
+) -> Result<Response, ContractError> {
+    let mut config = CONFIG.load(deps.storage)?;
+
+    // ensure immutability
+    if config.oracle.is_some() {
+        return Err(ContractError::ContractAlreadySet {});
+    }
+
+    let nois_oracle = deps.api.addr_validate(&addr)?;
+    config.oracle = Some(nois_oracle.clone());
+
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(Response::new().add_attribute("nois-oracle-address", nois_oracle))
 }
 
 fn incentive_amount(config: &Config) -> Coin {
@@ -424,7 +462,7 @@ mod tests {
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
-        let res = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
+        let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
         let config: ConfigResponse =
@@ -433,7 +471,7 @@ mod tests {
             config,
             ConfigResponse {
                 manager: Addr::unchecked("manager"),
-                drand_contract: env.contract.address,
+                oracle: None,
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
                 incentive_denom: "unois".to_string(),
