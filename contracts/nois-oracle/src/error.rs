@@ -19,7 +19,7 @@ pub enum ContractError {
     #[error("Job ID exceeds length limit.")]
     JobIdTooLong,
 
-    #[error("Sender is unauthorized tp add verified round.")]
+    #[error("Sender is unauthorized to add verified round.")]
     UnauthorizedAddVerifiedRound,
 
     // IBC
