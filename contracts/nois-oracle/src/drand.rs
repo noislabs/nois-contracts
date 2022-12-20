@@ -1,12 +1,5 @@
 use cosmwasm_std::Timestamp;
 
-// $ node
-// > Uint8Array.from(Buffer.from("868f005eb8e6e4ca0a47c8a77ceaa5309a47978a7c71bc5cce96366b5d7a569937c529eeda66c7293784a9402801af31", "hex"))
-pub const DRAND_MAINNET_PUBKEY: [u8; 48] = [
-    134, 143, 0, 94, 184, 230, 228, 202, 10, 71, 200, 167, 124, 234, 165, 48, 154, 71, 151, 138,
-    124, 113, 188, 92, 206, 150, 54, 107, 93, 122, 86, 153, 55, 197, 41, 238, 218, 102, 199, 41,
-    55, 132, 169, 64, 40, 1, 175, 49,
-];
 /// The chain hash serves as a drand network identifier.
 ///
 /// See <https://drand.love/developer/> and <https://drand.cloudflare.com/info>

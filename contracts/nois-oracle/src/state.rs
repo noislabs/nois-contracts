@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, HexBinary, StdResult, Storage, Timestamp, Uint128};
+use cosmwasm_std::{Addr, StdResult, Storage, Uint128};
 use cw_storage_plus::{Deque, Item, Map};
 
 #[cw_serde]
@@ -15,42 +15,6 @@ pub struct Config {
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
-
-#[cw_serde]
-pub struct VerifiedBeacon {
-    pub verified: Timestamp,
-    /// The sha256(signature) in lower case hex
-    pub randomness: HexBinary,
-}
-
-// A map from round number to drand beacon
-pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
-
-pub const BOTS: Map<&Addr, Bot> = Map::new("bots");
-
-#[cw_serde]
-pub struct StoredSubmission {
-    pub time: Timestamp,
-}
-
-/// Stores the submission for an efficient (round, address) lookup
-pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissions");
-
-/// A map from (round, index) to bot address. This is used when
-/// sorted submissions are needed.
-///
-/// The `index` values are 0-based. So the `n`th submission has index
-/// n-1 here as well as in the response array in `SubmissionsResponse`.
-pub const SUBMISSIONS_ORDER: Map<(u64, u32), Addr> = Map::new("submissions_order");
-
-/// The bot type for the state. We don't need the address here
-/// since this is stored in the storage key.
-#[cw_serde]
-pub struct Bot {
-    pub moniker: String,
-    /// Number of rounds added
-    pub rounds_added: u64,
-}
 
 #[cw_serde]
 pub struct Job {

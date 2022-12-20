@@ -693,12 +693,9 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus 1.0.1",
- "drand-verify",
- "hex",
  "nois",
  "nois-protocol",
  "serde",
- "sha2 0.10.6",
  "thiserror",
 ]
 

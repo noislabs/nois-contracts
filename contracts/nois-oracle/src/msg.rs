@@ -20,12 +20,6 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Add drand beacon
-    AddRound {
-        round: u64,
-        previous_signature: HexBinary,
-        signature: HexBinary,
-    },
-    /// Add drand beacon
     AddVerifiedRound { round: u64, randomness: HexBinary },
 }
 

@@ -11,7 +11,7 @@ use crate::{
     drand::{round_after, DRAND_CHAIN_HASH},
     state::{
         increment_processed_jobs, unprocessed_jobs_dequeue, unprocessed_jobs_enqueue,
-        unprocessed_jobs_len, Job, BEACONS,
+        unprocessed_jobs_len, Job,
     },
 };
 
@@ -58,9 +58,7 @@ impl RequestRouter {
         //     .querier
         //     .query_wasm_smart(&self.drand_addr, &QueryMsg::Beacon { round })?;
         // let randomness = beacon.map(|b| b.randomness);
-
-        // Implementation using storage
-        let randomness = BEACONS.may_load(deps.storage, round)?.map(|b| b.randomness);
+        let randomness: Option<HexBinary> = None;
 
         let job = Job {
             source_id: source_id.clone(),
