@@ -1,21 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{HexBinary, Uint128};
+use cosmwasm_std::HexBinary;
 
 use crate::state::Config;
 
 #[cw_serde]
-pub struct InstantiateMsg {
-    /// The lowest drand round this contracts accepts for verification and storage.
-    pub min_round: u64,
-    /// Bot incentive amount.
-    ///
-    /// A round submission currently consumes 620k. Using a gas limit of
-    /// 700k and a gas cost of 0.05unois/gas this is a fee of 35000unois.
-    /// Anything above that is a useful incentive.
-    pub incentive_amount: Uint128,
-    /// Bot incentive denom
-    pub incentive_denom: String,
-}
+pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {

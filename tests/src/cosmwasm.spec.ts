@@ -115,11 +115,7 @@ test.serial("set up channel", async (t) => {
   assert(proxyPort);
 
   const osmoClient = await setupOsmosisClient();
-  const msg: OracleInstantiateMsg = {
-    min_round: 2183660,
-    incentive_amount: "0",
-    incentive_denom: "unois",
-  };
+  const msg: OracleInstantiateMsg = {};
   const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,
@@ -206,11 +202,7 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
   );
 
   // Instantiate Oracle on Osmosis
-  const msg: OracleInstantiateMsg = {
-    min_round: 2183660,
-    incentive_amount: "0",
-    incentive_denom: "unois",
-  };
+  const msg: OracleInstantiateMsg = {};
   const { contractAddress: noisOracleAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
     osmosisCodeIds.oracle,

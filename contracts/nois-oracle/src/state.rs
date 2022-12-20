@@ -1,17 +1,11 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, StdResult, Storage, Uint128};
+use cosmwasm_std::{Addr, StdResult, Storage};
 use cw_storage_plus::{Deque, Item, Map};
 
 #[cw_serde]
 pub struct Config {
     /// The address of the drand contract
     pub drand: Option<Addr>,
-    /// The lowest drand round this contracts accepts for verification and storage.
-    pub min_round: u64,
-    /// Bot incentive amount
-    pub incentive_amount: Uint128,
-    /// Bot incentive denom
-    pub incentive_denom: String,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

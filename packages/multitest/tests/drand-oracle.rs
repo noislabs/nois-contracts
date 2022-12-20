@@ -126,11 +126,7 @@ fn integration_test() {
         .instantiate_contract(
             code_id_nois_oracle,
             Addr::unchecked("owner"),
-            &nois_oracle::msg::InstantiateMsg {
-                incentive_amount: Uint128::new(100_000),
-                incentive_denom: "unois".to_string(),
-                min_round: 0,
-            },
+            &nois_oracle::msg::InstantiateMsg {},
             &[],
             "Nois-Oracle",
             None,
@@ -142,15 +138,7 @@ fn integration_test() {
         .unwrap();
     //Checking that the contract has been well instantiated with the expected config
 
-    assert_eq!(
-        resp,
-        nois_oracle::msg::ConfigResponse {
-            drand: None,
-            min_round: 0,
-            incentive_amount: Uint128::new(100_000),
-            incentive_denom: "unois".to_string(),
-        }
-    );
+    assert_eq!(resp, nois_oracle::msg::ConfigResponse { drand: None });
 
     // Set oracle address to drand
     app.execute_contract(
@@ -195,9 +183,6 @@ fn integration_test() {
         resp,
         nois_oracle::msg::ConfigResponse {
             drand: Some(addr_nois_drand.clone()),
-            min_round: 0,
-            incentive_amount: Uint128::new(100_000),
-            incentive_denom: "unois".to_string(),
         }
     );
 

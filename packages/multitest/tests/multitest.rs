@@ -92,7 +92,7 @@ fn integration_test() {
         resp,
         nois_delegator::msg::ConfigResponse {
             admin_addr: Addr::unchecked("owner"),
-            nois_oracle_contract_addr: Option::None
+            nois_oracle_contract_addr: None,
         }
     );
 
@@ -109,11 +109,7 @@ fn integration_test() {
         .instantiate_contract(
             code_id_nois_oracle,
             Addr::unchecked("owner"),
-            &nois_oracle::msg::InstantiateMsg {
-                incentive_amount: Uint128::new(100_000),
-                incentive_denom: "unois".to_string(),
-                min_round: 0,
-            },
+            &nois_oracle::msg::InstantiateMsg {},
             &[],
             "Nois-Oracle",
             None,
@@ -124,16 +120,8 @@ fn integration_test() {
         .query_wasm_smart(&addr_nois_oracle, &nois_oracle::msg::QueryMsg::Config {})
         .unwrap();
     //Checking that the contract has been well instantiated with the expected config
+    assert_eq!(resp, nois_oracle::msg::ConfigResponse { drand: None });
 
-    assert_eq!(
-        resp,
-        nois_oracle::msg::ConfigResponse {
-            drand: None,
-            min_round: 0,
-            incentive_amount: Uint128::new(100_000),
-            incentive_denom: "unois".to_string(),
-        }
-    );
     // Make the nois-delegator contract aware of the nois-oracle contract by setting the oracle address in its state
     let msg = nois_delegator::msg::ExecuteMsg::SetNoisOracleContractAddr {
         addr: addr_nois_oracle.to_string(),

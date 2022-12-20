@@ -21,14 +21,9 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    msg: InstantiateMsg,
+    _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let config = Config {
-        drand: None,
-        min_round: msg.min_round,
-        incentive_amount: msg.incentive_amount,
-        incentive_denom: msg.incentive_denom,
-    };
+    let config = Config { drand: None };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
 }
@@ -279,19 +274,14 @@ mod tests {
         mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_ibc_packet_recv, mock_info,
         MockApi, MockQuerier, MockStorage,
     };
-    use cosmwasm_std::{coin, from_binary, CosmosMsg, IbcMsg, OwnedDeps, Timestamp, Uint128};
+    use cosmwasm_std::{coin, from_binary, CosmosMsg, IbcMsg, OwnedDeps, Timestamp};
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
-    const TESTING_MIN_ROUND: u64 = 72785;
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
+        let msg = InstantiateMsg {};
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -408,11 +398,7 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
+        let msg = InstantiateMsg {};
         let info = mock_info("creator", &[]);
         let env = mock_env();
         let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
@@ -420,15 +406,7 @@ mod tests {
 
         let config: ConfigResponse =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
-        assert_eq!(
-            config,
-            ConfigResponse {
-                drand: None,
-                min_round: TESTING_MIN_ROUND,
-                incentive_amount: Uint128::new(1_000_000),
-                incentive_denom: "unois".to_string(),
-            }
-        );
+        assert_eq!(config, ConfigResponse { drand: None });
     }
 
     //
@@ -440,11 +418,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
+        let msg = InstantiateMsg {};
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Create one job
@@ -580,11 +554,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {
-            min_round: TESTING_MIN_ROUND,
-            incentive_amount: Uint128::new(1_000_000),
-            incentive_denom: "unois".to_string(),
-        };
+        let msg = InstantiateMsg {};
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         fn job_stats(deps: Deps, round: u64) -> JobStatsResponse {

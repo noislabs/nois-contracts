@@ -26,11 +26,8 @@ export interface DrandExecuteMsg {
   };
 }
 
-export interface OracleInstantiateMsg {
-  readonly min_round: number;
-  readonly incentive_amount: string;
-  readonly incentive_denom: string;
-}
+// eslint-disable-next-line @typescript-eslint/no-empty-interface
+export interface OracleInstantiateMsg {}
 
 export interface OracleExecuteMsg {
   readonly add_verified_round: {
