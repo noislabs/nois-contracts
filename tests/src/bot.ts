@@ -2,6 +2,7 @@ import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate"
 import { logs } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 
+import { DrandExecuteMsg, OracleExecuteMsg } from "./contracts";
 import { setupOsmosisClient } from "./utils";
 
 interface Beacon {
@@ -70,9 +71,58 @@ const localDataSource: Map<number, Beacon> = new Map(
 );
 
 export class Bot {
-  public static async connect(oracleAddress: string): Promise<Bot> {
+  public static async connect(drandAddress: string): Promise<Bot> {
     const signer = await setupOsmosisClient();
-    return new Bot(signer.senderAddress, signer.sign, oracleAddress);
+    return new Bot(signer.senderAddress, signer.sign, drandAddress);
+  }
+
+  private readonly address: string;
+  private readonly client: SigningCosmWasmClient;
+  private readonly drandAddress: string;
+  private nextRound = 2183660;
+
+  private constructor(address: string, client: SigningCosmWasmClient, drandAddress: string) {
+    this.address = address;
+    this.client = client;
+    this.drandAddress = drandAddress;
+  }
+
+  public async submitNext(): Promise<ExecuteResult> {
+    const round = this.nextRound;
+    this.nextRound += 1;
+    return this.submitRound(round);
+  }
+
+  public async submitRound(round: number): Promise<ExecuteResult> {
+    const beacon = localDataSource.get(round);
+    assert(beacon, `No data source for round ${round} available`);
+
+    const msg: DrandExecuteMsg = {
+      add_round: {
+        round: beacon.round,
+        signature: beacon.signature,
+        previous_signature: beacon.previous_signature,
+      },
+    };
+    const res = await this.client.execute(this.address, this.drandAddress, msg, "auto");
+    return res;
+  }
+
+  public async register(moniker: string): Promise<ExecuteResult> {
+    const msg: DrandExecuteMsg = {
+      register_bot: {
+        moniker,
+      },
+    };
+    return this.client.execute(this.address, this.drandAddress, msg, "auto");
+  }
+}
+
+// Like Bot but submits pre-verified beacons
+export class MockBot {
+  public static async connect(oracleAddress: string): Promise<MockBot> {
+    const signer = await setupOsmosisClient();
+    return new MockBot(signer.senderAddress, signer.sign, oracleAddress);
   }
 
   private readonly address: string;
@@ -96,18 +146,13 @@ export class Bot {
     const beacon = localDataSource.get(round);
     assert(beacon, `No data source for round ${round} available`);
 
-    const res = await this.client.execute(
-      this.address,
-      this.oracleAddress,
-      {
-        add_round: {
-          round: beacon.round,
-          signature: beacon.signature,
-          previous_signature: beacon.previous_signature,
-        },
+    const msg: OracleExecuteMsg = {
+      add_verified_round: {
+        round: beacon.round,
+        randomness: beacon.randomness,
       },
-      "auto"
-    );
+    };
+    const res = await this.client.execute(this.address, this.oracleAddress, msg, "auto");
     return res;
   }
 }

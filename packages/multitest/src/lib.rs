@@ -1,2 +1,1 @@
-#[cfg(test)]
-pub mod multitest;
+// No lib. See tests folder.

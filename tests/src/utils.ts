@@ -1,35 +1,13 @@
-import { readFileSync } from "fs";
-
 import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/relayer";
 import { fromBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
-import { ExecutionContext } from "ava";
 
 const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingCosmWasmClient, wasmd } = testutils;
 
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
 export const NoisProtocolIbcVersion = "nois-v3";
-
-export async function setupContracts(
-  t: ExecutionContext,
-  cosmwasm: CosmWasmSigner,
-  contracts: Record<string, string>
-): Promise<Record<string, number>> {
-  const results: Record<string, number> = {};
-
-  for (const name in contracts) {
-    const path = contracts[name];
-    t.log(`Storing ${name} from ${path}...`);
-    const wasm = await readFileSync(path);
-    const receipt = await cosmwasm.sign.upload(cosmwasm.senderAddress, wasm, "auto", `Upload ${name}`);
-    t.log(`Uploaded ${name} with code ID: ${receipt.codeId}; Gas used: ${receipt.gasUsed}/${receipt.gasWanted}`);
-    results[name] = receipt.codeId;
-  }
-
-  return results;
-}
 
 // This creates a client for the CosmWasm chain, that can interact with contracts
 export async function setupWasmClient(): Promise<CosmWasmSigner> {

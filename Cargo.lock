@@ -648,6 +648,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "nois-drand"
+version = "0.7.3"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus 1.0.1",
+ "drand-verify",
+ "hex",
+ "nois",
+ "serde",
+ "sha2 0.10.6",
+ "thiserror",
+]
+
+[[package]]
 name = "nois-monitoring"
 version = "0.7.3"
 dependencies = [
@@ -666,6 +681,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-multi-test",
  "nois-delegator",
+ "nois-drand",
  "nois-oracle",
  "nois-proxy",
 ]
@@ -677,8 +693,6 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus 1.0.1",
- "drand-verify",
- "hex",
  "nois",
  "nois-protocol",
  "serde",
