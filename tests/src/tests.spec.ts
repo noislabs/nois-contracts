@@ -34,12 +34,11 @@ let wasmCodeIds: Record<keyof WasmdContractPaths, number>;
 let osmosisCodeIds: Record<keyof OsmosisContractPaths, number>;
 
 test.before(async (t) => {
-  const wasmSign = await setupWasmClient();
-  const osmosisSign = await setupOsmosisClient();
+  const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
   t.log("Upload contracts ...");
   [wasmCodeIds, osmosisCodeIds] = await Promise.all([
-    uploadContracts(t, wasmSign, wasmContracts),
-    uploadContracts(t, osmosisSign, osmosisContracts),
+    uploadContracts(t, wasmClient, wasmContracts),
+    uploadContracts(t, osmoClient, osmosisContracts),
   ]);
   t.pass();
 });
