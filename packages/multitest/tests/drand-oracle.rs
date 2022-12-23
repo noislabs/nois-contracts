@@ -211,7 +211,7 @@ fn integration_test() {
         .unwrap();
     let resp: nois_proxy::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(&addr_nois_proxy, &nois_proxy::msg::QueryMsg::Config {})
+        .query_wasm_smart(addr_nois_proxy, &nois_proxy::msg::QueryMsg::Config {})
         .unwrap();
     //Checking that the contract has been well instantiated with the expected config
 

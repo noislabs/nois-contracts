@@ -257,32 +257,32 @@ test.serial("proxy works", async (t) => {
   const payment = coin(price, "ucosm");
   t.log(`Got randomness price from query: ${payment.amount}${payment.denom}`);
 
-  // t.log("Executing get_next_randomness for a round that already exists");
-  // {
-  await bot.submitNext();
-  await wasmClient.sign.execute(
-    wasmClient.senderAddress,
-    noisProxyAddress,
-    { get_next_randomness: { job_id: "eins" } },
-    "auto",
-    undefined,
-    [payment]
-  );
+  t.log("Executing get_next_randomness for a round that already exists");
+  {
+    await bot.submitNext();
+    await wasmClient.sign.execute(
+      wasmClient.senderAddress,
+      noisProxyAddress,
+      { get_next_randomness: { job_id: "eins" } },
+      "auto",
+      undefined,
+      [payment]
+    );
 
-  t.log("Relaying RequestBeacon");
-  const info1 = await link.relayAll();
-  assertPacketsFromA(info1, 1, true);
-  //   const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
-  //   t.deepEqual(fromBinary(ack1.result), {
-  //     processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
-  //   });
-  //
-  //   t.log("Relaying DeliverBeacon");
-  //   const info2 = await link.relayAll();
-  //   assertPacketsFromB(info2, 1, true);
-  //   const ack2 = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
-  //   t.deepEqual(fromBinary(ack2.result), { delivered: { job_id: "eins" } });
-  // }
+    t.log("Relaying RequestBeacon");
+    const info1 = await link.relayAll();
+    assertPacketsFromA(info1, 1, true);
+    const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
+    t.deepEqual(fromBinary(ack1.result), {
+      processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+    });
+
+    t.log("Relaying DeliverBeacon");
+    const info2 = await link.relayAll();
+    assertPacketsFromB(info2, 1, true);
+    const ack2 = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
+    t.deepEqual(fromBinary(ack2.result), { delivered: { job_id: "eins" } });
+  }
 
   t.log("Executing get_next_randomness for a round that does not yet exists");
   {
