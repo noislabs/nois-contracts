@@ -79,7 +79,7 @@ fn execute_send_funds_to_oracle(
     // Check that this contract has the requested amount
     let contract_balance = deps
         .querier
-        .query_balance(&env.contract.address, STAKING_DENOM)?
+        .query_balance(env.contract.address, STAKING_DENOM)?
         .amount;
     if contract_balance < amount {
         return Err(ContractError::InsufficientBalance);
