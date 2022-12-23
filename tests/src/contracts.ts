@@ -53,6 +53,17 @@ export interface OsmosisContractPaths {
   readonly drand: string;
 }
 
+export const wasmContracts: WasmdContractPaths = {
+  proxy: "./internal/nois_proxy.wasm",
+  demo: "./internal/nois_demo.wasm",
+}
+
+export const osmosisContracts: OsmosisContractPaths = {
+  delegator: "./internal/nois_delegator.wasm",
+  oracle: "./internal/nois_oracle.wasm",
+  drand: "./internal/nois_drand.wasm",
+}
+
 export async function uploadContracts(
   t: ExecutionContext,
   cosmwasm: CosmWasmSigner,

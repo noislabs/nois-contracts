@@ -13,8 +13,10 @@ import {
   DrandInstantiateMsg,
   OracleInstantiateMsg,
   OsmosisContractPaths,
+  osmosisContracts,
   ProxyInstantiateMsg,
   uploadContracts,
+  wasmContracts,
   WasmdContractPaths,
 } from "./contracts";
 import {
@@ -28,27 +30,17 @@ import {
 const { osmosis: oldOsmo, setup, wasmd, fundAccount } = testutils;
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
-let wasmCodeIds: Record<string, number> = {};
-let osmosisCodeIds: Record<string, number> = {};
+let wasmCodeIds: Record<keyof WasmdContractPaths, number>;
+let osmosisCodeIds: Record<keyof OsmosisContractPaths, number>;
 
 test.before(async (t) => {
-  t.log("Upload contracts to wasmd...");
-  const wasmContracts: WasmdContractPaths = {
-    proxy: "./internal/nois_proxy.wasm",
-    demo: "./internal/nois_demo.wasm",
-  };
   const wasmSign = await setupWasmClient();
-  wasmCodeIds = await uploadContracts(t, wasmSign, wasmContracts);
-
-  t.log("Upload contracts to osmosis...");
-  const osmosisContracts: OsmosisContractPaths = {
-    delegator: "./internal/nois_delegator.wasm",
-    oracle: "./internal/nois_oracle.wasm",
-    drand: "./internal/nois_drand.wasm",
-  };
   const osmosisSign = await setupOsmosisClient();
-  osmosisCodeIds = await uploadContracts(t, osmosisSign, osmosisContracts);
-
+  t.log("Upload contracts ...");
+  [wasmCodeIds, osmosisCodeIds] = await Promise.all([
+    uploadContracts(t, wasmSign, wasmContracts),
+    uploadContracts(t, osmosisSign, osmosisContracts),
+  ]);
   t.pass();
 });
 
