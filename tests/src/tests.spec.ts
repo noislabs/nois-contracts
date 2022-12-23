@@ -135,8 +135,6 @@ interface SetupInfo {
   noisDrandAddress: string;
   /// Address on randomness chain (osmosis)
   noisOracleAddress: string;
-  /// Address on randomness chain (osmosis)
-  noisDelegatorAddress: string;
   link: Link;
   noisChannel: {
     wasmChannelId: string;
@@ -162,18 +160,6 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     wasmCodeIds.proxy,
     proxyMsg,
     "Proxy instance",
-    "auto"
-  );
-
-  // Instantiate Delegator on osmosis
-  const delegatorMsg: DelegatorInstantiateMsg = {
-    admin_addr: osmoClient.senderAddress,
-  };
-  const { contractAddress: delegatorAddress } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    osmosisCodeIds.delegator,
-    delegatorMsg,
-    "Delegator instance",
     "auto"
   );
 
@@ -253,7 +239,6 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     noisDemoAddress,
     noisDrandAddress,
     noisOracleAddress,
-    noisDelegatorAddress: delegatorAddress,
     link,
     noisChannel,
     ics20Channel,
@@ -576,4 +561,23 @@ test.serial("submit randomness for various job counts", async (t) => {
     t.log("Number of packets sent:", packetsSentCount);
     t.is(packetsSentCount, Math.min(jobs, 3));
   }
+});
+
+test.serial("delegator works", async (t) => {
+  const osmoClient = await setupOsmosisClient();
+  const delegatorMsg: DelegatorInstantiateMsg = {
+    admin_addr: osmoClient.senderAddress,
+  };
+
+  await osmoClient.sign.instantiate(
+    osmoClient.senderAddress,
+    osmosisCodeIds.delegator,
+    delegatorMsg,
+    "Delegator instance",
+    "auto"
+  );
+
+  // TODO: do something cool with the delegator contract
+
+  t.pass();
 });
