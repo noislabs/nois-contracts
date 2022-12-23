@@ -10,8 +10,8 @@ use nois_protocol::{
 use crate::{
     drand::{round_after, DRAND_CHAIN_HASH},
     state::{
-        increment_processed_jobs, unprocessed_jobs_dequeue, unprocessed_jobs_enqueue,
-        unprocessed_jobs_len, Job,
+        drand_mainnet_randomness_key, increment_processed_jobs, unprocessed_jobs_dequeue,
+        unprocessed_jobs_enqueue, unprocessed_jobs_len, Job,
     },
 };
 
@@ -52,13 +52,8 @@ impl RequestRouter {
         let (round, source_id) = commit_to_drand_round(after);
 
         // Does round exist already?
-
-        // Implementation using query
-        // let BeaconResponse { beacon } = deps
-        //     .querier
-        //     .query_wasm_smart(&self.drand_addr, &QueryMsg::Beacon { round })?;
-        // let randomness = beacon.map(|b| b.randomness);
-        let randomness: Option<HexBinary> = None;
+        let key = drand_mainnet_randomness_key(round);
+        let existing_randomness: Option<HexBinary> = deps.storage.get(&key).map(Into::into);
 
         let job = Job {
             source_id: source_id.clone(),
@@ -69,7 +64,7 @@ impl RequestRouter {
 
         let mut msgs = Vec::<CosmosMsg>::new();
 
-        let acknowledgement = if let Some(randomness) = randomness {
+        let acknowledgement = if let Some(randomness) = existing_randomness {
             //If the drand round already exists we send it
             increment_processed_jobs(deps.storage, round)?;
             let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness)?;
@@ -93,6 +88,9 @@ impl RequestRouter {
         round: u64,
         randomness: &HexBinary,
     ) -> StdResult<NewDrand> {
+        let key = drand_mainnet_randomness_key(round);
+        deps.storage.set(&key, randomness);
+
         let mut msgs = Vec::<CosmosMsg>::new();
         let mut jobs_processed = 0;
         while let Some(job) = unprocessed_jobs_dequeue(deps.storage, round)? {

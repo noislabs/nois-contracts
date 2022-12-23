@@ -619,14 +619,14 @@ mod tests {
         ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
 
         // 2 processed job, no unprocessed jobs
-        // assert_eq!(
-        //     job_stats(deps.as_ref(), 2183669),
-        //     JobStatsResponse {
-        //         round: 2183669,
-        //         processed: 2,
-        //         unprocessed: 0,
-        //     }
-        // );
+        assert_eq!(
+            job_stats(deps.as_ref(), 2183669),
+            JobStatsResponse {
+                round: 2183669,
+                processed: 2,
+                unprocessed: 0,
+            }
+        );
 
         // Create 20 jobs
         for i in 0..20 {
