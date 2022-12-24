@@ -1,10 +1,11 @@
 // Testing nois-drand and nois-oracle interaction
 
 use cosmwasm_std::{
-    from_binary, testing::mock_env, to_binary, Addr, Attribute, BalanceResponse, BankQuery, Coin,
-    Decimal, HexBinary, Querier, QueryRequest, Uint128, Validator,
+    from_binary, testing::mock_env, to_binary, Addr, BalanceResponse, BankQuery, Coin, Decimal,
+    HexBinary, Querier, QueryRequest, Uint128, Validator,
 };
 use cw_multi_test::{App, AppBuilder, ContractWrapper, Executor, StakingInfo};
+use nois_multitest::first_attr;
 
 fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
     let req: QueryRequest<BankQuery> = QueryRequest::Bank(BankQuery::Balance {
@@ -15,17 +16,6 @@ fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
     let balance: BalanceResponse = from_binary(&res).unwrap();
 
     balance.amount
-}
-
-/// Gets the value of the first attribute with the given key
-fn first_attr(data: impl AsRef<[Attribute]>, search_key: &str) -> Option<String> {
-    data.as_ref().iter().find_map(|a| {
-        if a.key == search_key {
-            Some(a.value.clone())
-        } else {
-            None
-        }
-    })
 }
 
 fn mint_native(

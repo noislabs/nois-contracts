@@ -3,6 +3,7 @@ use cosmwasm_std::{
     Decimal, Delegation, HexBinary, Querier, QueryRequest, Uint128, Validator,
 };
 use cw_multi_test::{App, AppBuilder, ContractWrapper, Executor, StakingInfo};
+use nois_multitest::first_attr;
 
 fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
     let req: QueryRequest<BankQuery> = QueryRequest::Bank(BankQuery::Balance {
@@ -137,13 +138,10 @@ fn integration_test() {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure the the tx passed
     assert_eq!(
-        wasm.attributes
-            .iter()
-            .find(|attr| attr.key == "nois-drand-address")
-            .unwrap()
-            .value,
+        first_attr(&wasm.attributes, "nois-drand-address").unwrap(),
         "contract1"
     );
+
     //Query the new config of nois-delegator containing the nois-oracle contract
     let resp: nois_delegator::msg::ConfigResponse = app
         .wrap()
