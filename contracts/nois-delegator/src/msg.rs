@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Coin, Uint128};
 
 use crate::state::Config;
 
@@ -28,11 +28,12 @@ pub enum ExecuteMsg {
     ClaimRewards {
         addr: String,
     },
-    SetNoisOracleContractAddr {
+    SetDrandAddr {
+        /// New address of the nois-drand contract
         addr: String,
     },
-    SendFundsToOracle {
-        amount: Uint128,
+    SendFundsToDrand {
+        funds: Coin,
     },
 }
 

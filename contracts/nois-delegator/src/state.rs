@@ -7,8 +7,8 @@ pub struct Config {
     /// The multisig admin wallet that controls the incentive and delegation.
     /// The admin should not be able to withdraw funds from the contract
     pub admin_addr: Addr,
-    // Nois Oracle contract. Not set during instatiation but once set should become immutable
-    pub nois_oracle_contract_addr: Option<Addr>,
+    // Nois Drand contract address. Not set during instatiation but once set should become immutable.
+    pub drand: Option<Addr>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

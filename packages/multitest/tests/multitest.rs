@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    from_binary, testing::mock_env, to_binary, Addr, BalanceResponse, BankQuery, Coin, Decimal,
-    Delegation, HexBinary, Querier, QueryRequest, Uint128, Validator,
+    coin, from_binary, testing::mock_env, to_binary, Addr, BalanceResponse, BankQuery, Coin,
+    Decimal, Delegation, HexBinary, Querier, QueryRequest, Uint128, Validator,
 };
 use cw_multi_test::{App, AppBuilder, ContractWrapper, Executor, StakingInfo};
 
@@ -92,7 +92,7 @@ fn integration_test() {
         resp,
         nois_delegator::msg::ConfigResponse {
             admin_addr: Addr::unchecked("owner"),
-            nois_oracle_contract_addr: None,
+            drand: None,
         }
     );
 
@@ -123,7 +123,7 @@ fn integration_test() {
     assert_eq!(resp, nois_oracle::msg::ConfigResponse { drand: None });
 
     // Make the nois-delegator contract aware of the nois-oracle contract by setting the oracle address in its state
-    let msg = nois_delegator::msg::ExecuteMsg::SetNoisOracleContractAddr {
+    let msg = nois_delegator::msg::ExecuteMsg::SetDrandAddr {
         addr: addr_nois_oracle.to_string(),
     };
     let resp = app
@@ -139,7 +139,7 @@ fn integration_test() {
     assert_eq!(
         wasm.attributes
             .iter()
-            .find(|attr| attr.key == "nois-oracle-address")
+            .find(|attr| attr.key == "nois-drand-address")
             .unwrap()
             .value,
         "contract1"
@@ -153,7 +153,7 @@ fn integration_test() {
         resp,
         nois_delegator::msg::ConfigResponse {
             admin_addr: Addr::unchecked("owner"),
-            nois_oracle_contract_addr: Option::Some(Addr::unchecked("contract1"))
+            drand: Option::Some(Addr::unchecked("contract1"))
         }
     );
 
@@ -197,8 +197,8 @@ fn integration_test() {
         }
     );
     // Withdraw funds from the delegator contract to the oracle contract
-    let msg = nois_delegator::msg::ExecuteMsg::SendFundsToOracle {
-        amount: Uint128::new(300_000),
+    let msg = nois_delegator::msg::ExecuteMsg::SendFundsToDrand {
+        funds: coin(300_000, "unois"),
     };
     app.execute_contract(
         Addr::unchecked("an_unhappy_drand_bot_operator"),
@@ -208,8 +208,8 @@ fn integration_test() {
     )
     .unwrap();
     // Check balance nois-oracle
-    let balance = query_balance_native(&app, &addr_nois_oracle, "unois").amount;
-    assert_eq!(balance, Uint128::new(300_000));
+    let balance = query_balance_native(&app, &addr_nois_oracle, "unois");
+    assert_eq!(balance.amount, Uint128::new(300_000));
 
     // register bot
     // let msg = nois_oracle::msg::ExecuteMsg::RegisterBot {
