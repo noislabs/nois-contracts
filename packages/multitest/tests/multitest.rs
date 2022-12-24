@@ -209,50 +209,6 @@ fn integration_test() {
     let balance = query_balance_native(&app, &addr_nois_oracle, "unois");
     assert_eq!(balance.amount, Uint128::new(300_000));
 
-    // register bot
-    // let msg = nois_oracle::msg::ExecuteMsg::RegisterBot {
-    //     moniker: "drand_bot".to_string(),
-    // };
-    // app.execute_contract(
-    //     Addr::unchecked("drand_bot"),
-    //     addr_nois_oracle.to_owned(),
-    //     &msg,
-    //     &[],
-    // )
-    // .unwrap();
-
-    // whitelist bot doesn't work by non admin
-    // let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
-    //     add: vec!["drand_bot".to_string()],
-    //     remove: vec![],
-    // };
-    // let err = app
-    //     .execute_contract(
-    //         Addr::unchecked("drand_bot"),
-    //         addr_nois_oracle.to_owned(),
-    //         &msg,
-    //         &[],
-    //     )
-    //     .unwrap_err();
-    //
-    // assert!(matches!(
-    //     err.downcast().unwrap(),
-    //     nois_oracle::error::ContractError::Unauthorized
-    // ));
-
-    // // add  bot to allow list
-    // let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
-    //     add: vec!["drand_bot".to_string()],
-    //     remove: vec![],
-    // };
-    // app.execute_contract(
-    //     Addr::unchecked("manager"),
-    //     addr_nois_oracle.to_owned(),
-    //     &msg,
-    //     &[],
-    // )
-    // .unwrap();
-
     // Add round
     let msg = nois_oracle::msg::ExecuteMsg::AddVerifiedRound {
         // curl -sS https://drand.cloudflare.com/public/72785
@@ -271,16 +227,6 @@ fn integration_test() {
         )
         .unwrap();
 
-    // let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
-    // Make sure that there is an incentive for the registered bot
-    // assert_eq!(
-    //     wasm.attributes
-    //         .iter()
-    //         .find(|attr| attr.key == "bot_incentive")
-    //         .unwrap()
-    //         .value,
-    //     "100000unois"
-    // );
     // Check balance nois-delegator
     let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
     assert_eq!(
