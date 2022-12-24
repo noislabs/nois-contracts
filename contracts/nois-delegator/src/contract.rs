@@ -70,8 +70,8 @@ fn execute_send_funds_to_drand(
     env: Env,
     funds: Coin,
 ) -> Result<Response, ContractError> {
-    let Some(nois_oracle_contract) = CONFIG.load(deps.storage).unwrap().drand else {
-        return Err(ContractError::NoisOracleContractAddressUnset);
+    let Some(nois_drand_contract) = CONFIG.load(deps.storage)?.drand else {
+        return Err(ContractError::NoisDrandAddressUnset);
     };
 
     // Check that this contract has the requested amount
@@ -86,7 +86,7 @@ fn execute_send_funds_to_drand(
     Ok(Response::new()
         .add_attribute("nois-delegator-sent-amount", funds.to_string())
         .add_message(BankMsg::Send {
-            to_address: nois_oracle_contract.to_string(),
+            to_address: nois_drand_contract.to_string(),
             amount: vec![funds],
         }))
 }
