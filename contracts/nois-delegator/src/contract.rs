@@ -34,20 +34,14 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::SendFundsToDrand { funds } => {
-            execute_send_funds_to_drand(deps.as_ref(), env, funds)
-        }
-        ExecuteMsg::Delegate { addr, amount } => {
-            execute_delegate(deps.as_ref(), info, addr, amount)
-        }
-        ExecuteMsg::Undelegate { addr, amount } => {
-            execute_undelegate(deps.as_ref(), info, addr, amount)
-        }
+        ExecuteMsg::SendFundsToDrand { funds } => execute_send_funds_to_drand(deps, env, funds),
+        ExecuteMsg::Delegate { addr, amount } => execute_delegate(deps, info, addr, amount),
+        ExecuteMsg::Undelegate { addr, amount } => execute_undelegate(deps, info, addr, amount),
         ExecuteMsg::Redelegate {
             src_addr,
             dest_addr,
             amount,
-        } => execute_redelegate(deps.as_ref(), info, src_addr, dest_addr, amount),
+        } => execute_redelegate(deps, info, src_addr, dest_addr, amount),
         ExecuteMsg::ClaimRewards { addr } => execute_claim_rewards(addr),
         ExecuteMsg::SetDrandAddr { addr } => execute_set_drand_addr(deps, env, addr),
     }
@@ -66,7 +60,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 /// But could also be incentivised for executing extra things
 /// like callback jobs
 fn execute_send_funds_to_drand(
-    deps: Deps,
+    deps: DepsMut,
     env: Env,
     funds: Coin,
 ) -> Result<Response, ContractError> {
@@ -94,7 +88,7 @@ fn execute_send_funds_to_drand(
 /// This function will delegate staked coins
 /// to one validator with the addr address
 fn execute_delegate(
-    deps: Deps,
+    deps: DepsMut,
     info: MessageInfo,
     addr: String,
     amount: Uint128,
@@ -117,7 +111,7 @@ fn execute_delegate(
 /// This function will undelegate staked coins
 /// from one validator with the addr address
 fn execute_undelegate(
-    deps: Deps,
+    deps: DepsMut,
     info: MessageInfo,
     addr: String,
     amount: Uint128,
@@ -140,7 +134,7 @@ fn execute_undelegate(
 /// This function will make this contract move the bonded stakes
 /// from one validator (src_addr) to another validator (dest_addr)
 fn execute_redelegate(
-    deps: Deps,
+    deps: DepsMut,
     info: MessageInfo,
     src_addr: String,
     dest_addr: String,
