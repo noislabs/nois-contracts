@@ -369,6 +369,7 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{from_binary, Addr, Timestamp, Uint128};
 
+    const TESTING_MANAGER: &str = "mnrg";
     const TESTING_MIN_ROUND: u64 = 72785;
 
     fn make_add_round_msg(round: u64) -> ExecuteMsg {
@@ -455,7 +456,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -470,7 +471,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                manager: Addr::unchecked("manager"),
+                manager: Addr::unchecked(TESTING_MANAGER),
                 gateway: None,
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
@@ -495,7 +496,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -528,7 +529,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -570,7 +571,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -617,7 +618,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -650,7 +651,7 @@ mod tests {
             add: vec!["registered_bot".to_string()],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // submit randomness
@@ -671,7 +672,7 @@ mod tests {
             add: vec![],
             remove: vec!["registered_bot".to_string()],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // submit randomness
@@ -695,7 +696,7 @@ mod tests {
         let info = mock_info("creator", &[]);
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -707,7 +708,7 @@ mod tests {
             add: vec!["".to_string()],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
@@ -721,7 +722,7 @@ mod tests {
             add: vec!["theADDRESS".to_string()],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
@@ -735,7 +736,7 @@ mod tests {
             add: vec![],
             remove: vec!["".to_string()],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
@@ -749,7 +750,7 @@ mod tests {
             add: vec![],
             remove: vec!["theADDRESS".to_string()],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
@@ -778,7 +779,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -794,7 +795,7 @@ mod tests {
             add: vec!["registered_bot".to_string()],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let randomness = first_attr(response.attributes, "randomness").unwrap();
@@ -822,7 +823,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -858,7 +859,7 @@ mod tests {
             ],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Same msg for all submissions
@@ -906,7 +907,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -929,7 +930,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -957,7 +958,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -997,7 +998,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1034,7 +1035,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1136,7 +1137,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1235,7 +1236,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1334,7 +1335,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
