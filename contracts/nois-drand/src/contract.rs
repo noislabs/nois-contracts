@@ -84,7 +84,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::AllowList {} => to_binary(&query_allow_list(deps)?)?,
-        QueryMsg::IsAllowListed { address } => to_binary(&query_is_allow_listed(deps, address)?)?,
+        QueryMsg::IsAllowListed { bot } => to_binary(&query_is_allow_listed(deps, bot)?)?,
     };
     Ok(response)
 }
@@ -169,10 +169,10 @@ fn query_allow_list(deps: Deps) -> StdResult<AllowListResponse> {
     Ok(AllowListResponse { allowed })
 }
 
-fn query_is_allow_listed(deps: Deps, address: String) -> StdResult<IsAllowListedResponse> {
-    let address = deps.api.addr_validate(&address)?;
-    let found = ALLOWLIST.has(deps.storage, &address);
-    Ok(found)
+fn query_is_allow_listed(deps: Deps, bot: String) -> StdResult<IsAllowListedResponse> {
+    let bot_addr = deps.api.addr_validate(&bot)?;
+    let listed = ALLOWLIST.has(deps.storage, &bot_addr);
+    Ok(IsAllowListedResponse { listed })
 }
 
 fn execute_register_bot(
@@ -1551,12 +1551,12 @@ mod tests {
         .unwrap();
 
         // bot_b is listed
-        let listed: IsAllowListedResponse = from_binary(
+        let IsAllowListedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowListed {
-                    address: "bot_b".to_string(),
+                    bot: "bot_b".to_string(),
                 },
             )
             .unwrap(),
@@ -1565,12 +1565,12 @@ mod tests {
         assert!(listed);
 
         // bot_a is not listed
-        let listed: IsAllowListedResponse = from_binary(
+        let IsAllowListedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowListed {
-                    address: "bot_a".to_string(),
+                    bot: "bot_a".to_string(),
                 },
             )
             .unwrap(),

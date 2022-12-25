@@ -82,7 +82,7 @@ pub enum QueryMsg {
     #[returns(IsAllowListedResponse)]
     IsAllowListed {
         /// The address of the bot
-        address: String,
+        bot: String,
     },
 }
 
@@ -115,7 +115,10 @@ pub struct AllowListResponse {
     pub allowed: Vec<String>,
 }
 
-pub type IsAllowListedResponse = bool;
+#[cw_serde]
+pub struct IsAllowListedResponse {
+    pub listed: bool,
+}
 
 /// Like StoredSubmission but plus bot address
 #[cw_serde]
