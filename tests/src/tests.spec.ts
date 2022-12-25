@@ -10,8 +10,9 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 import { Bot, ibcPacketsSent, MockBot } from "./bot";
 import {
   DelegatorInstantiateMsg,
+  DrandExecuteMsg,
   DrandInstantiateMsg,
-  OracleInstantiateMsg,
+  GatewayInstantiateMsg,
   OsmosisContractPaths,
   osmosisContracts,
   ProxyInstantiateMsg,
@@ -106,22 +107,22 @@ test.serial("set up channel", async (t) => {
   assert(proxyPort);
 
   const osmoClient = await setupOsmosisClient();
-  const msg: OracleInstantiateMsg = {};
-  const { contractAddress: oracleAddress } = await osmoClient.sign.instantiate(
+  const msg: GatewayInstantiateMsg = {};
+  const { contractAddress: gatewayAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisCodeIds.oracle,
+    osmosisCodeIds.gateway,
     msg,
-    "Oracle instance",
+    "Gateway instance",
     "auto"
   );
-  t.truthy(oracleAddress);
-  const { ibcPortId: oraclePort } = await osmoClient.sign.getContract(oracleAddress);
-  t.log(`Oracle port: ${oraclePort}`);
-  assert(oraclePort);
+  t.truthy(gatewayAddress);
+  const { ibcPortId: gatewayPort } = await osmoClient.sign.getContract(gatewayAddress);
+  t.log(`Gateway port: ${gatewayPort}`);
+  assert(gatewayPort);
 
   const [src, dest] = await setup(wasmd, osmosis);
   const link = await Link.createWithNewConnections(src, dest);
-  await link.createChannel("A", proxyPort, oraclePort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
+  await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
 });
 
 interface SetupInfo {
@@ -134,7 +135,7 @@ interface SetupInfo {
   /// Address on randomness chain (osmosis)
   noisDrandAddress: string;
   /// Address on randomness chain (osmosis)
-  noisOracleAddress: string;
+  noisGatewayAddress: string;
   link: Link;
   noisChannel: {
     wasmChannelId: string;
@@ -178,39 +179,37 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     "auto"
   );
 
-  // Instantiate Oracle on Osmosis
-  const msg: OracleInstantiateMsg = {};
-  const { contractAddress: noisOracleAddress } = await osmoClient.sign.instantiate(
+  // Instantiate Gateway on Osmosis
+  const msg: GatewayInstantiateMsg = {};
+  const { contractAddress: noisGatewayAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisCodeIds.oracle,
+    osmosisCodeIds.gateway,
     msg,
-    "Oracle instance",
+    "Gateway instance",
     "auto"
   );
 
-  // Set oracle address to drand
-  await osmoClient.sign.execute(
-    osmoClient.senderAddress,
-    noisDrandAddress,
-    { set_oracle_addr: { addr: noisOracleAddress } },
-    "auto"
-  );
+  // Set gateway address to drand
+  const msg2: DrandExecuteMsg = {
+    set_gateway_addr: { addr: noisGatewayAddress },
+  };
+  await osmoClient.sign.execute(osmoClient.senderAddress, noisDrandAddress, msg2, "auto");
 
-  const [noisProxyInfo, noisOracleInfo] = await Promise.all([
+  const [noisProxyInfo, noisGatewayInfo] = await Promise.all([
     wasmClient.sign.getContract(noisProxyAddress),
-    osmoClient.sign.getContract(noisOracleAddress),
+    osmoClient.sign.getContract(noisGatewayAddress),
   ]);
   const { ibcPortId: proxyPort } = noisProxyInfo;
   assert(proxyPort);
-  const { ibcPortId: oraclePort } = noisOracleInfo;
-  assert(oraclePort);
+  const { ibcPortId: gatewayPort } = noisGatewayInfo;
+  assert(gatewayPort);
 
   // Create a connection between the chains
   const [src, dest] = await setup(wasmd, osmosis);
   const link = await Link.createWithNewConnections(src, dest);
 
   // Create a channel for nois-v3
-  const info = await link.createChannel("A", proxyPort, oraclePort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
+  const info = await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
   const noisChannel = {
     wasmChannelId: info.src.channelId,
     osmoChannelId: info.dest.channelId,
@@ -238,7 +237,7 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     noisProxyAddress,
     noisDemoAddress,
     noisDrandAddress,
-    noisOracleAddress,
+    noisGatewayAddress,
     link,
     noisChannel,
     ics20Channel,
@@ -246,8 +245,8 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
 }
 
 test.serial("proxy works", async (t) => {
-  const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(true);
-  const bot = await MockBot.connect(noisOracleAddress);
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(true);
+  const bot = await MockBot.connect(noisGatewayAddress);
 
   t.log(`Getting randomness prices ...`);
   const { prices } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { prices: {} });
@@ -326,8 +325,8 @@ test.serial("proxy works", async (t) => {
 });
 
 test.serial("proxy works for get_randomness_after", async (t) => {
-  const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(false);
-  const bot = await MockBot.connect(noisOracleAddress);
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(false);
+  const bot = await MockBot.connect(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
   const payment = coin(price, "ucosm");
@@ -413,10 +412,10 @@ test.serial("proxy works for get_randomness_after", async (t) => {
 });
 
 test.serial("demo contract can be used", async (t) => {
-  const { wasmClient, noisDemoAddress, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(
+  const { wasmClient, noisDemoAddress, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
     true
   );
-  const bot = await MockBot.connect(noisOracleAddress);
+  const bot = await MockBot.connect(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
   const payment = coin(price, "ucosm");
@@ -511,8 +510,8 @@ test.serial("demo contract can be used", async (t) => {
 });
 
 test.serial("submit randomness for various job counts", async (t) => {
-  const { wasmClient, noisProxyAddress, link, noisOracleAddress } = await instantiateAndConnectIbc(false);
-  const bot = await MockBot.connect(noisOracleAddress);
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(false);
+  const bot = await MockBot.connect(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
   const payment = coin(price, "ucosm");

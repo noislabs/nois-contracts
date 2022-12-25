@@ -11,7 +11,7 @@ use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
 use crate::msg::{
     BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
-    InstantiateMsg, NoisOracleExecuteMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
+    InstantiateMsg, NoisGatewayExecuteMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
@@ -31,7 +31,7 @@ pub fn instantiate(
     let manager = deps.api.addr_validate(&msg.manager)?;
     let config = Config {
         manager,
-        oracle: None,
+        gateway: None,
         min_round: msg.min_round,
         incentive_amount: msg.incentive_amount,
         incentive_denom: msg.incentive_denom,
@@ -64,7 +64,7 @@ pub fn execute(
         ExecuteMsg::UpdateAllowlistBots { add, remove } => {
             execute_update_allowlist_bots(deps, info, add, remove)
         }
-        ExecuteMsg::SetOracleAddr { addr } => execute_set_oracle_addr(deps, env, addr),
+        ExecuteMsg::SetGatewayAddr { addr } => execute_set_gateway_addr(deps, env, addr),
     }
 }
 
@@ -313,11 +313,11 @@ fn execute_add_round(
         // get a wrong `verified` timestamp.
     }
 
-    if let Some(oracle) = config.oracle {
+    if let Some(gateway) = config.gateway {
         out_msgs.push(
             WasmMsg::Execute {
-                contract_addr: oracle.into(),
-                msg: to_binary(&NoisOracleExecuteMsg::AddVerifiedRound { round, randomness })?,
+                contract_addr: gateway.into(),
+                msg: to_binary(&NoisGatewayExecuteMsg::AddVerifiedRound { round, randomness })?,
                 funds: vec![],
             }
             .into(),
@@ -334,7 +334,7 @@ fn execute_add_round(
 /// in a context where the contract addresses generration is not known
 /// in advance, we set the contract address at a later stage after the
 /// instantation and make sure it is immutable once set
-fn execute_set_oracle_addr(
+fn execute_set_gateway_addr(
     deps: DepsMut,
     _env: Env,
     addr: String,
@@ -342,16 +342,16 @@ fn execute_set_oracle_addr(
     let mut config = CONFIG.load(deps.storage)?;
 
     // ensure immutability
-    if config.oracle.is_some() {
+    if config.gateway.is_some() {
         return Err(ContractError::ContractAlreadySet {});
     }
 
-    let nois_oracle = deps.api.addr_validate(&addr)?;
-    config.oracle = Some(nois_oracle.clone());
+    let nois_gateway = deps.api.addr_validate(&addr)?;
+    config.gateway = Some(nois_gateway.clone());
 
     CONFIG.save(deps.storage, &config)?;
 
-    Ok(Response::new().add_attribute("nois-oracle-address", nois_oracle))
+    Ok(Response::new().add_attribute("nois-gateway-address", nois_gateway))
 }
 
 fn incentive_amount(config: &Config) -> Coin {
@@ -471,7 +471,7 @@ mod tests {
             config,
             ConfigResponse {
                 manager: Addr::unchecked("manager"),
-                oracle: None,
+                gateway: None,
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
                 incentive_denom: "unois".to_string(),
@@ -812,7 +812,7 @@ mod tests {
         let info = mock_info("creator", &[Coin::new(100_000_000, "unois")]);
         let env = mock_env();
         let contract = env.contract.address;
-        //add balance to the oracle contract
+        // add balance to the drand contract
         deps.querier.update_balance(
             contract,
             vec![Coin {

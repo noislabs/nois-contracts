@@ -16,11 +16,11 @@ use nois_protocol::{
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, InstantiateMsg, OracleChannelResponse, PriceResponse,
+    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
     PricesResponse, QueryMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
-use crate::state::{Config, CONFIG, ORACLE_CHANNEL};
+use crate::state::{Config, CONFIG, GATEWAY_CHANNEL};
 
 pub const CALLBACK_ID: u64 = 456;
 
@@ -99,7 +99,7 @@ fn execute_get_next_randomness(
         sender: info.sender.into(),
         job_id,
     };
-    let channel_id = get_oracle_channel(deps.storage)?;
+    let channel_id = get_gateway_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
@@ -132,7 +132,7 @@ fn execute_get_randomness_after(
         sender: info.sender.into(),
         job_id,
     };
-    let channel_id = get_oracle_channel(deps.storage)?;
+    let channel_id = get_gateway_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
@@ -184,8 +184,8 @@ fn execute_withdraw(
     Ok(res)
 }
 
-fn get_oracle_channel(storage: &dyn Storage) -> Result<String, ContractError> {
-    let data = ORACLE_CHANNEL.may_load(storage)?;
+fn get_gateway_channel(storage: &dyn Storage) -> Result<String, ContractError> {
+    let data = GATEWAY_CHANNEL.may_load(storage)?;
     match data {
         Some(d) => Ok(d),
         None => Err(ContractError::UnsetChannel),
@@ -217,7 +217,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
         QueryMsg::Prices {} => to_binary(&query_prices(deps)?),
         QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
-        QueryMsg::OracleChannel {} => to_binary(&query_oracle_channel(deps)?),
+        QueryMsg::GatewayChannel {} => to_binary(&query_gateway_channel(deps)?),
     }
 }
 
@@ -243,9 +243,9 @@ fn query_price(deps: Deps, denom: String) -> StdResult<PriceResponse> {
     Ok(PriceResponse { price })
 }
 
-fn query_oracle_channel(deps: Deps) -> StdResult<OracleChannelResponse> {
-    Ok(OracleChannelResponse {
-        channel: ORACLE_CHANNEL.may_load(deps.storage)?,
+fn query_gateway_channel(deps: Deps) -> StdResult<GatewayChannelResponse> {
+    Ok(GatewayChannelResponse {
+        channel: GATEWAY_CHANNEL.may_load(deps.storage)?,
     })
 }
 
@@ -277,11 +277,11 @@ pub fn ibc_channel_connect(
     let channel = msg.channel();
     let channel_id = &channel.endpoint.channel_id;
 
-    if ORACLE_CHANNEL.may_load(deps.storage)?.is_some() {
+    if GATEWAY_CHANNEL.may_load(deps.storage)?.is_some() {
         return Err(ContractError::ChannelAlreadySet);
     }
 
-    ORACLE_CHANNEL.save(deps.storage, channel_id)?;
+    GATEWAY_CHANNEL.save(deps.storage, channel_id)?;
     Ok(IbcBasicResponse::new()
         .add_attribute("action", "ibc_connect")
         .add_attribute("channel_id", channel_id))
@@ -301,9 +301,9 @@ pub fn ibc_channel_close(
         // stop that anymore. We ensure this transactions succeeds to
         // allow the local channel's state to change to closed.
         //
-        // By clearing the ORACLE_CHANNEL we allow a new channel to be established.
+        // By clearing the GATEWAY_CHANNEL we allow a new channel to be established.
         IbcChannelCloseMsg::CloseConfirm { channel } => {
-            ORACLE_CHANNEL.remove(deps.storage);
+            GATEWAY_CHANNEL.remove(deps.storage);
             Ok(IbcBasicResponse::new()
                 .add_attribute("action", "ibc_close")
                 .add_attribute("channel_id", channel.endpoint.channel_id))
@@ -646,18 +646,20 @@ mod tests {
             let mut deps = setup();
 
             // Channel is unset
-            let OracleChannelResponse { channel } =
-                from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
-                    .unwrap();
+            let GatewayChannelResponse { channel } = from_binary(
+                &query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap(),
+            )
+            .unwrap();
             assert_eq!(channel, None);
 
             let msg = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
             ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
 
             // Channel is now set
-            let OracleChannelResponse { channel } =
-                from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
-                    .unwrap();
+            let GatewayChannelResponse { channel } = from_binary(
+                &query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap(),
+            )
+            .unwrap();
             assert_eq!(channel, Some("channel-12".to_string()));
 
             // One more ChanOpenAck
@@ -676,18 +678,20 @@ mod tests {
             let mut deps = setup();
 
             // Channel is unset
-            let OracleChannelResponse { channel } =
-                from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
-                    .unwrap();
+            let GatewayChannelResponse { channel } = from_binary(
+                &query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap(),
+            )
+            .unwrap();
             assert_eq!(channel, None);
 
             let msg = mock_ibc_channel_connect_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);
             ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
 
             // Channel is now set
-            let OracleChannelResponse { channel } =
-                from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
-                    .unwrap();
+            let GatewayChannelResponse { channel } = from_binary(
+                &query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap(),
+            )
+            .unwrap();
             assert_eq!(channel, Some("channel-12".to_string()));
 
             // One more ChanOpenConfirm
@@ -715,8 +719,8 @@ mod tests {
         ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
 
         // Channel is now set
-        let OracleChannelResponse { channel } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+        let GatewayChannelResponse { channel } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
                 .unwrap();
         assert_eq!(channel, Some("channel-12".to_string()));
 
@@ -726,8 +730,8 @@ mod tests {
         assert!(matches!(err, ContractError::ChannelMustNotBeClosed));
 
         // Channel is still set
-        let OracleChannelResponse { channel } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+        let GatewayChannelResponse { channel } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
                 .unwrap();
         assert_eq!(channel, Some("channel-12".to_string()));
 
@@ -736,8 +740,8 @@ mod tests {
         ibc_channel_close(deps.as_mut(), mock_env(), msg).unwrap();
 
         // Channel is unset
-        let OracleChannelResponse { channel } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::OracleChannel {}).unwrap())
+        let GatewayChannelResponse { channel } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
                 .unwrap();
         assert_eq!(channel, None);
     }

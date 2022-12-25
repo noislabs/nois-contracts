@@ -1,4 +1,4 @@
-// Testing nois-drand and nois-oracle interaction
+// Testing nois-drand and nois-gateway interaction
 
 use cosmwasm_std::{
     from_binary, testing::mock_env, to_binary, Addr, BalanceResponse, BankQuery, Coin, Decimal,
@@ -69,7 +69,7 @@ fn integration_test() {
     );
     let code_id_nois_drand = app.store_code(Box::new(code_nois_drand));
 
-    // Instantiating nois-oracle contract
+    // Instantiating nois-drand contract
     let addr_nois_drand = app
         .instantiate_contract(
             code_id_nois_drand,
@@ -93,7 +93,7 @@ fn integration_test() {
         resp,
         nois_drand::msg::ConfigResponse {
             manager: Addr::unchecked("bossman"),
-            oracle: None,
+            gateway: None,
             min_round: 0,
             incentive_amount: Uint128::new(100_000),
             incentive_denom: "unois".to_string(),
@@ -103,39 +103,39 @@ fn integration_test() {
     //Mint some coins for owner
     mint_native(&mut app, "owner", "unois", 100_000_000);
 
-    // Storing nois-oracle code
-    let code_nois_oracle = ContractWrapper::new(
+    // Storing nois-gateway code
+    let code_nois_gateway = ContractWrapper::new(
         nois_oracle::contract::execute,
         nois_oracle::contract::instantiate,
         nois_oracle::contract::query,
     );
-    let code_id_nois_oracle = app.store_code(Box::new(code_nois_oracle));
+    let code_id_nois_gateway = app.store_code(Box::new(code_nois_gateway));
 
-    // Instantiating nois-oracle contract
-    let addr_nois_oracle = app
+    // Instantiating nois-gateway contract
+    let addr_nois_gateway = app
         .instantiate_contract(
-            code_id_nois_oracle,
+            code_id_nois_gateway,
             Addr::unchecked("owner"),
             &nois_oracle::msg::InstantiateMsg {},
             &[],
-            "Nois-Oracle",
+            "Nois-Gateway",
             None,
         )
         .unwrap();
     let resp: nois_oracle::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(&addr_nois_oracle, &nois_oracle::msg::QueryMsg::Config {})
+        .query_wasm_smart(&addr_nois_gateway, &nois_oracle::msg::QueryMsg::Config {})
         .unwrap();
     //Checking that the contract has been well instantiated with the expected config
 
     assert_eq!(resp, nois_oracle::msg::ConfigResponse { drand: None });
 
-    // Set oracle address to drand
+    // Set gateway address to drand
     app.execute_contract(
         Addr::unchecked("guest"),
         addr_nois_drand.to_owned(),
-        &nois_drand::msg::ExecuteMsg::SetOracleAddr {
-            addr: addr_nois_oracle.to_string(),
+        &nois_drand::msg::ExecuteMsg::SetGatewayAddr {
+            addr: addr_nois_gateway.to_string(),
         },
         &[],
     )
@@ -148,17 +148,17 @@ fn integration_test() {
         resp,
         nois_drand::msg::ConfigResponse {
             manager: Addr::unchecked("bossman"),
-            oracle: Some(addr_nois_oracle.clone()),
+            gateway: Some(addr_nois_gateway.clone()),
             min_round: 0,
             incentive_amount: Uint128::new(100_000),
             incentive_denom: "unois".to_string(),
         }
     );
 
-    // Set drand address to oracle
+    // Set drand address to gateway
     app.execute_contract(
         Addr::unchecked("guest"),
-        addr_nois_oracle.to_owned(),
+        addr_nois_gateway.to_owned(),
         &nois_oracle::msg::ExecuteMsg::SetDrandAddr {
             addr: addr_nois_drand.to_string(),
         },
@@ -167,7 +167,7 @@ fn integration_test() {
     .unwrap();
     let resp: nois_oracle::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(&addr_nois_oracle, &nois_oracle::msg::QueryMsg::Config {})
+        .query_wasm_smart(&addr_nois_gateway, &nois_oracle::msg::QueryMsg::Config {})
         .unwrap();
     assert_eq!(
         resp,
@@ -278,8 +278,8 @@ fn integration_test() {
         "100000unois"
     );
 
-    // Check balance nois-oracle
-    let balance = query_balance_native(&app, &addr_nois_oracle, "unois").amount;
+    // Check balance nois-gateway
+    let balance = query_balance_native(&app, &addr_nois_gateway, "unois").amount;
     assert_eq!(balance, Uint128::new(0));
 
     // Check balance nois-drand-bot-operator
