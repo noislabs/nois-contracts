@@ -79,9 +79,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::BeaconsDesc { start_after, limit } => {
             to_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
         }
+        QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
-        QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
         // TODO Add query for allowlisted bots
     };
     Ok(response)
@@ -119,6 +119,22 @@ fn query_beacons(
     Ok(BeaconsResponse { beacons })
 }
 
+// Query submissions by round
+fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
+    let prefix = SUBMISSIONS_ORDER.prefix(round);
+
+    let submission_addresses: Vec<Addr> = prefix
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|item| -> StdResult<_> { Ok(item?.1) })
+        .collect::<Result<_, _>>()?;
+    let mut submissions: Vec<QueriedSubmission> = Vec::with_capacity(submission_addresses.len());
+    for addr in submission_addresses {
+        let stored = SUBMISSIONS.load(deps.storage, (round, &addr))?;
+        submissions.push(QueriedSubmission::make(stored, addr));
+    }
+    Ok(SubmissionsResponse { round, submissions })
+}
+
 fn query_bot(deps: Deps, address: String) -> StdResult<BotResponse> {
     let address = deps.api.addr_validate(&address)?;
     let bot = BOTS
@@ -137,22 +153,6 @@ fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
         })
         .collect();
     Ok(BotsResponse { bots })
-}
-
-// Query submissions by round
-fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
-    let prefix = SUBMISSIONS_ORDER.prefix(round);
-
-    let submission_addresses: Vec<Addr> = prefix
-        .range(deps.storage, None, None, Order::Ascending)
-        .map(|item| -> StdResult<_> { Ok(item?.1) })
-        .collect::<Result<_, _>>()?;
-    let mut submissions: Vec<QueriedSubmission> = Vec::with_capacity(submission_addresses.len());
-    for addr in submission_addresses {
-        let stored = SUBMISSIONS.load(deps.storage, (round, &addr))?;
-        submissions.push(QueriedSubmission::make(stored, addr));
-    }
-    Ok(SubmissionsResponse { round, submissions })
 }
 
 fn execute_register_bot(

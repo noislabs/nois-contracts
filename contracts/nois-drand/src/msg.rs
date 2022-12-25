@@ -67,14 +67,14 @@ pub enum QueryMsg {
         /// When unset, an implementation defined default will be used.
         limit: Option<u32>,
     },
+    #[returns(SubmissionsResponse)]
+    Submissions { round: u64 },
     /// Get a specific bot by address
     #[returns(BotResponse)]
     Bot { address: String },
     /// Gets registered bots
     #[returns(BotsResponse)]
     Bots {},
-    #[returns(SubmissionsResponse)]
-    Submissions { round: u64 },
 }
 
 // We define a custom struct for each query response
