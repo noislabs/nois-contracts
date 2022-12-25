@@ -4,7 +4,7 @@ import { CosmWasmSigner } from "@confio/relayer";
 import { ExecutionContext } from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 
-export interface DelegatorInstantiateMsg {
+export interface IcecubeInstantiateMsg {
   readonly admin_addr: string;
 }
 
@@ -49,7 +49,7 @@ export interface WasmdContractPaths {
 }
 
 export interface OsmosisContractPaths {
-  readonly delegator: string;
+  readonly icecube: string;
   readonly gateway: string;
   readonly drand: string;
 }
@@ -60,7 +60,7 @@ export const wasmContracts: WasmdContractPaths = {
 };
 
 export const osmosisContracts: OsmosisContractPaths = {
-  delegator: "./internal/nois_delegator.wasm",
+  icecube: "./internal/nois_icecube.wasm",
   gateway: "./internal/nois_gateway.wasm",
   drand: "./internal/nois_drand.wasm",
 };

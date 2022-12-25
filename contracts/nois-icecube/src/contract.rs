@@ -61,24 +61,15 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 /// like callback jobs
 fn execute_send_funds_to_drand(
     deps: DepsMut,
-    env: Env,
+    _env: Env,
     funds: Coin,
 ) -> Result<Response, ContractError> {
     let Some(nois_drand_contract) = CONFIG.load(deps.storage)?.drand else {
         return Err(ContractError::NoisDrandAddressUnset);
     };
 
-    // Check that this contract has the requested amount
-    let contract_balance = deps
-        .querier
-        .query_balance(env.contract.address, funds.denom.clone())?
-        .amount;
-    if contract_balance < funds.amount {
-        return Err(ContractError::InsufficientBalance);
-    }
-
     Ok(Response::new()
-        .add_attribute("nois-delegator-sent-amount", funds.to_string())
+        .add_attribute("nois-icecube-sent-amount", funds.to_string())
         .add_message(BankMsg::Send {
             to_address: nois_drand_contract.to_string(),
             amount: vec![funds],
