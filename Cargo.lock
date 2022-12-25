@@ -652,6 +652,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "nois-gateway"
+version = "0.7.3"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "nois",
+ "nois-protocol",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "nois-monitoring"
 version = "0.7.3"
 dependencies = [
@@ -671,21 +684,8 @@ dependencies = [
  "cw-multi-test",
  "nois-delegator",
  "nois-drand",
- "nois-oracle",
+ "nois-gateway",
  "nois-proxy",
-]
-
-[[package]]
-name = "nois-oracle"
-version = "0.7.3"
-dependencies = [
- "cosmwasm-schema",
- "cosmwasm-std",
- "cw-storage-plus",
- "nois",
- "nois-protocol",
- "serde",
- "thiserror",
 ]
 
 [[package]]

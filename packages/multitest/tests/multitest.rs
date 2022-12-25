@@ -87,7 +87,10 @@ fn integration_test() {
     //check instantiation and config of nois-delegator contract
     let resp: nois_delegator::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(&addr_nois_delegator, &nois_oracle::msg::QueryMsg::Config {})
+        .query_wasm_smart(
+            &addr_nois_delegator,
+            &nois_gateway::msg::QueryMsg::Config {},
+        )
         .unwrap();
     assert_eq!(
         resp,
@@ -99,9 +102,9 @@ fn integration_test() {
 
     // Storing nois-gateway code
     let code_nois_gateway = ContractWrapper::new(
-        nois_oracle::contract::execute,
-        nois_oracle::contract::instantiate,
-        nois_oracle::contract::query,
+        nois_gateway::contract::execute,
+        nois_gateway::contract::instantiate,
+        nois_gateway::contract::query,
     );
     let code_id_nois_gateway = app.store_code(Box::new(code_nois_gateway));
 
@@ -110,18 +113,18 @@ fn integration_test() {
         .instantiate_contract(
             code_id_nois_gateway,
             Addr::unchecked("owner"),
-            &nois_oracle::msg::InstantiateMsg {},
+            &nois_gateway::msg::InstantiateMsg {},
             &[],
             "Nois-Gateway",
             None,
         )
         .unwrap();
-    let resp: nois_oracle::msg::ConfigResponse = app
+    let resp: nois_gateway::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(&addr_nois_gateway, &nois_oracle::msg::QueryMsg::Config {})
+        .query_wasm_smart(&addr_nois_gateway, &nois_gateway::msg::QueryMsg::Config {})
         .unwrap();
     //Checking that the contract has been well instantiated with the expected config
-    assert_eq!(resp, nois_oracle::msg::ConfigResponse { drand: None });
+    assert_eq!(resp, nois_gateway::msg::ConfigResponse { drand: None });
 
     // Make the nois-delegator contract aware of the nois-drand contract by
     // setting the drand address in its state
@@ -146,7 +149,10 @@ fn integration_test() {
     // Query the new config of nois-delegator containing the nois-drand contract
     let resp: nois_delegator::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(&addr_nois_delegator, &nois_oracle::msg::QueryMsg::Config {})
+        .query_wasm_smart(
+            &addr_nois_delegator,
+            &nois_gateway::msg::QueryMsg::Config {},
+        )
         .unwrap();
     assert_eq!(
         resp,
@@ -211,7 +217,7 @@ fn integration_test() {
     assert_eq!(balance.amount, Uint128::new(300_000));
 
     // Add round
-    let msg = nois_oracle::msg::ExecuteMsg::AddVerifiedRound {
+    let msg = nois_gateway::msg::ExecuteMsg::AddVerifiedRound {
         // curl -sS https://drand.cloudflare.com/public/72785
         round: 72785,
         randomness: HexBinary::from_hex(

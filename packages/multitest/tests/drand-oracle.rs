@@ -105,9 +105,9 @@ fn integration_test() {
 
     // Storing nois-gateway code
     let code_nois_gateway = ContractWrapper::new(
-        nois_oracle::contract::execute,
-        nois_oracle::contract::instantiate,
-        nois_oracle::contract::query,
+        nois_gateway::contract::execute,
+        nois_gateway::contract::instantiate,
+        nois_gateway::contract::query,
     );
     let code_id_nois_gateway = app.store_code(Box::new(code_nois_gateway));
 
@@ -116,19 +116,19 @@ fn integration_test() {
         .instantiate_contract(
             code_id_nois_gateway,
             Addr::unchecked("owner"),
-            &nois_oracle::msg::InstantiateMsg {},
+            &nois_gateway::msg::InstantiateMsg {},
             &[],
             "Nois-Gateway",
             None,
         )
         .unwrap();
-    let resp: nois_oracle::msg::ConfigResponse = app
+    let resp: nois_gateway::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(&addr_nois_gateway, &nois_oracle::msg::QueryMsg::Config {})
+        .query_wasm_smart(&addr_nois_gateway, &nois_gateway::msg::QueryMsg::Config {})
         .unwrap();
     //Checking that the contract has been well instantiated with the expected config
 
-    assert_eq!(resp, nois_oracle::msg::ConfigResponse { drand: None });
+    assert_eq!(resp, nois_gateway::msg::ConfigResponse { drand: None });
 
     // Set gateway address to drand
     app.execute_contract(
@@ -159,19 +159,19 @@ fn integration_test() {
     app.execute_contract(
         Addr::unchecked("guest"),
         addr_nois_gateway.to_owned(),
-        &nois_oracle::msg::ExecuteMsg::SetDrandAddr {
+        &nois_gateway::msg::ExecuteMsg::SetDrandAddr {
             addr: addr_nois_drand.to_string(),
         },
         &[],
     )
     .unwrap();
-    let resp: nois_oracle::msg::ConfigResponse = app
+    let resp: nois_gateway::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(&addr_nois_gateway, &nois_oracle::msg::QueryMsg::Config {})
+        .query_wasm_smart(&addr_nois_gateway, &nois_gateway::msg::QueryMsg::Config {})
         .unwrap();
     assert_eq!(
         resp,
-        nois_oracle::msg::ConfigResponse {
+        nois_gateway::msg::ConfigResponse {
             drand: Some(addr_nois_drand.clone()),
         }
     );
