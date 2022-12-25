@@ -1,20 +1,6 @@
-use cosmwasm_std::{
-    coin, from_binary, testing::mock_env, to_binary, Addr, BalanceResponse, BankQuery, Coin,
-    Decimal, Delegation, Querier, QueryRequest, Uint128, Validator,
-};
+use cosmwasm_std::{coin, testing::mock_env, Addr, Coin, Decimal, Delegation, Uint128, Validator};
 use cw_multi_test::{App, AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::first_attr;
-
-fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
-    let req: QueryRequest<BankQuery> = QueryRequest::Bank(BankQuery::Balance {
-        address: address.to_string(),
-        denom: denom.to_string(),
-    });
-    let res = app.raw_query(&to_binary(&req).unwrap()).unwrap().unwrap();
-    let balance: BalanceResponse = from_binary(&res).unwrap();
-
-    balance.amount
-}
+use nois_multitest::{first_attr, query_balance_native};
 
 fn mint_native(
     app: &mut App,
