@@ -31,7 +31,7 @@ if [[ -n "$CHANGES_IN_REPO" ]]; then
 fi
 
 NEW="$1"
-OLD=$("$gnused" -n -e 's/^version[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p' contracts/nois-oracle/Cargo.toml)
+OLD=$("$gnused" -n -e 's/^version[[:space:]]*=[[:space:]]*"\(.*\)"/\1/p' contracts/nois-gateway/Cargo.toml)
 echo "Updating old version $OLD to new version $NEW ..."
 
 FILES_MODIFIED=()

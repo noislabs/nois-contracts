@@ -31,7 +31,7 @@ There are two CosmWasm-enabled blockchains running locally.
   - it submits a request to the proxy to get randomness.
   - The randomness is then received to the nois-demo as a callback.
 
-The IBC interaction is only between nois-oracle and nois-proxy, such that
+The IBC interaction is only between nois-gateway and nois-proxy, such that
 the user (nois-demo) does not need to worry about that part.
 
 ## Packages
