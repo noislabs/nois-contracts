@@ -67,14 +67,23 @@ pub enum QueryMsg {
         /// When unset, an implementation defined default will be used.
         limit: Option<u32>,
     },
+    #[returns(SubmissionsResponse)]
+    Submissions { round: u64 },
     /// Get a specific bot by address
     #[returns(BotResponse)]
     Bot { address: String },
     /// Gets registered bots
     #[returns(BotsResponse)]
     Bots {},
-    #[returns(SubmissionsResponse)]
-    Submissions { round: u64 },
+    /// Returns the list of allowed bot addresses
+    #[returns(AllowListResponse)]
+    AllowList {},
+    /// Returns the list of allowed bot addresses
+    #[returns(IsAllowListedResponse)]
+    IsAllowListed {
+        /// The address of the bot
+        bot: String,
+    },
 }
 
 // We define a custom struct for each query response
@@ -98,6 +107,17 @@ pub struct BotResponse {
 #[cw_serde]
 pub struct BotsResponse {
     pub bots: Vec<QueriedBot>,
+}
+
+#[cw_serde]
+pub struct AllowListResponse {
+    /// List of bot addresses
+    pub allowed: Vec<String>,
+}
+
+#[cw_serde]
+pub struct IsAllowListedResponse {
+    pub listed: bool,
 }
 
 /// Like StoredSubmission but plus bot address

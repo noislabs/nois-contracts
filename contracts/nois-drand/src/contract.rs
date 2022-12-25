@@ -10,8 +10,9 @@ use crate::bots::validate_moniker;
 use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
 use crate::msg::{
-    BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
-    InstantiateMsg, NoisGatewayExecuteMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
+    AllowListResponse, BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse,
+    ExecuteMsg, InstantiateMsg, IsAllowListedResponse, NoisGatewayExecuteMsg, QueriedSubmission,
+    QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
@@ -79,10 +80,11 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::BeaconsDesc { start_after, limit } => {
             to_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
         }
+        QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
-        QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
-        // TODO Add query for allowlisted bots
+        QueryMsg::AllowList {} => to_binary(&query_allow_list(deps)?)?,
+        QueryMsg::IsAllowListed { bot } => to_binary(&query_is_allow_listed(deps, bot)?)?,
     };
     Ok(response)
 }
@@ -119,6 +121,22 @@ fn query_beacons(
     Ok(BeaconsResponse { beacons })
 }
 
+// Query submissions by round
+fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
+    let prefix = SUBMISSIONS_ORDER.prefix(round);
+
+    let submission_addresses: Vec<Addr> = prefix
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|item| -> StdResult<_> { Ok(item?.1) })
+        .collect::<Result<_, _>>()?;
+    let mut submissions: Vec<QueriedSubmission> = Vec::with_capacity(submission_addresses.len());
+    for addr in submission_addresses {
+        let stored = SUBMISSIONS.load(deps.storage, (round, &addr))?;
+        submissions.push(QueriedSubmission::make(stored, addr));
+    }
+    Ok(SubmissionsResponse { round, submissions })
+}
+
 fn query_bot(deps: Deps, address: String) -> StdResult<BotResponse> {
     let address = deps.api.addr_validate(&address)?;
     let bot = BOTS
@@ -139,20 +157,22 @@ fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
     Ok(BotsResponse { bots })
 }
 
-// Query submissions by round
-fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
-    let prefix = SUBMISSIONS_ORDER.prefix(round);
-
-    let submission_addresses: Vec<Addr> = prefix
+fn query_allow_list(deps: Deps) -> StdResult<AllowListResponse> {
+    // No pagination here yet 🤷‍♂️
+    let allowed = ALLOWLIST
         .range(deps.storage, None, None, Order::Ascending)
-        .map(|item| -> StdResult<_> { Ok(item?.1) })
-        .collect::<Result<_, _>>()?;
-    let mut submissions: Vec<QueriedSubmission> = Vec::with_capacity(submission_addresses.len());
-    for addr in submission_addresses {
-        let stored = SUBMISSIONS.load(deps.storage, (round, &addr))?;
-        submissions.push(QueriedSubmission::make(stored, addr));
-    }
-    Ok(SubmissionsResponse { round, submissions })
+        .map(|result| {
+            let (address, _) = result.unwrap();
+            address.into()
+        })
+        .collect();
+    Ok(AllowListResponse { allowed })
+}
+
+fn query_is_allow_listed(deps: Deps, bot: String) -> StdResult<IsAllowListedResponse> {
+    let bot_addr = deps.api.addr_validate(&bot)?;
+    let listed = ALLOWLIST.has(deps.storage, &bot_addr);
+    Ok(IsAllowListedResponse { listed })
 }
 
 fn execute_register_bot(
@@ -369,6 +389,7 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{from_binary, Addr, Timestamp, Uint128};
 
+    const TESTING_MANAGER: &str = "mnrg";
     const TESTING_MIN_ROUND: u64 = 72785;
 
     fn make_add_round_msg(round: u64) -> ExecuteMsg {
@@ -455,7 +476,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -470,7 +491,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                manager: Addr::unchecked("manager"),
+                manager: Addr::unchecked(TESTING_MANAGER),
                 gateway: None,
                 min_round: TESTING_MIN_ROUND,
                 incentive_amount: Uint128::new(1_000_000),
@@ -495,7 +516,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -528,7 +549,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -570,7 +591,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -617,7 +638,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -650,7 +671,7 @@ mod tests {
             add: vec!["registered_bot".to_string()],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // submit randomness
@@ -671,7 +692,7 @@ mod tests {
             add: vec![],
             remove: vec!["registered_bot".to_string()],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // submit randomness
@@ -695,7 +716,7 @@ mod tests {
         let info = mock_info("creator", &[]);
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -707,7 +728,7 @@ mod tests {
             add: vec!["".to_string()],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
@@ -721,7 +742,7 @@ mod tests {
             add: vec!["theADDRESS".to_string()],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
@@ -735,7 +756,7 @@ mod tests {
             add: vec![],
             remove: vec!["".to_string()],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
@@ -749,7 +770,7 @@ mod tests {
             add: vec![],
             remove: vec!["theADDRESS".to_string()],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
@@ -778,7 +799,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -794,7 +815,7 @@ mod tests {
             add: vec!["registered_bot".to_string()],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let randomness = first_attr(response.attributes, "randomness").unwrap();
@@ -822,7 +843,7 @@ mod tests {
         );
 
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -858,7 +879,7 @@ mod tests {
             ],
             remove: vec![],
         };
-        let info = mock_info("manager", &[]);
+        let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Same msg for all submissions
@@ -906,7 +927,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -929,7 +950,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -957,7 +978,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -997,7 +1018,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1034,7 +1055,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1136,7 +1157,7 @@ mod tests {
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1235,7 +1256,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1334,7 +1355,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
-            manager: "manager".to_string(),
+            manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
@@ -1439,5 +1460,122 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn query_allow_list_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let AllowListResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
+                .unwrap();
+        assert_eq!(allowed, Vec::<String>::new());
+
+        // Add one entry
+        let info = mock_info(TESTING_MANAGER, &[]);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            info,
+            ExecuteMsg::UpdateAllowlistBots {
+                add: vec!["bot_b".to_string()],
+                remove: vec![],
+            },
+        )
+        .unwrap();
+
+        let AllowListResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
+                .unwrap();
+        assert_eq!(allowed, vec!["bot_b".to_string()]);
+
+        // Add two more entries
+        let info = mock_info(TESTING_MANAGER, &[]);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            info,
+            ExecuteMsg::UpdateAllowlistBots {
+                add: vec!["bot_a".to_string(), "bot_c".to_string()],
+                remove: vec![],
+            },
+        )
+        .unwrap();
+
+        let AllowListResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
+                .unwrap();
+        assert_eq!(
+            allowed,
+            vec![
+                "bot_a".to_string(),
+                "bot_b".to_string(),
+                "bot_c".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn is_query_allow_listed_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // Add one entry
+        let info = mock_info(TESTING_MANAGER, &[]);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            info,
+            ExecuteMsg::UpdateAllowlistBots {
+                add: vec!["bot_b".to_string()],
+                remove: vec![],
+            },
+        )
+        .unwrap();
+
+        // bot_b is listed
+        let IsAllowListedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowListed {
+                    bot: "bot_b".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(listed);
+
+        // bot_a is not listed
+        let IsAllowListedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowListed {
+                    bot: "bot_a".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(!listed);
     }
 }
