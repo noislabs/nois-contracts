@@ -20,7 +20,7 @@ pub fn instantiate(
     let admin = deps.api.addr_validate(&msg.admin_addr)?;
     let config = Config {
         admin_addr: admin,
-        nois_oracle_contract_addr: None,
+        drand: None,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -34,24 +34,16 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::SendFundsToOracle { amount } => {
-            execute_send_funds_to_oracle(deps.as_ref(), env, amount)
-        }
-        ExecuteMsg::Delegate { addr, amount } => {
-            execute_delegate(deps.as_ref(), info, addr, amount)
-        }
-        ExecuteMsg::Undelegate { addr, amount } => {
-            execute_undelegate(deps.as_ref(), info, addr, amount)
-        }
+        ExecuteMsg::SendFundsToDrand { funds } => execute_send_funds_to_drand(deps, env, funds),
+        ExecuteMsg::Delegate { addr, amount } => execute_delegate(deps, info, addr, amount),
+        ExecuteMsg::Undelegate { addr, amount } => execute_undelegate(deps, info, addr, amount),
         ExecuteMsg::Redelegate {
             src_addr,
             dest_addr,
             amount,
-        } => execute_redelegate(deps.as_ref(), info, src_addr, dest_addr, amount),
+        } => execute_redelegate(deps, info, src_addr, dest_addr, amount),
         ExecuteMsg::ClaimRewards { addr } => execute_claim_rewards(addr),
-        ExecuteMsg::SetNoisOracleContractAddr { addr } => {
-            execute_set_nois_oracle_contract_addr(deps, env, addr)
-        }
+        ExecuteMsg::SetDrandAddr { addr } => execute_set_drand_addr(deps, env, addr),
     }
 }
 
@@ -67,36 +59,36 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 /// The bot is normally incentivised for bringing randomness on chain
 /// But could also be incentivised for executing extra things
 /// like callback jobs
-fn execute_send_funds_to_oracle(
-    deps: Deps,
+fn execute_send_funds_to_drand(
+    deps: DepsMut,
     env: Env,
-    amount: Uint128,
+    funds: Coin,
 ) -> Result<Response, ContractError> {
-    let Some(nois_oracle_contract) = CONFIG.load(deps.storage).unwrap().nois_oracle_contract_addr else {
-        return Err(ContractError::NoisOracleContractAddressUnset);
+    let Some(nois_drand_contract) = CONFIG.load(deps.storage)?.drand else {
+        return Err(ContractError::NoisDrandAddressUnset);
     };
 
     // Check that this contract has the requested amount
     let contract_balance = deps
         .querier
-        .query_balance(env.contract.address, STAKING_DENOM)?
+        .query_balance(env.contract.address, funds.denom.clone())?
         .amount;
-    if contract_balance < amount {
+    if contract_balance < funds.amount {
         return Err(ContractError::InsufficientBalance);
     }
 
     Ok(Response::new()
-        .add_attribute("nois-delegator-sent-amount", amount)
+        .add_attribute("nois-delegator-sent-amount", funds.to_string())
         .add_message(BankMsg::Send {
-            to_address: nois_oracle_contract.to_string(),
-            amount: vec![Coin::new(amount.into(), STAKING_DENOM)],
+            to_address: nois_drand_contract.to_string(),
+            amount: vec![funds],
         }))
 }
 
 /// This function will delegate staked coins
 /// to one validator with the addr address
 fn execute_delegate(
-    deps: Deps,
+    deps: DepsMut,
     info: MessageInfo,
     addr: String,
     amount: Uint128,
@@ -119,7 +111,7 @@ fn execute_delegate(
 /// This function will undelegate staked coins
 /// from one validator with the addr address
 fn execute_undelegate(
-    deps: Deps,
+    deps: DepsMut,
     info: MessageInfo,
     addr: String,
     amount: Uint128,
@@ -142,7 +134,7 @@ fn execute_undelegate(
 /// This function will make this contract move the bonded stakes
 /// from one validator (src_addr) to another validator (dest_addr)
 fn execute_redelegate(
-    deps: Deps,
+    deps: DepsMut,
     info: MessageInfo,
     src_addr: String,
     dest_addr: String,
@@ -177,7 +169,7 @@ fn execute_claim_rewards(addr: String) -> Result<Response, ContractError> {
 /// in a context where the contract addresses generration is not known
 /// in advance, we set the contract address at a later stage after the
 /// instantation and make sure it is immutable once set
-fn execute_set_nois_oracle_contract_addr(
+fn execute_set_drand_addr(
     deps: DepsMut,
     _env: Env,
     addr: String,
@@ -185,16 +177,16 @@ fn execute_set_nois_oracle_contract_addr(
     let mut config: Config = CONFIG.load(deps.storage)?;
 
     // ensure immutability
-    if config.nois_oracle_contract_addr.is_some() {
+    if config.drand.is_some() {
         return Err(ContractError::ContractAlreadySet {});
     }
 
-    let nois_oracle = deps.api.addr_validate(&addr)?;
-    config.nois_oracle_contract_addr = Some(nois_oracle.clone());
+    let nois_drand_address = deps.api.addr_validate(&addr)?;
+    config.drand = Some(nois_drand_address.clone());
 
     CONFIG.save(deps.storage, &config)?;
 
-    Ok(Response::new().add_attribute("nois-oracle-address", nois_oracle))
+    Ok(Response::new().add_attribute("nois-drand-address", nois_drand_address))
 }
 
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
@@ -229,7 +221,7 @@ mod tests {
             config,
             ConfigResponse {
                 admin_addr: Addr::unchecked("admin"),
-                nois_oracle_contract_addr: None,
+                drand: None,
             }
         );
     }

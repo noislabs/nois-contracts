@@ -16,6 +16,6 @@ pub enum ContractError {
     #[error("Unauthorized. Contract is already set")]
     ContractAlreadySet,
 
-    #[error("The nois oracle contract address is still unset. Consider setting that first")]
-    NoisOracleContractAddressUnset,
+    #[error("The nois-drand contract address is still unset. Consider setting that first.")]
+    NoisDrandAddressUnset,
 }

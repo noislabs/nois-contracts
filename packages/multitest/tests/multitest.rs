@@ -1,8 +1,9 @@
 use cosmwasm_std::{
-    from_binary, testing::mock_env, to_binary, Addr, BalanceResponse, BankQuery, Coin, Decimal,
-    Delegation, HexBinary, Querier, QueryRequest, Uint128, Validator,
+    coin, from_binary, testing::mock_env, to_binary, Addr, BalanceResponse, BankQuery, Coin,
+    Decimal, Delegation, HexBinary, Querier, QueryRequest, Uint128, Validator,
 };
 use cw_multi_test::{App, AppBuilder, ContractWrapper, Executor, StakingInfo};
+use nois_multitest::first_attr;
 
 fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
     let req: QueryRequest<BankQuery> = QueryRequest::Bank(BankQuery::Balance {
@@ -92,7 +93,7 @@ fn integration_test() {
         resp,
         nois_delegator::msg::ConfigResponse {
             admin_addr: Addr::unchecked("owner"),
-            nois_oracle_contract_addr: None,
+            drand: None,
         }
     );
 
@@ -123,7 +124,7 @@ fn integration_test() {
     assert_eq!(resp, nois_oracle::msg::ConfigResponse { drand: None });
 
     // Make the nois-delegator contract aware of the nois-oracle contract by setting the oracle address in its state
-    let msg = nois_delegator::msg::ExecuteMsg::SetNoisOracleContractAddr {
+    let msg = nois_delegator::msg::ExecuteMsg::SetDrandAddr {
         addr: addr_nois_oracle.to_string(),
     };
     let resp = app
@@ -137,13 +138,10 @@ fn integration_test() {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure the the tx passed
     assert_eq!(
-        wasm.attributes
-            .iter()
-            .find(|attr| attr.key == "nois-oracle-address")
-            .unwrap()
-            .value,
+        first_attr(&wasm.attributes, "nois-drand-address").unwrap(),
         "contract1"
     );
+
     //Query the new config of nois-delegator containing the nois-oracle contract
     let resp: nois_delegator::msg::ConfigResponse = app
         .wrap()
@@ -153,7 +151,7 @@ fn integration_test() {
         resp,
         nois_delegator::msg::ConfigResponse {
             admin_addr: Addr::unchecked("owner"),
-            nois_oracle_contract_addr: Option::Some(Addr::unchecked("contract1"))
+            drand: Option::Some(Addr::unchecked("contract1"))
         }
     );
 
@@ -197,8 +195,8 @@ fn integration_test() {
         }
     );
     // Withdraw funds from the delegator contract to the oracle contract
-    let msg = nois_delegator::msg::ExecuteMsg::SendFundsToOracle {
-        amount: Uint128::new(300_000),
+    let msg = nois_delegator::msg::ExecuteMsg::SendFundsToDrand {
+        funds: coin(300_000, "unois"),
     };
     app.execute_contract(
         Addr::unchecked("an_unhappy_drand_bot_operator"),
@@ -208,52 +206,8 @@ fn integration_test() {
     )
     .unwrap();
     // Check balance nois-oracle
-    let balance = query_balance_native(&app, &addr_nois_oracle, "unois").amount;
-    assert_eq!(balance, Uint128::new(300_000));
-
-    // register bot
-    // let msg = nois_oracle::msg::ExecuteMsg::RegisterBot {
-    //     moniker: "drand_bot".to_string(),
-    // };
-    // app.execute_contract(
-    //     Addr::unchecked("drand_bot"),
-    //     addr_nois_oracle.to_owned(),
-    //     &msg,
-    //     &[],
-    // )
-    // .unwrap();
-
-    // whitelist bot doesn't work by non admin
-    // let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
-    //     add: vec!["drand_bot".to_string()],
-    //     remove: vec![],
-    // };
-    // let err = app
-    //     .execute_contract(
-    //         Addr::unchecked("drand_bot"),
-    //         addr_nois_oracle.to_owned(),
-    //         &msg,
-    //         &[],
-    //     )
-    //     .unwrap_err();
-    //
-    // assert!(matches!(
-    //     err.downcast().unwrap(),
-    //     nois_oracle::error::ContractError::Unauthorized
-    // ));
-
-    // // add  bot to allow list
-    // let msg = nois_oracle::msg::ExecuteMsg::UpdateAllowlistBots {
-    //     add: vec!["drand_bot".to_string()],
-    //     remove: vec![],
-    // };
-    // app.execute_contract(
-    //     Addr::unchecked("manager"),
-    //     addr_nois_oracle.to_owned(),
-    //     &msg,
-    //     &[],
-    // )
-    // .unwrap();
+    let balance = query_balance_native(&app, &addr_nois_oracle, "unois");
+    assert_eq!(balance.amount, Uint128::new(300_000));
 
     // Add round
     let msg = nois_oracle::msg::ExecuteMsg::AddVerifiedRound {
@@ -273,16 +227,6 @@ fn integration_test() {
         )
         .unwrap();
 
-    // let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
-    // Make sure that there is an incentive for the registered bot
-    // assert_eq!(
-    //     wasm.attributes
-    //         .iter()
-    //         .find(|attr| attr.key == "bot_incentive")
-    //         .unwrap()
-    //         .value,
-    //     "100000unois"
-    // );
     // Check balance nois-delegator
     let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
     assert_eq!(
