@@ -10,8 +10,9 @@ use crate::bots::validate_moniker;
 use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
 use crate::msg::{
-    BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse, ExecuteMsg,
-    InstantiateMsg, NoisGatewayExecuteMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
+    AllowListResponse, BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse,
+    ExecuteMsg, InstantiateMsg, NoisGatewayExecuteMsg, QueriedSubmission, QueryMsg,
+    SubmissionsResponse,
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
@@ -82,7 +83,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
-        // TODO Add query for allowlisted bots
+        QueryMsg::AllowList {} => to_binary(&query_allow_list(deps)?)?,
     };
     Ok(response)
 }
@@ -153,6 +154,18 @@ fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
         })
         .collect();
     Ok(BotsResponse { bots })
+}
+
+fn query_allow_list(deps: Deps) -> StdResult<AllowListResponse> {
+    // No pagination here yet 🤷‍♂️
+    let allowed = ALLOWLIST
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|result| {
+            let (address, _) = result.unwrap();
+            address.into()
+        })
+        .collect();
+    Ok(AllowListResponse { allowed })
 }
 
 fn execute_register_bot(
@@ -1438,6 +1451,68 @@ mod tests {
                     bot: Addr::unchecked(bot3),
                     time: Timestamp::from_nanos(1571797419879305533),
                 },
+            ]
+        );
+    }
+
+    #[test]
+    fn query_allow_list_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let AllowListResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
+                .unwrap();
+        assert_eq!(allowed, Vec::<String>::new());
+
+        // Add one entry
+        let info = mock_info(TESTING_MANAGER, &[]);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            info,
+            ExecuteMsg::UpdateAllowlistBots {
+                add: vec!["bot_b".to_string()],
+                remove: vec![],
+            },
+        )
+        .unwrap();
+
+        let AllowListResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
+                .unwrap();
+        assert_eq!(allowed, vec!["bot_b".to_string()]);
+
+        // Add two more entries
+        let info = mock_info(TESTING_MANAGER, &[]);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            info,
+            ExecuteMsg::UpdateAllowlistBots {
+                add: vec!["bot_a".to_string(), "bot_c".to_string()],
+                remove: vec![],
+            },
+        )
+        .unwrap();
+
+        let AllowListResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
+                .unwrap();
+        assert_eq!(
+            allowed,
+            vec![
+                "bot_a".to_string(),
+                "bot_b".to_string(),
+                "bot_c".to_string()
             ]
         );
     }
