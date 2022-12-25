@@ -78,6 +78,12 @@ pub enum QueryMsg {
     /// Returns the list of allowed bot addresses
     #[returns(AllowListResponse)]
     AllowList {},
+    /// Returns the list of allowed bot addresses
+    #[returns(IsAllowListedResponse)]
+    IsAllowListed {
+        /// The address of the bot
+        address: String,
+    },
 }
 
 // We define a custom struct for each query response
@@ -108,6 +114,8 @@ pub struct AllowListResponse {
     /// List of bot addresses
     pub allowed: Vec<String>,
 }
+
+pub type IsAllowListedResponse = bool;
 
 /// Like StoredSubmission but plus bot address
 #[cw_serde]

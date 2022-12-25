@@ -11,8 +11,8 @@ use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
 use crate::msg::{
     AllowListResponse, BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse,
-    ExecuteMsg, InstantiateMsg, NoisGatewayExecuteMsg, QueriedSubmission, QueryMsg,
-    SubmissionsResponse,
+    ExecuteMsg, InstantiateMsg, IsAllowListedResponse, NoisGatewayExecuteMsg, QueriedSubmission,
+    QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
@@ -84,6 +84,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::AllowList {} => to_binary(&query_allow_list(deps)?)?,
+        QueryMsg::IsAllowListed { address } => to_binary(&query_is_allow_listed(deps, address)?)?,
     };
     Ok(response)
 }
@@ -166,6 +167,12 @@ fn query_allow_list(deps: Deps) -> StdResult<AllowListResponse> {
         })
         .collect();
     Ok(AllowListResponse { allowed })
+}
+
+fn query_is_allow_listed(deps: Deps, address: String) -> StdResult<IsAllowListedResponse> {
+    let address = deps.api.addr_validate(&address)?;
+    let found = ALLOWLIST.has(deps.storage, &address);
+    Ok(found)
 }
 
 fn execute_register_bot(
@@ -1515,5 +1522,60 @@ mod tests {
                 "bot_c".to_string()
             ]
         );
+    }
+
+    #[test]
+    fn is_query_allow_listed_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_amount: Uint128::new(1_000_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // Add one entry
+        let info = mock_info(TESTING_MANAGER, &[]);
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            info,
+            ExecuteMsg::UpdateAllowlistBots {
+                add: vec!["bot_b".to_string()],
+                remove: vec![],
+            },
+        )
+        .unwrap();
+
+        // bot_b is listed
+        let listed: IsAllowListedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowListed {
+                    address: "bot_b".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(listed);
+
+        // bot_a is not listed
+        let listed: IsAllowListedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowListed {
+                    address: "bot_a".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(!listed);
     }
 }
