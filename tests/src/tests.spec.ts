@@ -9,10 +9,10 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { Bot, ibcPacketsSent, MockBot } from "./bot";
 import {
-  DelegatorInstantiateMsg,
   DrandExecuteMsg,
   DrandInstantiateMsg,
   GatewayInstantiateMsg,
+  IcecubeInstantiateMsg,
   OsmosisContractPaths,
   osmosisContracts,
   ProxyInstantiateMsg,
@@ -562,21 +562,15 @@ test.serial("submit randomness for various job counts", async (t) => {
   }
 });
 
-test.serial("delegator works", async (t) => {
+test.serial("icecube works", async (t) => {
   const osmoClient = await setupOsmosisClient();
-  const delegatorMsg: DelegatorInstantiateMsg = {
+
+  const msg: IcecubeInstantiateMsg = {
     admin_addr: osmoClient.senderAddress,
   };
+  await osmoClient.sign.instantiate(osmoClient.senderAddress, osmosisCodeIds.icecube, msg, "Icecube instance", "auto");
 
-  await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    osmosisCodeIds.delegator,
-    delegatorMsg,
-    "Delegator instance",
-    "auto"
-  );
-
-  // TODO: do something cool with the delegator contract
+  // TODO: do something cool with the icecube contract
 
   t.pass();
 });

@@ -1,6 +1,6 @@
 use cosmwasm_schema::write_api;
 
-use nois_delegator::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use nois_icecube::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 
 fn main() {
     write_api! {

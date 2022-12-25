@@ -59,42 +59,39 @@ fn integration_test() {
             .unwrap();
     });
 
-    // Storing nois-delegator code
-    let code_nois_delegator = ContractWrapper::new(
-        nois_delegator::contract::execute,
-        nois_delegator::contract::instantiate,
-        nois_delegator::contract::query,
+    // Storing nois-icecube code
+    let code_nois_icecube = ContractWrapper::new(
+        nois_icecube::contract::execute,
+        nois_icecube::contract::instantiate,
+        nois_icecube::contract::query,
     );
-    let code_id_nois_delegator = app.store_code(Box::new(code_nois_delegator));
+    let code_id_nois_icecube = app.store_code(Box::new(code_nois_icecube));
 
     //Mint some coins for owner
     mint_native(&mut app, "owner", "unois", 100_000_000);
 
-    // Instantiating nois-delegator contract
-    let addr_nois_delegator = app
+    // Instantiating nois-icecube contract
+    let addr_nois_icecube = app
         .instantiate_contract(
-            code_id_nois_delegator,
+            code_id_nois_icecube,
             Addr::unchecked("owner"),
-            &nois_delegator::msg::InstantiateMsg {
+            &nois_icecube::msg::InstantiateMsg {
                 admin_addr: "owner".to_string(),
             },
             &[Coin::new(1_000_000, "unois")],
-            "Nois-Delegator",
+            "Nois-Icecube",
             None,
         )
         .unwrap();
 
-    //check instantiation and config of nois-delegator contract
-    let resp: nois_delegator::msg::ConfigResponse = app
+    //check instantiation and config of nois-icecube contract
+    let resp: nois_icecube::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(
-            &addr_nois_delegator,
-            &nois_gateway::msg::QueryMsg::Config {},
-        )
+        .query_wasm_smart(&addr_nois_icecube, &nois_gateway::msg::QueryMsg::Config {})
         .unwrap();
     assert_eq!(
         resp,
-        nois_delegator::msg::ConfigResponse {
+        nois_icecube::msg::ConfigResponse {
             admin_addr: Addr::unchecked("owner"),
             drand: None,
         }
@@ -126,15 +123,15 @@ fn integration_test() {
     //Checking that the contract has been well instantiated with the expected config
     assert_eq!(resp, nois_gateway::msg::ConfigResponse { drand: None });
 
-    // Make the nois-delegator contract aware of the nois-drand contract by
+    // Make the nois-icecube contract aware of the nois-drand contract by
     // setting the drand address in its state
-    let msg = nois_delegator::msg::ExecuteMsg::SetDrandAddr {
+    let msg = nois_icecube::msg::ExecuteMsg::SetDrandAddr {
         addr: addr_nois_gateway.to_string(),
     };
     let resp = app
         .execute_contract(
             Addr::unchecked("a_random_person"),
-            addr_nois_delegator.to_owned(),
+            addr_nois_icecube.to_owned(),
             &msg,
             &[],
         )
@@ -146,17 +143,14 @@ fn integration_test() {
         "contract1"
     );
 
-    // Query the new config of nois-delegator containing the nois-drand contract
-    let resp: nois_delegator::msg::ConfigResponse = app
+    // Query the new config of nois-icecube containing the nois-drand contract
+    let resp: nois_icecube::msg::ConfigResponse = app
         .wrap()
-        .query_wasm_smart(
-            &addr_nois_delegator,
-            &nois_gateway::msg::QueryMsg::Config {},
-        )
+        .query_wasm_smart(&addr_nois_icecube, &nois_gateway::msg::QueryMsg::Config {})
         .unwrap();
     assert_eq!(
         resp,
-        nois_delegator::msg::ConfigResponse {
+        nois_icecube::msg::ConfigResponse {
             admin_addr: Addr::unchecked("owner"),
             drand: Option::Some(Addr::unchecked("contract1"))
         }
@@ -201,13 +195,13 @@ fn integration_test() {
             },
         }
     );
-    // Withdraw funds from the delegator contract to the drand contract
-    let msg = nois_delegator::msg::ExecuteMsg::SendFundsToDrand {
+    // Withdraw funds from the icecube contract to the drand contract
+    let msg = nois_icecube::msg::ExecuteMsg::SendFundsToDrand {
         funds: coin(300_000, "unois"),
     };
     app.execute_contract(
         Addr::unchecked("an_unhappy_drand_bot_operator"),
-        addr_nois_delegator.to_owned(),
+        addr_nois_icecube.to_owned(),
         &msg,
         &[],
     )
@@ -234,8 +228,8 @@ fn integration_test() {
         )
         .unwrap();
 
-    // Check balance nois-delegator
-    let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
+    // Check balance nois-icecube
+    let balance = query_balance_native(&app, &addr_nois_icecube, "unois").amount;
     assert_eq!(
         balance,
         Uint128::new(700_000) // 1_000_000(initial_balance) - 300_000(withdrawn) = 700_000
@@ -251,20 +245,20 @@ fn integration_test() {
     //     Uint128::new(100_000) //incentive
     // );
 
-    // Make nois-delegator delegate
-    let msg = nois_delegator::msg::ExecuteMsg::Delegate {
+    // Make nois-icecube delegate
+    let msg = nois_icecube::msg::ExecuteMsg::Delegate {
         addr: "noislabs".to_string(),
         amount: Uint128::new(500_000),
     };
     app.execute_contract(
         Addr::unchecked("owner"),
-        addr_nois_delegator.to_owned(),
+        addr_nois_icecube.to_owned(),
         &msg,
         &[],
     )
     .unwrap();
-    // Check balance nois-delegator
-    let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
+    // Check balance nois-icecube
+    let balance = query_balance_native(&app, &addr_nois_icecube, "unois").amount;
     assert_eq!(
         balance,
         Uint128::new(200_000) // 700_000 - 500_000(staked) = 200_000
@@ -272,7 +266,7 @@ fn integration_test() {
     // Check staked amount
     assert_eq!(
         app.wrap()
-            .query_all_delegations(&addr_nois_delegator)
+            .query_all_delegations(&addr_nois_icecube)
             .unwrap()[0],
         Delegation {
             amount: Coin::new(500_000, "unois"),
@@ -283,20 +277,20 @@ fn integration_test() {
 
     //TODO simulte advance many blocks to accumulate some staking rewards
 
-    // Make nois-delegator claim
-    let msg = nois_delegator::msg::ExecuteMsg::ClaimRewards {
+    // Make nois-icecube claim
+    let msg = nois_icecube::msg::ExecuteMsg::ClaimRewards {
         addr: "noislabs".to_string(),
     };
     let _err = app
-        .execute_contract(Addr::unchecked("owner"), addr_nois_delegator, &msg, &[])
+        .execute_contract(Addr::unchecked("owner"), addr_nois_icecube, &msg, &[])
         .unwrap_err();
     //assert_eq!(
-    //        nois_delegator::error::ContractError::ContractAlreadySet,
+    //        nois_icecube::error::ContractError::ContractAlreadySet,
     //        err.downcast().unwrap()
     //
     //    );
-    // Check balance nois-delegator
-    //let balance = query_balance_native(&app, &addr_nois_delegator, "unois").amount;
+    // Check balance nois-icecube
+    //let balance = query_balance_native(&app, &addr_nois_icecube, "unois").amount;
     //assert_eq!(
     //    balance,
     //    Uint128::new(800_000) // 900_000 - 100_000(staked) = 800_000

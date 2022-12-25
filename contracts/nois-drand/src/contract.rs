@@ -785,11 +785,10 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        //instantiate contract
 
         let env = mock_env();
         let contract = env.contract.address;
-        //add balance to the delegator contract
+        //add balance to the contract
         deps.querier.update_balance(
             contract,
             vec![Coin {
