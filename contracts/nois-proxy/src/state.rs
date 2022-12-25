@@ -14,7 +14,8 @@ pub struct Config {
 
 pub const CONFIG: Item<Config> = Item::new("config");
 
-pub const ORACLE_CHANNEL: Item<String> = Item::new("oracle_channel");
+/// Channel to the nois-gateway contract on the Nois chain
+pub const GATEWAY_CHANNEL: Item<String> = Item::new("gateway_channel");
 
 /// We use this value to get publish times that are independent of the current clock
 /// in test mode. We want the following rounds to be the result. To get there er use

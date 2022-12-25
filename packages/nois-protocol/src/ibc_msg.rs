@@ -3,7 +3,7 @@ use cosmwasm_std::{from_slice, to_binary, Binary, HexBinary, Timestamp};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-/// This is the message we send over the IBC channel from nois-proxy to nois-oracle
+/// This is the message we send over the IBC channel from nois-proxy to nois-gateway
 #[cw_serde]
 pub struct RequestBeaconPacket {
     /// Beacon publish time must be > `after`
@@ -27,7 +27,7 @@ pub enum RequestBeaconPacketAck {
     },
 }
 
-/// This is the message we send over the IBC channel from nois-oracle to nois-proxy
+/// This is the message we send over the IBC channel from nois-gateway to nois-proxy
 #[cw_serde]
 pub struct DeliverBeaconPacket {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`

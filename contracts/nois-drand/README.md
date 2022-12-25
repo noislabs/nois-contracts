@@ -1,1 +1,3 @@
-# Nois Oracle
+# Nois Drand
+
+Drand backend for beacon verification.

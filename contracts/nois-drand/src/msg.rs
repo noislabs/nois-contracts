@@ -35,7 +35,7 @@ pub enum ExecuteMsg {
         add: Vec<String>,
         remove: Vec<String>,
     },
-    SetOracleAddr {
+    SetGatewayAddr {
         addr: String,
     },
 }
@@ -126,7 +126,7 @@ pub struct SubmissionsResponse {
 }
 
 #[cw_serde]
-pub enum NoisOracleExecuteMsg {
+pub enum NoisGatewayExecuteMsg {
     /// Add drand beacon
     AddVerifiedRound { round: u64, randomness: HexBinary },
 }

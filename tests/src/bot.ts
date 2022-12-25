@@ -2,7 +2,7 @@ import { ExecuteResult, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate"
 import { logs } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 
-import { DrandExecuteMsg, OracleExecuteMsg } from "./contracts";
+import { DrandExecuteMsg, GatewayExecuteMsg } from "./contracts";
 import { setupOsmosisClient } from "./utils";
 
 interface Beacon {
@@ -120,20 +120,20 @@ export class Bot {
 
 // Like Bot but submits pre-verified beacons
 export class MockBot {
-  public static async connect(oracleAddress: string): Promise<MockBot> {
+  public static async connect(gatewayAddress: string): Promise<MockBot> {
     const signer = await setupOsmosisClient();
-    return new MockBot(signer.senderAddress, signer.sign, oracleAddress);
+    return new MockBot(signer.senderAddress, signer.sign, gatewayAddress);
   }
 
   private readonly address: string;
   private readonly client: SigningCosmWasmClient;
-  private readonly oracleAddress: string;
+  private readonly gatewayAddress: string;
   private nextRound = 2183660;
 
-  private constructor(address: string, client: SigningCosmWasmClient, oracleAddress: string) {
+  private constructor(address: string, client: SigningCosmWasmClient, gatewayAddress: string) {
     this.address = address;
     this.client = client;
-    this.oracleAddress = oracleAddress;
+    this.gatewayAddress = gatewayAddress;
   }
 
   public async submitNext(): Promise<ExecuteResult> {
@@ -146,13 +146,13 @@ export class MockBot {
     const beacon = localDataSource.get(round);
     assert(beacon, `No data source for round ${round} available`);
 
-    const msg: OracleExecuteMsg = {
+    const msg: GatewayExecuteMsg = {
       add_verified_round: {
         round: beacon.round,
         randomness: beacon.randomness,
       },
     };
-    const res = await this.client.execute(this.address, this.oracleAddress, msg, "auto");
+    const res = await this.client.execute(this.address, this.gatewayAddress, msg, "auto");
     return res;
   }
 }

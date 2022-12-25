@@ -6,9 +6,9 @@ workflows:
     jobs:
       - contract_nois_demo
       - contract_nois_drand
+      - contract_nois_gateway
       - contract_nois_proxy
       - contract_nois_monitoring
-      - contract_nois_oracle
       - contract_nois_delegator
       - cw-multitest
       - package_nois_protocol
@@ -22,7 +22,7 @@ workflows:
             - contract_nois_demo
             - contract_nois_proxy
             - contract_nois_monitoring
-            - contract_nois_oracle
+            - contract_nois_gateway
             - contract_nois_delegator
   deploy:
     jobs:
@@ -130,10 +130,10 @@ jobs:
             - ~/project/target/debug/deps
           key: v2-contract_nois_monitoring-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
-  contract_nois_oracle:
+  contract_nois_gateway:
     docker:
       - image: rust:1.65.0
-    working_directory: ~/project/contracts/nois-oracle
+    working_directory: ~/project/contracts/nois-gateway
     steps:
       - checkout:
           path: ~/project
@@ -142,8 +142,8 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - restore_cache:
           keys:
-            - v2-contract_nois_oracle-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
-            - v2-contract_nois_oracle-rust:1.65.0-
+            - v2-contract_nois_gateway-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-contract_nois_gateway-rust:1.65.0-
       - run:
           name: Unit Tests
           environment:
@@ -158,7 +158,7 @@ jobs:
             - ~/project/target/debug/.fingerprint
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
-          key: v2-contract_nois_oracle-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+          key: v2-contract_nois_gateway-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_drand:
     docker:
@@ -329,7 +329,7 @@ jobs:
             - nois_demo.wasm
             - nois_drand.wasm
             - nois_proxy.wasm
-            - nois_oracle.wasm
+            - nois_gateway.wasm
             - nois_delegator.wasm
 
   ts-build:

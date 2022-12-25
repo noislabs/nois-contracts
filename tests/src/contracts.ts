@@ -24,12 +24,13 @@ export interface DrandExecuteMsg {
   readonly register_bot?: {
     readonly moniker: string;
   };
+  readonly set_gateway_addr?: { addr: string };
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface OracleInstantiateMsg {}
+export interface GatewayInstantiateMsg {}
 
-export interface OracleExecuteMsg {
+export interface GatewayExecuteMsg {
   readonly add_verified_round: {
     readonly round: number;
     readonly randomness: string;
@@ -49,7 +50,7 @@ export interface WasmdContractPaths {
 
 export interface OsmosisContractPaths {
   readonly delegator: string;
-  readonly oracle: string;
+  readonly gateway: string;
   readonly drand: string;
 }
 
@@ -60,7 +61,7 @@ export const wasmContracts: WasmdContractPaths = {
 
 export const osmosisContracts: OsmosisContractPaths = {
   delegator: "./internal/nois_delegator.wasm",
-  oracle: "./internal/nois_oracle.wasm",
+  gateway: "./internal/nois_gateway.wasm",
   drand: "./internal/nois_drand.wasm",
 };
 
