@@ -17,12 +17,13 @@ There are two CosmWasm-enabled blockchains running locally.
 ## The contracts
 
 - nois-gateway (runs on the randomness chain; one instance globally)
-  - nois-oracle is the entrypoint to the randomness beacon coming from drand through the drand bots.
+  - it gets the requests for randomness via IBC and redirects them to the randomness source (ex drand)
+- nois-drand is the entrypoint to the randomness beacon coming from drand through the drand bots. (runs on the randomness chain; one instance globally)
   - it verifies the randomness before it is stored on chain.
   - it initiates the callback messages to consumer DAPPS on randomness consumer chains (juno, stargaze ...) whenever the randomness is available. this callback is sent to the nois-proxy which is deployed on the consumer chain.
-- nois-delegator (runs on the randomness chain; one instance globally)
-  - nois-delegator gets called by nois-oracle to incentivise the fast drand bots upon submissions of the randomness.
-  - it has an initial nois coin supply that an admin multisig can delegate, unbond or redelegate but cannot withdraw.
+- nois-icecube holds an initial coin supply that helps incentivise certain agents. The supply of this contract is designed to fade away throughout the time like an icecube(runs on the randomness chain; one instance globally)
+  - nois-icecube gets called by nois-drand to request somefunds to incentivise drand bots upon submission of the randomness.
+  - it has an initial nois coin supply that an admin multisig can delegate, unbond or redelegate but can never withdraw.
 - nois-proxy (runs on the app chain; one instance per app chain)
   - nois-proxy receives randomness requests from the consumer DAPPs and submits those requests to the nois chain via IBC.
   - Once the randomness is available, the nois-proxy receives a callback and forwards it to the DAPP
