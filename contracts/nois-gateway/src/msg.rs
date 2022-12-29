@@ -20,16 +20,16 @@ pub enum QueryMsg {
     /// Get the config state
     #[returns(ConfigResponse)]
     Config {},
-    /// Gets basic statistics about jobs in this round.
-    #[returns(JobStatsResponse)]
-    JobStats { round: u64 },
+    /// Gets basic statistics about jobs in this drand round.
+    #[returns(DrandJobStatsResponse)]
+    DrandJobStats { round: u64 },
 }
 
 // We define a custom struct for each query response
 pub type ConfigResponse = Config;
 
 #[cw_serde]
-pub struct JobStatsResponse {
+pub struct DrandJobStatsResponse {
     pub round: u64,
     /// Number of unprocessed jobs
     pub unprocessed: u32,

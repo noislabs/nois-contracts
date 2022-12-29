@@ -12,9 +12,9 @@ use nois_protocol::{
 
 use crate::error::ContractError;
 use crate::job_id::validate_job_id;
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, JobStatsResponse, QueryMsg};
+use crate::msg::{ConfigResponse, DrandJobStatsResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
-use crate::state::{get_processed_jobs, unprocessed_jobs_len, Config, CONFIG};
+use crate::state::{get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, CONFIG};
 
 #[entry_point]
 pub fn instantiate(
@@ -54,7 +54,7 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
-        QueryMsg::JobStats { round } => to_binary(&query_job_stats(deps, round)?)?,
+        QueryMsg::DrandJobStats { round } => to_binary(&query_drand_job_stats(deps, round)?)?,
     };
     Ok(response)
 }
@@ -64,11 +64,11 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     Ok(config)
 }
 
-// Query job stats by round
-fn query_job_stats(deps: Deps, round: u64) -> StdResult<JobStatsResponse> {
-    let unprocessed = unprocessed_jobs_len(deps.storage, round)?;
-    let processed = get_processed_jobs(deps.storage, round)?;
-    Ok(JobStatsResponse {
+/// Query drand job stats by drand round
+fn query_drand_job_stats(deps: Deps, round: u64) -> StdResult<DrandJobStatsResponse> {
+    let unprocessed = unprocessed_drand_jobs_len(deps.storage, round)?;
+    let processed = get_processed_drand_jobs(deps.storage, round)?;
+    Ok(DrandJobStatsResponse {
         round,
         unprocessed,
         processed,
@@ -557,14 +557,15 @@ mod tests {
         let msg = InstantiateMsg {};
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        fn job_stats(deps: Deps, round: u64) -> JobStatsResponse {
-            from_binary(&query(deps, mock_env(), QueryMsg::JobStats { round }).unwrap()).unwrap()
+        fn job_stats(deps: Deps, round: u64) -> DrandJobStatsResponse {
+            from_binary(&query(deps, mock_env(), QueryMsg::DrandJobStats { round }).unwrap())
+                .unwrap()
         }
 
         // No jobs by default
         assert_eq!(
             job_stats(deps.as_ref(), 2183669),
-            JobStatsResponse {
+            DrandJobStatsResponse {
                 round: 2183669,
                 processed: 0,
                 unprocessed: 0,
@@ -586,7 +587,7 @@ mod tests {
         // One unprocessed job
         assert_eq!(
             job_stats(deps.as_ref(), 2183669),
-            JobStatsResponse {
+            DrandJobStatsResponse {
                 round: 2183669,
                 processed: 0,
                 unprocessed: 1,
@@ -599,7 +600,7 @@ mod tests {
         // 1 processed job, no unprocessed jobs
         assert_eq!(
             job_stats(deps.as_ref(), 2183669),
-            JobStatsResponse {
+            DrandJobStatsResponse {
                 round: 2183669,
                 processed: 1,
                 unprocessed: 0,
@@ -621,7 +622,7 @@ mod tests {
         // 2 processed job, no unprocessed jobs
         assert_eq!(
             job_stats(deps.as_ref(), 2183669),
-            JobStatsResponse {
+            DrandJobStatsResponse {
                 round: 2183669,
                 processed: 2,
                 unprocessed: 0,
@@ -645,7 +646,7 @@ mod tests {
         // 20 unprocessed
         assert_eq!(
             job_stats(deps.as_ref(), 2183671),
-            JobStatsResponse {
+            DrandJobStatsResponse {
                 round: 2183671,
                 processed: 0,
                 unprocessed: 20,
@@ -659,7 +660,7 @@ mod tests {
         // Some processed, rest unprocessed
         assert_eq!(
             job_stats(deps.as_ref(), 2183671),
-            JobStatsResponse {
+            DrandJobStatsResponse {
                 round: 2183671,
                 processed: 3,
                 unprocessed: 17,
