@@ -3,7 +3,7 @@ members = ["packages/*", "contracts/*"]
 resolver = "2"
 
 [workspace.dependencies]
-nois = { git = "https://github.com/noislabs/nois", rev = "v0.6.0-beta.0" }
+nois = "0.6.0"
 
 [patch.crates-io]
 # cosmwasm-std = { git = "https://github.com/CosmWasm/cosmwasm", rev = "2e215cf" }
