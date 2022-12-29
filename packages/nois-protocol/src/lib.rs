@@ -11,7 +11,7 @@ pub use ibc_msg::{
 };
 pub use never::Never;
 
-pub const IBC_APP_VERSION: &str = "nois-v3";
+pub const IBC_APP_VERSION: &str = "nois-v4";
 pub const APP_ORDER: IbcOrder = IbcOrder::Unordered;
 // we use this for tests to ensure it is rejected
 pub const BAD_APP_ORDER: IbcOrder = IbcOrder::Ordered;

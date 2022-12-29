@@ -208,7 +208,7 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
   const [src, dest] = await setup(wasmd, osmosis);
   const link = await Link.createWithNewConnections(src, dest);
 
-  // Create a channel for nois-v3
+  // Create a channel for the Nois protocol
   const info = await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
   const noisChannel = {
     wasmChannelId: info.src.channelId,
