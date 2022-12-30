@@ -66,12 +66,40 @@ fn integration_test() {
             None,
         )
         .unwrap();
+
+    // Check initial config
     let resp: nois_gateway::msg::ConfigResponse = app
         .wrap()
         .query_wasm_smart(&addr_nois_gateway, &nois_gateway::msg::QueryMsg::Config {})
         .unwrap();
-    //Checking that the contract has been well instantiated with the expected config
     assert_eq!(resp, nois_gateway::msg::ConfigResponse { drand: None });
+
+    const DRAND: &str = "drand_verifier_7";
+
+    // Set drand
+    let msg = nois_gateway::msg::ExecuteMsg::SetDrandAddr {
+        addr: DRAND.to_string(),
+    };
+    let _resp = app
+        .execute_contract(
+            Addr::unchecked("whoever"),
+            addr_nois_gateway.clone(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
+    // Check updated config
+    let resp: nois_gateway::msg::ConfigResponse = app
+        .wrap()
+        .query_wasm_smart(&addr_nois_gateway, &nois_gateway::msg::QueryMsg::Config {})
+        .unwrap();
+    assert_eq!(
+        resp,
+        nois_gateway::msg::ConfigResponse {
+            drand: Some(Addr::unchecked(DRAND))
+        }
+    );
 
     // Storing nois-proxy code
     let code_nois_proxy = ContractWrapper::new(
@@ -112,7 +140,7 @@ fn integration_test() {
         }
     );
 
-    // Add round
+    // Add verified round
     let msg = nois_gateway::msg::ExecuteMsg::AddVerifiedRound {
         // curl -sS https://drand.cloudflare.com/public/72785
         round: 72785,
@@ -122,6 +150,6 @@ fn integration_test() {
         .unwrap(),
     };
     let _resp = app
-        .execute_contract(Addr::unchecked("drand_bot"), addr_nois_gateway, &msg, &[])
+        .execute_contract(Addr::unchecked(DRAND), addr_nois_gateway, &msg, &[])
         .unwrap();
 }

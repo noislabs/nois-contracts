@@ -226,13 +226,11 @@ fn execute_add_verified_round(
     randomness: HexBinary,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    if let Some(drand) = config.drand {
-        ensure_eq!(
-            info.sender,
-            drand,
-            ContractError::UnauthorizedAddVerifiedRound
-        );
-    }
+    ensure_eq!(
+        Some(info.sender),
+        config.drand,
+        ContractError::UnauthorizedAddVerifiedRound
+    );
 
     let mut attributes = Vec::<Attribute>::new();
     let router = RequestRouter::new();
@@ -427,12 +425,56 @@ mod tests {
     //
 
     #[test]
+    fn add_round_verified_must_only_be_called_by_drand() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {};
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        const ANON: &str = "anon";
+        const DRAND: &str = "drand_verifier_7";
+
+        // drand contract unset, i.e. noone can submit
+        let msg = make_add_verified_round_msg(2183668);
+        let err = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
+        let msg = make_add_verified_round_msg(2183668);
+        let err = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
+
+        // Set drand contract
+        let msg = ExecuteMsg::SetDrandAddr {
+            addr: DRAND.to_string(),
+        };
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap();
+
+        // Anon still cannot add round
+        let msg = make_add_verified_round_msg(2183668);
+        let err = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
+
+        // But drand can
+        let msg = make_add_verified_round_msg(2183668);
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+    }
+
+    #[test]
     fn add_round_verified_processes_jobs() {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {};
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        const ANON: &str = "anon";
+        const DRAND: &str = "drand_verifier_7";
+
+        // Set drand contract
+        let msg = ExecuteMsg::SetDrandAddr {
+            addr: DRAND.to_string(),
+        };
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap();
 
         // Create one job
         let msg = mock_ibc_packet_recv(
@@ -448,7 +490,7 @@ mod tests {
 
         // Previous round processes no job
         let msg = make_add_verified_round_msg(2183668);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "0");
@@ -457,7 +499,7 @@ mod tests {
 
         // Process one job
         let msg = make_add_verified_round_msg(2183669);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
         assert!(matches!(
@@ -485,7 +527,7 @@ mod tests {
 
         // Process 3 jobs
         let msg = make_add_verified_round_msg(2183670);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
         assert_eq!(res.messages[0].gas_limit, None);
         assert_eq!(res.messages[1].gas_limit, None);
@@ -523,7 +565,7 @@ mod tests {
 
         // Process first 3 jobs
         let msg = make_add_verified_round_msg(2183671);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon1", &[]), msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "3");
@@ -532,7 +574,7 @@ mod tests {
 
         // Process next 3 jobs
         let msg = make_add_verified_round_msg(2183671);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon2", &[]), msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 3);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "3");
@@ -541,7 +583,7 @@ mod tests {
 
         // Process last 1 jobs
         let msg = make_add_verified_round_msg(2183671);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon3", &[]), msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
@@ -550,7 +592,7 @@ mod tests {
 
         // No jobs left for later submissions
         let msg = make_add_verified_round_msg(2183671);
-        let res = execute(deps.as_mut(), mock_env(), mock_info("anon4", &[]), msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "0");
@@ -569,6 +611,15 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {};
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        const ANON: &str = "anon";
+        const DRAND: &str = "drand_verifier_7";
+
+        // Set drand contract
+        let msg = ExecuteMsg::SetDrandAddr {
+            addr: DRAND.to_string(),
+        };
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap();
 
         fn job_stats(deps: Deps, round: u64) -> DrandJobStatsResponse {
             from_binary(&query(deps, mock_env(), QueryMsg::DrandJobStats { round }).unwrap())
@@ -608,7 +659,7 @@ mod tests {
         );
 
         let msg = make_add_verified_round_msg(2183669);
-        execute(deps.as_mut(), mock_env(), mock_info("bot", &[]), msg).unwrap();
+        execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
 
         // 1 processed job, no unprocessed jobs
         assert_eq!(
@@ -668,7 +719,7 @@ mod tests {
 
         // process some
         let msg = make_add_verified_round_msg(2183671);
-        execute(deps.as_mut(), mock_env(), mock_info("bot", &[]), msg).unwrap();
+        execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
 
         // Some processed, rest unprocessed
         assert_eq!(
