@@ -31,10 +31,11 @@ export interface DrandExecuteMsg {
 export interface GatewayInstantiateMsg {}
 
 export interface GatewayExecuteMsg {
-  readonly add_verified_round: {
+  readonly add_verified_round?: {
     readonly round: number;
     readonly randomness: string;
   };
+  readonly set_drand_addr?: { addr: string };
 }
 
 export interface ProxyInstantiateMsg {

@@ -4,7 +4,8 @@ use cw_storage_plus::{Deque, Item, Map};
 
 #[cw_serde]
 pub struct Config {
-    /// The address of the drand contract
+    /// The address of the drand contract.
+    /// As long as this is unset, noone can submit randomness.
     pub drand: Option<Addr>,
 }
 

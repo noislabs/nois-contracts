@@ -120,19 +120,22 @@ export class Bot {
 
 // Like Bot but submits pre-verified beacons
 export class MockBot {
-  public static async connect(gatewayAddress: string): Promise<MockBot> {
+  public static async connect(): Promise<MockBot> {
     const signer = await setupOsmosisClient();
-    return new MockBot(signer.senderAddress, signer.sign, gatewayAddress);
+    return new MockBot(signer.senderAddress, signer.sign);
   }
 
-  private readonly address: string;
+  public readonly address: string;
   private readonly client: SigningCosmWasmClient;
-  private readonly gatewayAddress: string;
+  private gatewayAddress: string | undefined;
   private nextRound = 2183660;
 
-  private constructor(address: string, client: SigningCosmWasmClient, gatewayAddress: string) {
+  private constructor(address: string, client: SigningCosmWasmClient) {
     this.address = address;
     this.client = client;
+  }
+
+  public setGatewayAddress(gatewayAddress: string) {
     this.gatewayAddress = gatewayAddress;
   }
 
@@ -152,6 +155,7 @@ export class MockBot {
         randomness: beacon.randomness,
       },
     };
+    assert(this.gatewayAddress);
     const res = await this.client.execute(this.address, this.gatewayAddress, msg, "auto");
     return res;
   }
