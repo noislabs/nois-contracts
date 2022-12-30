@@ -26,7 +26,4 @@ pub enum ContractError {
 
     #[error("{0}")]
     ChannelError(#[from] ChannelError),
-
-    #[error("Foreign error: {err}")]
-    ForeignError { err: String },
 }
