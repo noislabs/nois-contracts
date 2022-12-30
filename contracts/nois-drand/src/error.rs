@@ -20,9 +20,6 @@ pub enum ContractError {
     #[error("Moniker exceeds length limit.")]
     MonikerTooLong,
 
-    #[error("Sender is unauthorized tp add verified round.")]
-    UnauthorizedAddVerifiedRound,
-
     // Other
     #[error("Invalid public key")]
     InvalidPubkey,
