@@ -246,7 +246,8 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
 
 test.serial("proxy works", async (t) => {
   const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(true);
-  const bot = await MockBot.connect(noisGatewayAddress);
+  const bot = await MockBot.connect();
+  bot.setGatewayAddress(noisGatewayAddress);
 
   t.log(`Getting randomness prices ...`);
   const { prices } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { prices: {} });
@@ -326,7 +327,8 @@ test.serial("proxy works", async (t) => {
 
 test.serial("proxy works for get_randomness_after", async (t) => {
   const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(false);
-  const bot = await MockBot.connect(noisGatewayAddress);
+  const bot = await MockBot.connect();
+  bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
   const payment = coin(price, "ucosm");
@@ -415,7 +417,8 @@ test.serial("demo contract can be used", async (t) => {
   const { wasmClient, noisDemoAddress, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
     true
   );
-  const bot = await MockBot.connect(noisGatewayAddress);
+  const bot = await MockBot.connect();
+  bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
   const payment = coin(price, "ucosm");
@@ -511,7 +514,8 @@ test.serial("demo contract can be used", async (t) => {
 
 test.serial("submit randomness for various job counts", async (t) => {
   const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(false);
-  const bot = await MockBot.connect(noisGatewayAddress);
+  const bot = await MockBot.connect();
+  bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
   const payment = coin(price, "ucosm");
