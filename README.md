@@ -43,11 +43,12 @@ the user (nois-demo) does not need to worry about that part.
 
 ## Compatibility
 
-The nois standard library and the nois-contracts are versiones independently to avoid
+The nois standard library and the nois-contracts are versioned independently to avoid
 unnecessary disruption for the dapp builders. The following table shows compatibility.
 
 | nois-contracts version | nois version |
 | ---------------------- | ------------ |
+| 0.8.x                  | ^0.6.0       |
 | 0.7.x                  | ^0.5.1       |
 | 0.6.x                  | ^0.5.0       |
 | 0.5.x                  | ^0.5.0       |
