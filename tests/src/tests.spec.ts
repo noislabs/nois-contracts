@@ -9,7 +9,6 @@ import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { Bot, ibcPacketsSent, MockBot } from "./bot";
 import {
-  DrandExecuteMsg,
   DrandInstantiateMsg,
   GatewayInstantiateMsg,
   IcecubeInstantiateMsg,
@@ -133,8 +132,6 @@ interface SetupInfo {
   /// Address on app chain (wasmd)
   noisDemoAddress: string;
   /// Address on randomness chain (osmosis)
-  noisDrandAddress: string;
-  /// Address on randomness chain (osmosis)
   noisGatewayAddress: string;
   link: Link;
   noisChannel: {
@@ -164,21 +161,6 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     "auto"
   );
 
-  // Instantiate Drand on Osmosis
-  const drandMsg: DrandInstantiateMsg = {
-    manager: osmoClient.senderAddress,
-    min_round: 2183660,
-    incentive_amount: "0",
-    incentive_denom: "unois",
-  };
-  const { contractAddress: noisDrandAddress } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    osmosisCodeIds.drand,
-    drandMsg,
-    "Drand instance",
-    "auto"
-  );
-
   // Instantiate Gateway on Osmosis
   const msg: GatewayInstantiateMsg = {};
   const { contractAddress: noisGatewayAddress } = await osmoClient.sign.instantiate(
@@ -188,12 +170,6 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     "Gateway instance",
     "auto"
   );
-
-  // Set gateway address to drand
-  const msg2: DrandExecuteMsg = {
-    set_gateway_addr: { addr: noisGatewayAddress },
-  };
-  await osmoClient.sign.execute(osmoClient.senderAddress, noisDrandAddress, msg2, "auto");
 
   const [noisProxyInfo, noisGatewayInfo] = await Promise.all([
     wasmClient.sign.getContract(noisProxyAddress),
@@ -236,7 +212,6 @@ async function instantiateAndConnectIbc(testMode: boolean): Promise<SetupInfo> {
     osmoClient,
     noisProxyAddress,
     noisDemoAddress,
-    noisDrandAddress,
     noisGatewayAddress,
     link,
     noisChannel,
