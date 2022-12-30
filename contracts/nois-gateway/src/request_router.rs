@@ -9,9 +9,10 @@ use nois_protocol::{
 
 use crate::{
     drand::{round_after, DRAND_CHAIN_HASH},
+    drand_archive::{archive_lookup, archive_store},
     state::{
-        drand_mainnet_randomness_key, increment_processed_jobs, unprocessed_jobs_dequeue,
-        unprocessed_jobs_enqueue, unprocessed_jobs_len, Job,
+        increment_processed_drand_jobs, unprocessed_drand_jobs_dequeue,
+        unprocessed_drand_jobs_enqueue, unprocessed_drand_jobs_len, Job,
     },
 };
 
@@ -49,11 +50,22 @@ impl RequestRouter {
         sender: String,
         job_id: String,
     ) -> StdResult<RoutingReceipt> {
+        // Here we currently only have one backend
+        self.handle_drand(deps, env, channel, after, sender, job_id)
+    }
+
+    fn handle_drand(
+        &self,
+        deps: DepsMut,
+        env: Env,
+        channel: String,
+        after: Timestamp,
+        sender: String,
+        job_id: String,
+    ) -> StdResult<RoutingReceipt> {
         let (round, source_id) = commit_to_drand_round(after);
 
-        // Does round exist already?
-        let key = drand_mainnet_randomness_key(round);
-        let existing_randomness: Option<HexBinary> = deps.storage.get(&key).map(Into::into);
+        let existing_randomness = archive_lookup(deps.storage, round);
 
         let job = Job {
             source_id: source_id.clone(),
@@ -66,12 +78,12 @@ impl RequestRouter {
 
         let acknowledgement = if let Some(randomness) = existing_randomness {
             //If the drand round already exists we send it
-            increment_processed_jobs(deps.storage, round)?;
+            increment_processed_drand_jobs(deps.storage, round)?;
             let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness)?;
             msgs.push(msg.into());
             StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
         } else {
-            unprocessed_jobs_enqueue(deps.storage, round, &job)?;
+            unprocessed_drand_jobs_enqueue(deps.storage, round, &job)?;
             StdAck::success(&RequestBeaconPacketAck::Queued { source_id })
         };
 
@@ -88,13 +100,12 @@ impl RequestRouter {
         round: u64,
         randomness: &HexBinary,
     ) -> StdResult<NewDrand> {
-        let key = drand_mainnet_randomness_key(round);
-        deps.storage.set(&key, randomness);
+        archive_store(deps.storage, round, randomness);
 
         let mut msgs = Vec::<CosmosMsg>::new();
         let mut jobs_processed = 0;
-        while let Some(job) = unprocessed_jobs_dequeue(deps.storage, round)? {
-            increment_processed_jobs(deps.storage, round)?;
+        while let Some(job) = unprocessed_drand_jobs_dequeue(deps.storage, round)? {
+            increment_processed_drand_jobs(deps.storage, round)?;
             // Use IbcMsg::SendPacket to send packages to the proxies.
             let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness.clone())?;
             msgs.push(msg.into());
@@ -103,7 +114,7 @@ impl RequestRouter {
                 break;
             }
         }
-        let jobs_left = unprocessed_jobs_len(deps.storage, round)?;
+        let jobs_left = unprocessed_drand_jobs_len(deps.storage, round)?;
         Ok(NewDrand {
             msgs,
             jobs_processed,

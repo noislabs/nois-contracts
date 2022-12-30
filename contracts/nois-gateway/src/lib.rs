@@ -1,4 +1,5 @@
 mod drand;
+mod drand_archive;
 mod job_id;
 mod request_router;
 
