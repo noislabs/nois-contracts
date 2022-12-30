@@ -28,7 +28,4 @@ pub enum ContractError {
 
     #[error("Cannot register over an existing channel")]
     ChannelAlreadyRegistered,
-
-    #[error("Foreign error: {err}")]
-    ForeignError { err: String },
 }

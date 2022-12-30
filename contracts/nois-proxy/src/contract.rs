@@ -1,12 +1,12 @@
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::{entry_point, Empty};
 use cosmwasm_std::{
-    from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event, HexBinary,
+    attr, from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
     IbcReceiveResponse, MessageInfo, QueryResponse, Reply, Response, StdError, StdResult, Storage,
     SubMsg, SubMsgResult, Timestamp, WasmMsg,
 };
+#[cfg(not(feature = "library"))]
+use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
@@ -379,15 +379,27 @@ pub fn ibc_packet_ack(
     _env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
+    let mut attributes = Vec::<Attribute>::new();
+    attributes.push(attr("action", "ack"));
     let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
+    let is_error: bool;
     match ack {
         StdAck::Result(data) => {
-            let _response: RequestBeaconPacketAck = from_binary(&data)?;
-            // alright
-            Ok(IbcBasicResponse::new().add_attribute("action", "RequestBeaconPacketAck"))
+            is_error = false;
+            let response: RequestBeaconPacketAck = from_binary(&data)?;
+            let ack_type: String = match response {
+                RequestBeaconPacketAck::Processed { source_id: _ } => "processed".to_string(),
+                RequestBeaconPacketAck::Queued { source_id: _ } => "queued".to_string(),
+            };
+            attributes.push(attr("ack_type", ack_type));
         }
-        StdAck::Error(err) => Err(ContractError::ForeignError { err }),
+        StdAck::Error(err) => {
+            is_error = true;
+            attributes.push(attr("error", err));
+        }
     }
+    attributes.push(attr("is_error", is_error.to_string()));
+    Ok(IbcBasicResponse::new().add_attributes(attributes))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -409,9 +421,10 @@ mod tests {
             mock_dependencies, mock_dependencies_with_balance, mock_env,
             mock_ibc_channel_close_confirm, mock_ibc_channel_close_init,
             mock_ibc_channel_connect_ack, mock_ibc_channel_connect_confirm,
-            mock_ibc_channel_open_try, mock_info, MockApi, MockQuerier, MockStorage,
+            mock_ibc_channel_open_try, mock_ibc_packet_ack, mock_info, MockApi, MockQuerier,
+            MockStorage,
         },
-        CosmosMsg, OwnedDeps, ReplyOn, Uint128,
+        CosmosMsg, IbcAcknowledgement, OwnedDeps, ReplyOn, Uint128,
     };
     use nois_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
 
@@ -435,6 +448,17 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
         deps
+    }
+
+    /// Gets the value of the first attribute with the given key
+    fn first_attr(data: impl AsRef<[Attribute]>, search_key: &str) -> Option<String> {
+        data.as_ref().iter().find_map(|a| {
+            if a.key == search_key {
+                Some(a.value.clone())
+            } else {
+                None
+            }
+        })
     }
 
     fn setup_channel(mut deps: DepsMut) {
@@ -744,5 +768,66 @@ mod tests {
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
                 .unwrap();
         assert_eq!(channel, None);
+    }
+
+    #[test]
+    fn ibc_packet_ack_works() {
+        let mut deps = setup();
+
+        // The proxy -> gateway packet we get the acknowledgement for
+        let packet = RequestBeaconPacket {
+            sender: "contract345".to_string(),
+            after: Timestamp::from_seconds(321),
+            job_id: "hello".to_string(),
+        };
+
+        // Success ack (processed)
+        let ack = StdAck::success(RequestBeaconPacketAck::Processed {
+            source_id: "backend:123:456".to_string(),
+        });
+        let msg = mock_ibc_packet_ack(
+            "channel-12",
+            &packet,
+            IbcAcknowledgement::encode_json(&ack).unwrap(),
+        )
+        .unwrap();
+        let IbcBasicResponse { attributes, .. } =
+            ibc_packet_ack(deps.as_mut(), mock_env(), msg).unwrap();
+        assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
+        assert_eq!(first_attr(&attributes, "is_error").unwrap(), "false");
+        assert_eq!(first_attr(&attributes, "error"), None);
+        assert_eq!(first_attr(&attributes, "ack_type").unwrap(), "processed");
+
+        // Success ack (queued)
+        let ack = StdAck::success(RequestBeaconPacketAck::Queued {
+            source_id: "backend:123:456".to_string(),
+        });
+        let msg = mock_ibc_packet_ack(
+            "channel-12",
+            &packet,
+            IbcAcknowledgement::encode_json(&ack).unwrap(),
+        )
+        .unwrap();
+        let IbcBasicResponse { attributes, .. } =
+            ibc_packet_ack(deps.as_mut(), mock_env(), msg).unwrap();
+        assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
+        assert_eq!(first_attr(&attributes, "is_error").unwrap(), "false");
+        assert_eq!(first_attr(&attributes, "error"), None);
+        assert_eq!(first_attr(&attributes, "ack_type").unwrap(), "queued");
+
+        // Error ack
+        let ack = StdAck::error("kaputt");
+        let msg = mock_ibc_packet_ack(
+            "channel-12",
+            &packet,
+            IbcAcknowledgement::encode_json(&ack).unwrap(),
+        )
+        .unwrap();
+        let IbcBasicResponse { attributes, .. } =
+            ibc_packet_ack(deps.as_mut(), mock_env(), msg).unwrap();
+        assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
+        assert_eq!(first_attr(&attributes, "is_error").unwrap(), "true");
+        assert_eq!(first_attr(&attributes, "error").unwrap(), "kaputt");
+        assert_eq!(first_attr(&attributes, "ack_type"), None);
     }
 }
