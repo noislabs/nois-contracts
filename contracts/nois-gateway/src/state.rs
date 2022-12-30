@@ -25,6 +25,7 @@ pub struct Job {
 #[inline]
 fn unprocessed_drand_jobs_key(round: u64) -> String {
     // "up" for unprocessed
+    // At a frequency of 1 beacon/second, 10 decimal places is sufficient for 300 years.
     format!("drand_jobs_up_{:0>10}", round)
 }
 
