@@ -387,13 +387,10 @@ pub fn ibc_packet_ack(
         StdAck::Result(data) => {
             is_error = false;
             let response: RequestBeaconPacketAck = from_binary(&data)?;
-            let ack_type: String;
-            match response {
-                RequestBeaconPacketAck::Processed { source_id: _ } => {
-                    ack_type = "processed".to_string()
-                }
-                RequestBeaconPacketAck::Queued { source_id: _ } => ack_type = "queued".to_string(),
-            }
+            let ack_type: String = match response {
+                RequestBeaconPacketAck::Processed { source_id: _ } => "processed".to_string(),
+                RequestBeaconPacketAck::Queued { source_id: _ } => "queued".to_string(),
+            };
             attributes.push(attr("ack_type", ack_type));
         }
         StdAck::Error(err) => {

@@ -191,12 +191,9 @@ pub fn ibc_packet_ack(
         StdAck::Result(data) => {
             is_error = false;
             let response: DeliverBeaconPacketAck = from_binary(&data)?;
-            let ack_type: String;
-            match response {
-                DeliverBeaconPacketAck::Delivered { job_id: _ } => {
-                    ack_type = "delivered".to_string()
-                }
-            }
+            let ack_type: String = match response {
+                DeliverBeaconPacketAck::Delivered { job_id: _ } => "delivered".to_string(),
+            };
             attributes.push(attr("ack_type", ack_type));
         }
         StdAck::Error(err) => {
