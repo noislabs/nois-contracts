@@ -125,7 +125,7 @@ export class MockBot {
     return new MockBot(signer.senderAddress, signer.sign);
   }
 
-  private readonly address: string;
+  public readonly address: string;
   private readonly client: SigningCosmWasmClient;
   private gatewayAddress: string | undefined;
   private nextRound = 2183660;
