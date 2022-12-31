@@ -1,21 +1,6 @@
 use cosmwasm_std::{coin, testing::mock_env, Addr, Coin, Decimal, Delegation, Uint128, Validator};
 use cw_multi_test::{App, AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::{first_attr, query_balance_native};
-
-fn mint_native(
-    app: &mut App,
-    beneficiary: impl Into<String>,
-    denom: impl Into<String>,
-    amount: u128,
-) {
-    app.sudo(cw_multi_test::SudoMsg::Bank(
-        cw_multi_test::BankSudo::Mint {
-            to_address: beneficiary.into(),
-            amount: vec![Coin::new(amount, denom)],
-        },
-    ))
-    .unwrap();
-}
+use nois_multitest::{first_attr, mint_native, query_balance_native};
 
 #[test]
 fn integration_test() {
