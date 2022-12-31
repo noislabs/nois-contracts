@@ -1,7 +1,7 @@
 // Testing nois-drand and nois-gateway interaction
 
 use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Uint128, Validator};
-use cw_multi_test::{App, AppBuilder, ContractWrapper, Executor, StakingInfo};
+use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{first_attr, mint_native, query_balance_native};
 
 #[test]
