@@ -27,3 +27,18 @@ pub fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
 
     balance.amount
 }
+
+pub fn mint_native(
+    app: &mut App,
+    beneficiary: impl Into<String>,
+    denom: impl Into<String>,
+    amount: u128,
+) {
+    app.sudo(cw_multi_test::SudoMsg::Bank(
+        cw_multi_test::BankSudo::Mint {
+            to_address: beneficiary.into(),
+            amount: vec![Coin::new(amount, denom)],
+        },
+    ))
+    .unwrap();
+}

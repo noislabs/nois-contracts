@@ -1,20 +1,6 @@
 use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Validator};
-use cw_multi_test::{App, AppBuilder, ContractWrapper, Executor, StakingInfo};
-
-fn mint_native(
-    app: &mut App,
-    beneficiary: impl Into<String>,
-    denom: impl Into<String>,
-    amount: u128,
-) {
-    app.sudo(cw_multi_test::SudoMsg::Bank(
-        cw_multi_test::BankSudo::Mint {
-            to_address: beneficiary.into(),
-            amount: vec![Coin::new(amount, denom)],
-        },
-    ))
-    .unwrap();
-}
+use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
+use nois_multitest::mint_native;
 
 #[test]
 fn integration_test() {
