@@ -624,18 +624,7 @@ mod tests {
         // because the same bot operator is not allowed to submit the same randomness
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
-
-        let env = mock_env();
-        let contract = env.contract.address;
-        //add balance to this contract
-        deps.querier.update_balance(
-            contract,
-            vec![Coin {
-                denom: "unois".to_string(),
-                amount: Uint128::new(100_000_000),
-            }],
-        );
+        const BOT: &str = "bobbybot";
 
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
@@ -643,70 +632,91 @@ mod tests {
             incentive_amount: Uint128::new(1_000_000),
             incentive_denom: "unois".to_string(),
         };
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        instantiate(deps.as_mut(), mock_env(), mock_info("creator", &[]), msg).unwrap();
 
-        //register bot
-
-        let info = mock_info("registered_bot", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
-
-        let msg = ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/public/72785
-                round: 72785,
-                previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
-                signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
-            };
-
-        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        let randomness = first_attr(response.attributes, "randomness").unwrap();
-        assert_eq!(
-            randomness,
-            "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
-        );
-        // no incentives
-        assert_eq!(response.messages.len(), 0);
+        let IsAllowListedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowListed {
+                    bot: BOT.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(!listed);
 
         // allowlist
         let msg = ExecuteMsg::UpdateAllowlistBots {
-            add: vec!["registered_bot".to_string()],
+            add: vec![BOT.to_string()],
             remove: vec![],
         };
         let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        // submit randomness
-        let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/public/72786
-            round: 72786,
-            previous_signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
-            signature: HexBinary::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
-        };
-        let info = mock_info("registered_bot", &[]);
-
-        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        // receives incentives
-        assert_eq!(response.messages.len(), 1);
-
-        // deallowlist
+        // adding same address again is fine
         let msg = ExecuteMsg::UpdateAllowlistBots {
-            add: vec![],
-            remove: vec!["registered_bot".to_string()],
+            add: vec![BOT.to_string()],
+            remove: vec![],
         };
         let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        // submit randomness
-        let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/public/72787
-            round: 72787,
-            previous_signature: HexBinary::from_hex("85d64193239c6a2805b5953521c1e7c412d13f8b29df2dfc796b7dc8e1fd795b764362e49302956a350f9385f68b68d8085fda08c2bd0528984a413db52860b408c72d1210609de3a342259d4c08f86ee729a2dbeb140908270849fd7d0dec40").unwrap(),
-            signature: HexBinary::from_hex("8ceee95d523f54a752807f4705ce0f89e69911dd3dce330a337b9409905a881a2f879d48fce499bfeeb3b12e7f83ab7d09b42f31fa729af4c19adfe150075b2f3fe99c8fbcd7b0b5f0bb91ac8ad8715bfe52e3fb12314fddb76d4e42461f6ea4").unwrap(),
-        };
-        let info = mock_info("registered_bot", &[]);
+        let IsAllowListedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowListed {
+                    bot: BOT.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(listed);
 
-        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        // no incentives
-        assert_eq!(response.messages.len(), 0);
+        // deallowlist
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec![],
+            remove: vec![BOT.to_string()],
+        };
+        let info = mock_info(TESTING_MANAGER, &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let IsAllowListedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowListed {
+                    bot: BOT.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(!listed);
+
+        // removal takes precendence over additions (better safe than sorry)
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec![BOT.to_string()],
+            remove: vec![BOT.to_string()],
+        };
+        let info = mock_info(TESTING_MANAGER, &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let IsAllowListedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowListed {
+                    bot: BOT.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(!listed);
     }
 
     #[test]
