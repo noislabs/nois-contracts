@@ -43,7 +43,7 @@ pub fn execute(
         //RollDice should be called by a player who wants to roll the dice
         ExecuteMsg::RollDice { job_id } => execute_roll_dice(deps, env, info, job_id),
         //Receive should be called by the proxy contract. The proxy is forwarding the randomness from the nois chain to this contract.
-        ExecuteMsg::Receive { callback } => execute_receive(deps, env, info, callback),
+        ExecuteMsg::NoisReceive { callback } => execute_receive(deps, env, info, callback),
     }
 }
 
@@ -237,7 +237,7 @@ mod tests {
         let info = mock_info("guest", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = ExecuteMsg::Receive {
+        let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "round_1".to_string(),
                 randomness: HexBinary::from_hex(
@@ -249,7 +249,7 @@ mod tests {
         let info = mock_info(PROXY_ADDRESS, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = ExecuteMsg::Receive {
+        let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "round_1".to_string(),
                 randomness: HexBinary::from_hex(
@@ -270,7 +270,7 @@ mod tests {
     fn execute_receive_fails_for_invalid_randomness() {
         let mut deps = instantiate_proxy();
 
-        let msg = ExecuteMsg::Receive {
+        let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "round_1".to_string(),
                 randomness: HexBinary::from_hex("ffffffff").unwrap(),
@@ -291,7 +291,7 @@ mod tests {
         let info = mock_info("guest", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = ExecuteMsg::Receive {
+        let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "111".to_string(),
                 randomness: HexBinary::from_hex(
@@ -317,7 +317,7 @@ mod tests {
     fn execute_receive_fails_for_wrong_sender() {
         let mut deps = instantiate_proxy();
 
-        let msg = ExecuteMsg::Receive {
+        let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
                 randomness: HexBinary::from_hex(
@@ -340,7 +340,7 @@ mod tests {
         let info = mock_info("guest", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = ExecuteMsg::Receive {
+        let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
                 randomness: HexBinary::from_hex(
