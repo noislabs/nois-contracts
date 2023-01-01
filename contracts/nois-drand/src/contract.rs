@@ -6,6 +6,7 @@ use cosmwasm_std::{
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 
+use crate::attributes::{ATTR_BOT, ATTR_RANDOMNESS, ATTR_ROUND};
 use crate::bots::validate_moniker;
 use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
@@ -291,9 +292,9 @@ fn execute_add_round(
     SUBMISSIONS_ORDER.save(deps.storage, (round, next_index), &info.sender)?;
 
     let mut attributes = vec![
-        Attribute::new("round", round.to_string()),
-        Attribute::new("randomness", randomness.to_hex()),
-        Attribute::new("worker", info.sender.to_string()),
+        Attribute::new(ATTR_ROUND, round.to_string()),
+        Attribute::new(ATTR_RANDOMNESS, randomness.to_hex()),
+        Attribute::new(ATTR_BOT, info.sender.to_string()),
     ];
 
     let mut out_msgs = Vec::<CosmosMsg>::new();
