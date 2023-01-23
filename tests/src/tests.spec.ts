@@ -51,7 +51,7 @@ test.serial("Bot can submit to drand", async (t) => {
   const msg: DrandInstantiateMsg = {
     manager: osmoClient.senderAddress,
     min_round: 2183660,
-    incentive_amount: "0",
+    incentive_ratio: "0",
     incentive_denom: "unois",
   };
   const { contractAddress: drandAddress } = await osmoClient.sign.instantiate(
