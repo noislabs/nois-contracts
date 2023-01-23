@@ -292,8 +292,10 @@ fn execute_add_round(
                     },
                     Err(_) => panic!("Failed to load beacon"),
                 };
+        // Security wise this check is not very necessary because this randomness is not going to be saved on state anyways as it is not the first submission of the round
+        // Submitting here a wrong previous_signature will still make the contract pass but the randomness won't be persisted to contract. Should this still be allowed?
         if randomness != already_verified_randomness_for_this_round {
-            return Err(ContractError::InvalidSignature {});
+            return Err(ContractError::SignatureDoesNotMatchState {});
         }
     }
     if submissions_count < NUMBER_OF_INCENTIVES_PER_ROUND {
