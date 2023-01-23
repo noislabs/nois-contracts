@@ -281,15 +281,20 @@ fn execute_add_round(
             time: env.block.time,
         },
     )?;
-    let prefix = SUBMISSIONS_ORDER.prefix(round);
-    let next_index = match prefix
+
+    // Get the number of submission before this one.
+    // The submissions are indexed 0-based, i.e. the number of elements is
+    // the last index + 1 or 0 if no last index exists.
+    let submissions_count = match SUBMISSIONS_ORDER
+        .prefix(round)
         .keys(deps.storage, None, None, Order::Descending)
         .next()
     {
-        Some(x) => x? + 1, // The ? handles the decoding to u32
+        Some(last_item) => last_item? + 1, // The ? handles the decoding to u32
         None => 0,
     };
-    SUBMISSIONS_ORDER.save(deps.storage, (round, next_index), &info.sender)?;
+
+    SUBMISSIONS_ORDER.save(deps.storage, (round, submissions_count), &info.sender)?;
 
     let mut attributes = vec![
         Attribute::new(ATTR_ROUND, round.to_string()),
@@ -304,7 +309,7 @@ fn execute_add_round(
     // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
     let is_eligible =
-        is_registered && is_allowlisted && next_index < NUMBER_OF_INCENTIVES_PER_ROUND; // top X submissions can receive a reward
+        is_registered && is_allowlisted && submissions_count < NUMBER_OF_INCENTIVES_PER_ROUND; // top X submissions can receive a reward
     if is_eligible {
         let contract_balance = deps
             .querier
