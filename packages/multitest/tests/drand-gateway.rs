@@ -47,7 +47,7 @@ fn integration_test() {
             Addr::unchecked("owner"),
             &nois_drand::msg::InstantiateMsg {
                 manager: "bossman".to_string(),
-                incentive_amount: Uint128::new(100_000),
+                incentive_ratio: Decimal::percent(150),
                 incentive_denom: "unois".to_string(),
                 min_round: 0,
             },
@@ -66,7 +66,7 @@ fn integration_test() {
             manager: Addr::unchecked("bossman"),
             gateway: None,
             min_round: 0,
-            incentive_amount: Uint128::new(100_000),
+            incentive_ratio: Decimal::percent(150),
             incentive_denom: "unois".to_string(),
         }
     );
@@ -121,7 +121,7 @@ fn integration_test() {
             manager: Addr::unchecked("bossman"),
             gateway: Some(addr_nois_gateway.clone()),
             min_round: 0,
-            incentive_amount: Uint128::new(100_000),
+            incentive_ratio: Decimal::percent(150),
             incentive_denom: "unois".to_string(),
         }
     );
@@ -187,12 +187,78 @@ fn integration_test() {
         }
     );
 
-    // register bot
+    // register bots
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: "drand_bot".to_string(),
+        moniker: "drand_bot_1".to_string(),
     };
     app.execute_contract(
-        Addr::unchecked("drand_bot"),
+        Addr::unchecked("drand_bot_1"),
+        addr_nois_drand.to_owned(),
+        &msg,
+        &[],
+    )
+    .unwrap();
+    // register bot 2
+    let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
+        moniker: "drand_bot_2".to_string(),
+    };
+    app.execute_contract(
+        Addr::unchecked("drand_bot_2"),
+        addr_nois_drand.to_owned(),
+        &msg,
+        &[],
+    )
+    .unwrap();
+    // register bot 3
+    let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
+        moniker: "drand_bot_3".to_string(),
+    };
+    app.execute_contract(
+        Addr::unchecked("drand_bot_3"),
+        addr_nois_drand.to_owned(),
+        &msg,
+        &[],
+    )
+    .unwrap();
+    // register bot 4
+    let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
+        moniker: "drand_bot_4".to_string(),
+    };
+    app.execute_contract(
+        Addr::unchecked("drand_bot_4"),
+        addr_nois_drand.to_owned(),
+        &msg,
+        &[],
+    )
+    .unwrap();
+    // register bot 5
+    let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
+        moniker: "drand_bot_5".to_string(),
+    };
+    app.execute_contract(
+        Addr::unchecked("drand_bot_5"),
+        addr_nois_drand.to_owned(),
+        &msg,
+        &[],
+    )
+    .unwrap();
+    // register bot 6
+    let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
+        moniker: "drand_bot_6".to_string(),
+    };
+    app.execute_contract(
+        Addr::unchecked("drand_bot_6"),
+        addr_nois_drand.to_owned(),
+        &msg,
+        &[],
+    )
+    .unwrap();
+    // register bot 7
+    let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
+        moniker: "drand_bot_7".to_string(),
+    };
+    app.execute_contract(
+        Addr::unchecked("drand_bot_7"),
         addr_nois_drand.to_owned(),
         &msg,
         &[],
@@ -220,7 +286,15 @@ fn integration_test() {
 
     // add  bot to allow list
     let msg = nois_drand::msg::ExecuteMsg::UpdateAllowlistBots {
-        add: vec!["drand_bot".to_string()],
+        add: vec![
+            "drand_bot_1".to_string(),
+            "drand_bot_2".to_string(),
+            "drand_bot_3".to_string(),
+            "drand_bot_4".to_string(),
+            "drand_bot_5".to_string(),
+            "drand_bot_6".to_string(),
+            "drand_bot_7".to_string(),
+        ],
         remove: vec![],
     };
     app.execute_contract(
@@ -239,15 +313,145 @@ fn integration_test() {
         signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
     };
     let resp = app
-        .execute_contract(Addr::unchecked("drand_bot"), addr_nois_drand, &msg, &[])
+        .execute_contract(
+            Addr::unchecked("drand_bot_1"),
+            addr_nois_drand.clone(),
+            &msg,
+            &[],
+        )
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure that there is an incentive for the registered bot
     assert_eq!(
         first_attr(&wasm.attributes, "bot_incentive").unwrap(),
-        "100000unois"
+        "75000unois" //(35_000 verification + 15_000 fast ) * 1,5
     );
+    // Add round 2nd submission
+    let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        // curl -sS https://drand.cloudflare.com/public/72785
+        round: 72785,
+        previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+        signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+    };
+    let resp = app
+        .execute_contract(
+            Addr::unchecked("drand_bot_2"),
+            addr_nois_drand.clone(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
+    let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
+    // Make sure that there is an incentive for the registered bot
+    assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive").unwrap(),
+        "75000unois" //(35_000 verification + 15_000 fast ) * 1,5
+    );
+    // Add round 3rd submission
+    let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        // curl -sS https://drand.cloudflare.com/public/72785
+        round: 72785,
+        previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+        signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+    };
+    let resp = app
+        .execute_contract(
+            Addr::unchecked("drand_bot_3"),
+            addr_nois_drand.clone(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
+    let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
+    // Make sure that there is an incentive for the registered bot
+    assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive").unwrap(),
+        "75000unois" //(35_000 verification + 15_000 fast ) * 1,5
+    );
+    // Add round 4th submission
+    let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        // curl -sS https://drand.cloudflare.com/public/72785
+        round: 72785,
+        previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+        signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+    };
+    let resp = app
+        .execute_contract(
+            Addr::unchecked("drand_bot_4"),
+            addr_nois_drand.clone(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
+    let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
+    // Make sure that there is an incentive for the registered bot
+    assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive").unwrap(),
+        "22500unois" //(0 verification + 15_000 fast ) * 1,5
+    );
+    // Add round 5th submission
+    let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        // curl -sS https://drand.cloudflare.com/public/72785
+        round: 72785,
+        previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+        signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+    };
+    let resp = app
+        .execute_contract(
+            Addr::unchecked("drand_bot_5"),
+            addr_nois_drand.clone(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
+    let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
+    // Make sure that there is an incentive for the registered bot
+    assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive").unwrap(),
+        "22500unois" //(0 verification + 15_000 fast ) * 1,5
+    );
+    // Add round 6th submission
+    let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        // curl -sS https://drand.cloudflare.com/public/72785
+        round: 72785,
+        previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+        signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+    };
+    let resp = app
+        .execute_contract(
+            Addr::unchecked("drand_bot_6"),
+            addr_nois_drand.clone(),
+            &msg,
+            &[],
+        )
+        .unwrap();
+
+    let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
+    // Make sure that there is an incentive for the registered bot
+    assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive").unwrap(),
+        "22500unois" //(0 verification + 15_000 fast ) * 1,5
+    );
+    // Add round 7th submission
+    let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        // curl -sS https://drand.cloudflare.com/public/72785
+        round: 72785,
+        previous_signature: HexBinary::from_hex("a609e19a03c2fcc559e8dae14900aaefe517cb55c840f6e69bc8e4f66c8d18e8a609685d9917efbfb0c37f058c2de88f13d297c7e19e0ab24813079efe57a182554ff054c7638153f9b26a60e7111f71a0ff63d9571704905d3ca6df0b031747").unwrap(),
+        signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+    };
+    let resp = app
+        .execute_contract(Addr::unchecked("drand_bot_7"), addr_nois_drand, &msg, &[])
+        .unwrap();
+
+    let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
+    // Make sure that there is no incentive for this bot because it didnt do the verification and it was slow
+    // i.e Enough drandbots have already verified this round.
+    assert!(first_attr(&wasm.attributes, "bot_incentive").is_none(),);
 
     // Check balance nois-gateway
     let balance = query_balance_native(&app, &addr_nois_gateway, "unois").amount;

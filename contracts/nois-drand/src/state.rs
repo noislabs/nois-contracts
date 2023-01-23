@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
+use cosmwasm_std::{Addr, Decimal, HexBinary, Timestamp};
 use cw_storage_plus::{Item, Map};
 
 use crate::drand::time_of_round;
@@ -13,7 +13,7 @@ pub struct Config {
     /// The lowest drand round this contracts accepts for verification and storage.
     pub min_round: u64,
     /// Bot incentive amount
-    pub incentive_amount: Uint128,
+    pub incentive_ratio: Decimal,
     /// Bot incentive denom
     pub incentive_denom: String,
 }
@@ -49,6 +49,7 @@ impl QueriedBeacon {
 }
 
 // A map from round number to drand beacon
+/// An entry of this map looks like round_number =>  {verified_time, randomness}
 pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
 
 pub const BOTS: Map<&Addr, Bot> = Map::new("bots");
@@ -60,6 +61,7 @@ pub struct StoredSubmission {
 }
 
 /// Stores the submission for an efficient (round, address) lookup
+/// An entry of this map looks like (round, drand_bot_addr) =>  time
 pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissions");
 
 /// A map from (round, index) to bot address. This is used when
@@ -67,6 +69,7 @@ pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissio
 ///
 /// The `index` values are 0-based. So the `n`th submission has index
 /// n-1 here as well as in the response array in `SubmissionsResponse`.
+/// An entry of this map looks like (round, 1) =>  drand_bot_addr ; Second fastest bot
 pub const SUBMISSIONS_ORDER: Map<(u64, u32), Addr> = Map::new("submissions_order");
 
 /// The bot type for the state. We don't need the address here
