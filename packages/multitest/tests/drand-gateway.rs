@@ -474,6 +474,7 @@ fn integration_test() {
     // Check that when a submission has been verified in previous txs by enough other bots
     // And when a new bot brings a submission that won'tgo through verification. It should fail if it
     // is different from the randomness already registered on contract state for that round
+    // Note that the previous_signature can be altered in this case without the contract returning an error.
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
         // curl -sS https://drand.cloudflare.com/public/72785
         round: 72785,

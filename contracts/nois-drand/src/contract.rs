@@ -274,7 +274,7 @@ fn execute_add_round(
     };
 
     let randomness: HexBinary = derive_randomness(signature.as_slice()).into();
-    // Check if we need to verify the submission  or we just compare it to the registered randomness
+    // Check if we need to verify the submission  or we just compare it to the registered randomness from the first submission of this round
     if submissions_count < NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND {
         if !verify(&pk, round, &previous_signature, &signature).unwrap_or(false) {
             return Err(ContractError::InvalidSignature {});
@@ -282,7 +282,7 @@ fn execute_add_round(
         // Send verification reward
         bot_desired_incentive.amount += FEES_FOR_VERIFICATION * config.incentive_ratio;
     } else {
-        //Check that the submitted randomness for the round is the same as the one verified in the state
+        //Check that the submitted randomness for the round is the same as the one verified in the state by the first submission tx
         //If the randomness is different error contract
         let already_verified_randomness_for_this_round =
                 match query_beacon(deps.as_ref(), round) {
@@ -292,12 +292,14 @@ fn execute_add_round(
                     },
                     Err(_) => panic!("Failed to load beacon"),
                 };
-        // Security wise this check is not very necessary because this randomness is not going to be saved on state anyways as it is not the first submission of the round
+        // Security wise the following check is not very necessary because this randomness is not going to be saved on state anyways as it is not the first submission of the round
         // Submitting here a wrong previous_signature will still make the contract pass but the randomness won't be persisted to contract. Should this still be allowed?
         if randomness != already_verified_randomness_for_this_round {
             return Err(ContractError::SignatureDoesNotMatchState {});
         }
     }
+
+    // Check if the bot is fast enough to get an incentive
     if submissions_count < NUMBER_OF_INCENTIVES_PER_ROUND {
         bot_desired_incentive.amount += REWARD_FOR_FAST_BOT * config.incentive_ratio;
     }
@@ -339,6 +341,7 @@ fn execute_add_round(
         Attribute::new(ATTR_BOT, info.sender.to_string()),
     ];
 
+    // Execute the callback jobs and incentivise the drand bot based on howmany jobs they process
     let mut out_msgs = Vec::<CosmosMsg>::new();
     if let Some(gateway) = config.gateway {
         out_msgs.push(
