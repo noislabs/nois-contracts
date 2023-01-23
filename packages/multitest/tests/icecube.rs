@@ -45,7 +45,7 @@ fn integration_test() {
             Addr::unchecked("owner"),
             &nois_drand::msg::InstantiateMsg {
                 manager: "bossman".to_string(),
-                incentive_amount: Uint128::new(100_000),
+                incentive_ratio: Decimal::percent(150),
                 incentive_denom: "unois".to_string(),
                 min_round: 0,
             },
