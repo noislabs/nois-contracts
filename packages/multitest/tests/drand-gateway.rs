@@ -47,7 +47,7 @@ fn integration_test() {
             Addr::unchecked("owner"),
             &nois_drand::msg::InstantiateMsg {
                 manager: "bossman".to_string(),
-                incentive_ratio: Decimal::percent(150),
+                incentive_ratio: Decimal::percent(150_000),
                 incentive_denom: "unois".to_string(),
                 min_round: 0,
             },
@@ -66,7 +66,7 @@ fn integration_test() {
             manager: Addr::unchecked("bossman"),
             gateway: None,
             min_round: 0,
-            incentive_ratio: Decimal::percent(150),
+            incentive_ratio: Decimal::percent(150_000),
             incentive_denom: "unois".to_string(),
         }
     );
@@ -121,7 +121,7 @@ fn integration_test() {
             manager: Addr::unchecked("bossman"),
             gateway: Some(addr_nois_gateway.clone()),
             min_round: 0,
-            incentive_ratio: Decimal::percent(150),
+            incentive_ratio: Decimal::percent(150_000),
             incentive_denom: "unois".to_string(),
         }
     );

@@ -23,9 +23,8 @@ use crate::state::{
 /// Constant defining how many submissions per round will be rewarded
 const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u32 = 3;
-const FEES_FOR_VERIFICATION: Uint128 = Uint128::new(35_000); //GAS_PRICES * GAS_NEEDED => 0.05 * 700_000
-const FEES_FOR_CALLBACK: Uint128 = Uint128::new(2_500); //GAS_PRICES * GAS_NEEDED => 0.05 * 50_000
-const REWARD_FOR_FAST_BOT: Uint128 = Uint128::new(15_000);
+const INCENTIVE_POINTS_FOR_VERIFICATION: u64 = 35;
+const INCENTIVE_POINTS_FOR_FAST_BOT: u64 = 15;
 
 #[entry_point]
 pub fn instantiate(
@@ -280,7 +279,9 @@ fn execute_add_round(
             return Err(ContractError::InvalidSignature {});
         }
         // Send verification reward
-        bot_desired_incentive.amount += FEES_FOR_VERIFICATION * config.incentive_ratio;
+        bot_desired_incentive.amount += Uint128::one()
+            * Decimal::percent(INCENTIVE_POINTS_FOR_VERIFICATION * 100)
+            * config.incentive_ratio;
     } else {
         //Check that the submitted randomness for the round is the same as the one verified in the state by the first submission tx
         //If the randomness is different error contract
@@ -301,7 +302,9 @@ fn execute_add_round(
 
     // Check if the bot is fast enough to get an incentive
     if submissions_count < NUMBER_OF_INCENTIVES_PER_ROUND {
-        bot_desired_incentive.amount += REWARD_FOR_FAST_BOT * config.incentive_ratio;
+        bot_desired_incentive.amount += Uint128::one()
+            * Decimal::percent(INCENTIVE_POINTS_FOR_FAST_BOT * 100)
+            * config.incentive_ratio;
     }
 
     let beacon = &VerifiedBeacon {
@@ -352,10 +355,7 @@ fn execute_add_round(
             }
             .into(),
         );
-        // TODO Get the number of jobs_processed and incentivise accordingly;
-        let jobs_processed = 0;
-        bot_desired_incentive.amount +=
-            FEES_FOR_CALLBACK * config.incentive_ratio * Decimal::percent(jobs_processed * 100);
+        // TODO incentivise on processed_jobs;
     }
 
     // Pay the bot incentive
