@@ -274,6 +274,7 @@ fn execute_add_round(
 
     let randomness: HexBinary = derive_randomness(signature.as_slice()).into();
     // Check if we need to verify the submission  or we just compare it to the registered randomness from the first submission of this round
+
     if submissions_count < NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND {
         if !verify(&pk, round, &previous_signature, &signature).unwrap_or(false) {
             return Err(ContractError::InvalidSignature {});
@@ -293,7 +294,9 @@ fn execute_add_round(
                     },
                     Err(_) => panic!("Failed to load beacon"),
                 };
+
         // Security wise the following check is not very necessary because this randomness is not going to be saved on state anyways as it is not the first submission of the round
+
         // Submitting here a wrong previous_signature will still make the contract pass but the randomness won't be persisted to contract. Should this still be allowed?
         if randomness != already_verified_randomness_for_this_round {
             return Err(ContractError::SignatureDoesNotMatchState {});
@@ -355,6 +358,7 @@ fn execute_add_round(
             }
             .into(),
         );
+
         // TODO incentivise on processed_jobs;
     }
 
@@ -362,7 +366,9 @@ fn execute_add_round(
     // For now a bot needs to be registered, allowlisted and fast to  get incentives.
     // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
+
     let is_eligible = is_registered && is_allowlisted && !bot_desired_incentive.amount.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
+
     if is_eligible {
         let contract_balance = deps
             .querier
