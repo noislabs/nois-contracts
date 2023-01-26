@@ -30,6 +30,9 @@ pub enum ContractError {
     #[error("Invalid signature")]
     InvalidSignature,
 
+    #[error("Signature does not match the contract's state")]
+    SignatureDoesNotMatchState,
+
     #[error("A submission for the same round from the same bot exists already")]
     SubmissionExists,
 }
