@@ -6,7 +6,9 @@ use cosmwasm_std::{
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 
-use crate::attributes::{ATTR_BOT, ATTR_RANDOMNESS, ATTR_ROUND};
+use crate::attributes::{
+    ATTR_BOT, ATTR_RANDOMNESS, ATTR_REWARD_PAYOUT, ATTR_REWARD_POINTS, ATTR_ROUND,
+};
 use crate::bots::validate_moniker;
 use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
@@ -252,7 +254,7 @@ fn execute_add_round(
     }
 
     // Initialise the incentive to 0
-    let mut bot_incentive_points_collected = Uint128::new(0);
+    let mut reward_points = Uint128::new(0);
 
     // Get the number of submission before this one.
     // The submissions are indexed 0-based, i.e. the number of elements is
@@ -278,7 +280,7 @@ fn execute_add_round(
             return Err(ContractError::InvalidSignature {});
         }
         // Send verification reward
-        bot_incentive_points_collected += INCENTIVE_POINTS_FOR_VERIFICATION;
+        reward_points += INCENTIVE_POINTS_FOR_VERIFICATION;
     } else {
         //Check that the submitted randomness for the round is the same as the one verified in the state by the first submission tx
         //If the randomness is different error contract
@@ -293,7 +295,7 @@ fn execute_add_round(
 
     // Check if the bot is fast enough to get an incentive
     if submissions_count < NUMBER_OF_INCENTIVES_PER_ROUND {
-        bot_incentive_points_collected += INCENTIVE_POINTS_FOR_FAST_BOT;
+        reward_points += INCENTIVE_POINTS_FOR_FAST_BOT;
     }
 
     let beacon = &VerifiedBeacon {
@@ -348,35 +350,40 @@ fn execute_add_round(
         // TODO incentivise on processed_jobs;
     }
 
+    attributes.push(Attribute::new(ATTR_REWARD_POINTS, reward_points));
+
     // Pay the bot incentive
     // For now a bot needs to be registered, allowlisted and fast to  get incentives.
     // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
 
-    let is_eligible = is_registered && is_allowlisted && !bot_incentive_points_collected.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
+    let is_eligible = is_registered && is_allowlisted && !reward_points.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
 
     if is_eligible {
+        let desired_amount = reward_points * config.incentive_point_price;
+
         let contract_balance = deps
             .querier
             .query_balance(&env.contract.address, &config.incentive_denom)?
             .amount;
-        attributes.push(Attribute::new(
-            "bot_incentive_points_collected",
-            bot_incentive_points_collected,
-        ));
-        let bot_desired_incentive = Coin {
-            amount: bot_incentive_points_collected * config.incentive_point_price,
-            denom: config.incentive_denom,
+
+        // The amount we'll actually pay out
+        let payout = if contract_balance >= desired_amount {
+            Coin {
+                amount: desired_amount,
+                denom: config.incentive_denom,
+            }
+        } else {
+            Coin::new(0, config.incentive_denom)
         };
-        attributes.push(Attribute::new(
-            "bot_incentive",
-            bot_desired_incentive.to_string(),
-        ));
-        if contract_balance >= bot_desired_incentive.amount {
+
+        attributes.push(Attribute::new(ATTR_REWARD_PAYOUT, payout.to_string()));
+
+        if !payout.amount.is_zero() {
             out_msgs.push(
                 BankMsg::Send {
                     to_address: info.sender.to_string(),
-                    amount: vec![bot_desired_incentive],
+                    amount: vec![payout],
                 }
                 .into(),
             );
@@ -840,13 +847,8 @@ mod tests {
         let env = mock_env();
         let contract = env.contract.address;
         //add balance to the contract
-        deps.querier.update_balance(
-            contract,
-            vec![Coin {
-                denom: "unois".to_string(),
-                amount: Uint128::new(10_000),
-            }],
-        );
+        deps.querier
+            .update_balance(contract, vec![Coin::new(10_000, "unois")]);
 
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
@@ -856,24 +858,27 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = make_add_round_msg(72785);
         let info = mock_info("registered_bot", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
-        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        register_bot(deps.as_mut(), info);
         // add bot to allowlist
+        let info = mock_info(TESTING_MANAGER, &[]);
         let msg = ExecuteMsg::UpdateAllowlistBots {
             add: vec!["registered_bot".to_string()],
             remove: vec![],
         };
-        let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let randomness = first_attr(response.attributes, "randomness").unwrap();
+        let msg = make_add_round_msg(72785);
+        let info = mock_info("registered_bot", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(response.messages.len(), 0);
+        let attrs = response.attributes;
         assert_eq!(
-            randomness,
+            first_attr(&attrs, "randomness").unwrap(),
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
-        assert_eq!(response.messages.len(), 0)
+        assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "50");
+        assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
     }
 
     #[test]
