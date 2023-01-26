@@ -11,7 +11,7 @@ export interface IcecubeInstantiateMsg {
 export interface DrandInstantiateMsg {
   readonly manager: string;
   readonly min_round: number;
-  readonly incentive_ratio: string;
+  readonly incentive_point_price: string;
   readonly incentive_denom: string;
 }
 

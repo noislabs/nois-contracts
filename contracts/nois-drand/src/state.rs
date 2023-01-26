@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Decimal, HexBinary, Timestamp};
+use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
 use cw_storage_plus::{Item, Map};
 
 use crate::drand::time_of_round;
@@ -12,8 +12,8 @@ pub struct Config {
     pub gateway: Option<Addr>,
     /// The lowest drand round this contracts accepts for verification and storage.
     pub min_round: u64,
-    /// Bot incentive amount
-    pub incentive_ratio: Decimal,
+    /// How much unois is given per incentive point
+    pub incentive_point_price: Uint128,
     /// Bot incentive denom
     pub incentive_denom: String,
 }

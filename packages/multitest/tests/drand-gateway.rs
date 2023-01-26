@@ -47,7 +47,7 @@ fn integration_test() {
             Addr::unchecked("owner"),
             &nois_drand::msg::InstantiateMsg {
                 manager: "bossman".to_string(),
-                incentive_ratio: Decimal::percent(150_000),
+                incentive_point_price: Uint128::new(1_500),
                 incentive_denom: "unois".to_string(),
                 min_round: 0,
             },
@@ -66,7 +66,7 @@ fn integration_test() {
             manager: Addr::unchecked("bossman"),
             gateway: None,
             min_round: 0,
-            incentive_ratio: Decimal::percent(150_000),
+            incentive_point_price: Uint128::new(1_500),
             incentive_denom: "unois".to_string(),
         }
     );
@@ -121,7 +121,7 @@ fn integration_test() {
             manager: Addr::unchecked("bossman"),
             gateway: Some(addr_nois_gateway.clone()),
             min_round: 0,
-            incentive_ratio: Decimal::percent(150_000),
+            incentive_point_price: Uint128::new(1_500),
             incentive_denom: "unois".to_string(),
         }
     );
@@ -336,8 +336,12 @@ fn integration_test() {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure that there is an incentive for the registered bot
     assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive_points_collected").unwrap(),
+        "50" //35 verification + 15 fast
+    );
+    assert_eq!(
         first_attr(&wasm.attributes, "bot_incentive").unwrap(),
-        "75000unois" //(35_000 verification + 15_000 fast ) * 1,5
+        "75000unois" //(35 verification + 15 fast ) * 1_500
     );
     // Add round 2nd submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
@@ -358,8 +362,12 @@ fn integration_test() {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure that there is an incentive for the registered bot
     assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive_points_collected").unwrap(),
+        "50" //35 verification + 15 fast
+    );
+    assert_eq!(
         first_attr(&wasm.attributes, "bot_incentive").unwrap(),
-        "75000unois" //(35_000 verification + 15_000 fast ) * 1,5
+        "75000unois" //(35 verification + 15 fast ) * 1_500
     );
     // Add round 3rd submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
@@ -380,8 +388,12 @@ fn integration_test() {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure that there is an incentive for the registered bot
     assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive_points_collected").unwrap(),
+        "50" //35 verification + 15 fast
+    );
+    assert_eq!(
         first_attr(&wasm.attributes, "bot_incentive").unwrap(),
-        "75000unois" //(35_000 verification + 15_000 fast ) * 1,5
+        "75000unois" //(35 verification + 15 fast ) * 1_500
     );
     // Add round 4th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
@@ -402,8 +414,12 @@ fn integration_test() {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure that there is an incentive for the registered bot
     assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive_points_collected").unwrap(),
+        "15" //0 verification + 15 fast
+    );
+    assert_eq!(
         first_attr(&wasm.attributes, "bot_incentive").unwrap(),
-        "22500unois" //(0 verification + 15_000 fast ) * 1,5
+        "22500unois" //(0 verification + 15 fast ) * 1_500
     );
     // Add round 5th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
@@ -424,8 +440,12 @@ fn integration_test() {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure that there is an incentive for the registered bot
     assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive_points_collected").unwrap(),
+        "15" //0 verification + 15 fast
+    );
+    assert_eq!(
         first_attr(&wasm.attributes, "bot_incentive").unwrap(),
-        "22500unois" //(0 verification + 15_000 fast ) * 1,5
+        "22500unois" //(0 verification + 15 fast ) * 1_500
     );
     // Add round 6th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
@@ -446,8 +466,12 @@ fn integration_test() {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure that there is an incentive for the registered bot
     assert_eq!(
+        first_attr(&wasm.attributes, "bot_incentive_points_collected").unwrap(),
+        "15" //0 verification + 15 fast
+    );
+    assert_eq!(
         first_attr(&wasm.attributes, "bot_incentive").unwrap(),
-        "22500unois" //(0 verification + 15_000 fast ) * 1,5
+        "22500unois" //(0 verification + 15 fast ) * 1_500
     );
     // Add round 7th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
@@ -468,6 +492,7 @@ fn integration_test() {
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure that there is no incentive for this bot because it didnt do the verification and it was slow
     // i.e Enough drandbots have already verified this round.
+    assert!(first_attr(&wasm.attributes, "bot_incentive_points_collected").is_none(),);
     assert!(first_attr(&wasm.attributes, "bot_incentive").is_none(),);
 
     // Add round 8th submission

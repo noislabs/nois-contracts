@@ -1,7 +1,7 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Decimal, Deps,
-    DepsMut, Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError,
-    StdResult, Uint128, WasmMsg,
+    ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut,
+    Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
+    Uint128, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
@@ -23,8 +23,8 @@ use crate::state::{
 /// Constant defining how many submissions per round will be rewarded
 const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u32 = 3;
-const INCENTIVE_POINTS_FOR_VERIFICATION: u64 = 35;
-const INCENTIVE_POINTS_FOR_FAST_BOT: u64 = 15;
+const INCENTIVE_POINTS_FOR_VERIFICATION: Uint128 = Uint128::new(35);
+const INCENTIVE_POINTS_FOR_FAST_BOT: Uint128 = Uint128::new(15);
 
 #[entry_point]
 pub fn instantiate(
@@ -38,7 +38,7 @@ pub fn instantiate(
         manager,
         gateway: None,
         min_round: msg.min_round,
-        incentive_ratio: msg.incentive_ratio,
+        incentive_point_price: msg.incentive_point_price,
         incentive_denom: msg.incentive_denom,
     };
     CONFIG.save(deps.storage, &config)?;
@@ -240,6 +240,7 @@ fn execute_add_round(
     signature: HexBinary,
 ) -> Result<Response, ContractError> {
     // Handle sender is not sending funds
+    // TODO: Not covered by testing
     if !info.funds.is_empty() {
         return Err(StdError::generic_err("Do not send funds").into());
     }
@@ -250,15 +251,8 @@ fn execute_add_round(
         return Err(ContractError::RoundTooLow { round, min_round });
     }
 
-    // Check if the drand public key is valid
-    let pk = g1_from_fixed_unchecked(DRAND_MAINNET_PUBKEY)
-        .map_err(|_| ContractError::InvalidPubkey {})?;
-
     // Initialise the incentive to 0
-    let mut bot_desired_incentive = Coin {
-        denom: config.incentive_denom.clone(),
-        amount: Uint128::new(0),
-    };
+    let mut bot_incentive_points_collected = Uint128::new(0);
 
     // Get the number of submission before this one.
     // The submissions are indexed 0-based, i.e. the number of elements is
@@ -276,28 +270,22 @@ fn execute_add_round(
     // Check if we need to verify the submission  or we just compare it to the registered randomness from the first submission of this round
 
     if submissions_count < NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND {
+        // Check if the drand public key is valid
+        let pk = g1_from_fixed_unchecked(DRAND_MAINNET_PUBKEY)
+            .map_err(|_| ContractError::InvalidPubkey {})?;
+        // Verify BLS
         if !verify(&pk, round, &previous_signature, &signature).unwrap_or(false) {
             return Err(ContractError::InvalidSignature {});
         }
         // Send verification reward
-        bot_desired_incentive.amount += Uint128::one()
-            * Decimal::percent(INCENTIVE_POINTS_FOR_VERIFICATION * 100)
-            * config.incentive_ratio;
+        bot_incentive_points_collected += INCENTIVE_POINTS_FOR_VERIFICATION;
     } else {
         //Check that the submitted randomness for the round is the same as the one verified in the state by the first submission tx
         //If the randomness is different error contract
         let already_verified_randomness_for_this_round =
-                match query_beacon(deps.as_ref(), round) {
-                    Ok(beacon) => match beacon.beacon{
-                        Some(beacon) => beacon.randomness,
-                        None => panic!("Unexpected behaviour. Beacon was supposed to be already submitted by a previous bot!"),
-                    },
-                    Err(_) => panic!("Failed to load beacon"),
-                };
-
+            BEACONS.load(deps.storage, round)?.randomness;
         // Security wise the following check is not very necessary because this randomness is not going to be saved on state anyways as it is not the first submission of the round
-
-        // Submitting here a wrong previous_signature will still make the contract pass but the randomness won't be persisted to contract. Should this still be allowed?
+        // Submitting here a wrong previous_signature will still make the contract pass but the randomness won't be persisted to contract.
         if randomness != already_verified_randomness_for_this_round {
             return Err(ContractError::SignatureDoesNotMatchState {});
         }
@@ -305,9 +293,7 @@ fn execute_add_round(
 
     // Check if the bot is fast enough to get an incentive
     if submissions_count < NUMBER_OF_INCENTIVES_PER_ROUND {
-        bot_desired_incentive.amount += Uint128::one()
-            * Decimal::percent(INCENTIVE_POINTS_FOR_FAST_BOT * 100)
-            * config.incentive_ratio;
+        bot_incentive_points_collected += INCENTIVE_POINTS_FOR_FAST_BOT;
     }
 
     let beacon = &VerifiedBeacon {
@@ -367,13 +353,21 @@ fn execute_add_round(
     // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
 
-    let is_eligible = is_registered && is_allowlisted && !bot_desired_incentive.amount.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
+    let is_eligible = is_registered && is_allowlisted && !bot_incentive_points_collected.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
 
     if is_eligible {
         let contract_balance = deps
             .querier
             .query_balance(&env.contract.address, &config.incentive_denom)?
             .amount;
+        attributes.push(Attribute::new(
+            "bot_incentive_points_collected",
+            bot_incentive_points_collected,
+        ));
+        let bot_desired_incentive = Coin {
+            amount: bot_incentive_points_collected * config.incentive_point_price,
+            denom: config.incentive_denom,
+        };
         attributes.push(Attribute::new(
             "bot_incentive",
             bot_desired_incentive.to_string(),
@@ -434,7 +428,7 @@ mod tests {
     use crate::msg::ExecuteMsg;
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, Addr, Decimal, Timestamp, Uint128};
+    use cosmwasm_std::{from_binary, Addr, Timestamp, Uint128};
 
     const TESTING_MANAGER: &str = "mnrg";
     const TESTING_MIN_ROUND: u64 = 72785;
@@ -525,7 +519,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         let info = mock_info("creator", &[]);
@@ -541,7 +535,7 @@ mod tests {
                 manager: Addr::unchecked(TESTING_MANAGER),
                 gateway: None,
                 min_round: TESTING_MIN_ROUND,
-                incentive_ratio: Decimal::percent(150),
+                incentive_point_price: Uint128::new(20_000),
                 incentive_denom: "unois".to_string(),
             }
         );
@@ -565,7 +559,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -598,7 +592,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         let info = mock_info("creator", &[]);
@@ -640,7 +634,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -676,7 +670,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), mock_info("creator", &[]), msg).unwrap();
@@ -775,7 +769,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -857,7 +851,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -901,7 +895,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -985,7 +979,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1008,7 +1002,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1036,7 +1030,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1076,7 +1070,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1113,7 +1107,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1215,7 +1209,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1314,7 +1308,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1413,7 +1407,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1526,7 +1520,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1588,7 +1582,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
-            incentive_ratio: Decimal::percent(150),
+            incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
