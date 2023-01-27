@@ -550,7 +550,7 @@ test.serial("icecube works", async (t) => {
   const osmoClient = await setupOsmosisClient();
 
   const msg: IcecubeInstantiateMsg = {
-    admin_addr: osmoClient.senderAddress,
+    manager: osmoClient.senderAddress,
   };
   await osmoClient.sign.instantiate(osmoClient.senderAddress, osmosisCodeIds.icecube, msg, "Icecube instance", "auto");
 

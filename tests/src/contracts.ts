@@ -5,7 +5,7 @@ import { ExecutionContext } from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 
 export interface IcecubeInstantiateMsg {
-  readonly admin_addr: string;
+  readonly manager: string;
 }
 
 export interface DrandInstantiateMsg {

@@ -72,7 +72,7 @@ fn integration_test() {
             code_id_nois_icecube,
             Addr::unchecked("owner"),
             &nois_icecube::msg::InstantiateMsg {
-                admin_addr: "owner".to_string(),
+                manager: "owner".to_string(),
             },
             &[Coin::new(1_000_000, "unois")],
             "Nois-Icecube",
@@ -88,7 +88,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_icecube::msg::ConfigResponse {
-            admin_addr: Addr::unchecked("owner"),
+            manager: Addr::unchecked("owner"),
             drand: None,
         }
     );
@@ -121,7 +121,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_icecube::msg::ConfigResponse {
-            admin_addr: Addr::unchecked("owner"),
+            manager: Addr::unchecked("owner"),
             drand: Option::Some(Addr::unchecked("contract0"))
         }
     );

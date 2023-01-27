@@ -5,9 +5,10 @@ use crate::state::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    /// The multisig admin wallet that controls the incentive and delegation.
-    /// The admin should not be able to withdraw funds from the contract
-    pub admin_addr: String,
+    /// The multisig wallet that controls the incentive and delegation.
+    /// The manager is not be able to withdraw funds from the contract
+    /// because no such functionality exists.
+    pub manager: String,
 }
 
 #[cw_serde]

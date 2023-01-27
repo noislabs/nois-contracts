@@ -17,9 +17,9 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
-    let admin = deps.api.addr_validate(&msg.admin_addr)?;
+    let manager = deps.api.addr_validate(&msg.manager)?;
     let config = Config {
-        admin_addr: admin,
+        manager,
         drand: None,
     };
     CONFIG.save(deps.storage, &config)?;
@@ -87,7 +87,7 @@ fn execute_delegate(
     // check the calling address is the authorised multisig
     ensure_eq!(
         info.sender,
-        CONFIG.load(deps.storage)?.admin_addr,
+        CONFIG.load(deps.storage)?.manager,
         ContractError::Unauthorized
     );
 
@@ -110,7 +110,7 @@ fn execute_undelegate(
     // check the calling address is the authorised multisig
     ensure_eq!(
         info.sender,
-        CONFIG.load(deps.storage)?.admin_addr,
+        CONFIG.load(deps.storage)?.manager,
         ContractError::Unauthorized
     );
 
@@ -134,7 +134,7 @@ fn execute_redelegate(
     // check the calling address is the authorised multisig
     ensure_eq!(
         info.sender,
-        CONFIG.load(deps.storage)?.admin_addr,
+        CONFIG.load(deps.storage)?.manager,
         ContractError::Unauthorized
     );
 
@@ -196,12 +196,13 @@ mod tests {
     };
 
     const CREATOR: &str = "creator";
+    const MANAGER: &str = "the_manager_addr";
 
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: MANAGER.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -211,25 +212,25 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                admin_addr: Addr::unchecked("admin"),
+                manager: Addr::unchecked(MANAGER),
                 drand: None,
             }
         );
     }
 
     #[test]
-    fn only_admin_can_delegate_undelegate_redelegate() {
+    fn only_manager_can_delegate_undelegate_redelegate() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            admin_addr: "admin".to_string(),
+            manager: MANAGER.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
 
-        // check admin operations work
+        // check manager operations work
 
-        // delegate for admin works
-        let info = mock_info("admin", &[]);
+        // delegate for manager works
+        let info = mock_info(MANAGER, &[]);
         let msg = ExecuteMsg::Delegate {
             addr: "validator".to_string(),
             amount: Uint128::new(1_000),
@@ -247,7 +248,7 @@ mod tests {
             })
         );
 
-        // undelegate for admin works
+        // undelegate for manager works
         let msg = ExecuteMsg::Undelegate {
             addr: "validator".to_string(),
             amount: Uint128::new(1_000),
@@ -265,7 +266,7 @@ mod tests {
             })
         );
 
-        // redelegate for admin works
+        // redelegate for manager works
         let msg = ExecuteMsg::Redelegate {
             src_addr: "src_validator".to_string(),
             dest_addr: "dest_validator".to_string(),
@@ -285,10 +286,10 @@ mod tests {
             })
         );
 
-        // check non admin operations are unothorized
+        // check non-manager operations are unothorized
 
-        // delegate for non admin unothorized
-        let info = mock_info("not_admin", &[]);
+        // delegate for non-manager unauthorized
+        let info = mock_info("not_manager", &[]);
         let msg = ExecuteMsg::Delegate {
             addr: "validator".to_string(),
             amount: Uint128::new(1_000),
@@ -296,7 +297,7 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
-        // undelegate for non admin unothorized
+        // undelegate for non-manager unauthorized
         let msg = ExecuteMsg::Undelegate {
             addr: "validator".to_string(),
             amount: Uint128::new(1_000),
@@ -304,7 +305,7 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
-        // redelegate for non admin unothorized
+        // redelegate for non-manager unauthorized
         let msg = ExecuteMsg::Redelegate {
             src_addr: "src_validator".to_string(),
             dest_addr: "dest_validator".to_string(),
