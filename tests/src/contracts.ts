@@ -34,6 +34,7 @@ export interface GatewayExecuteMsg {
   readonly add_verified_round?: {
     readonly round: number;
     readonly randomness: string;
+    readonly is_verifying_tx: boolean;
   };
   readonly set_drand_addr?: { addr: string };
 }

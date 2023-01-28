@@ -21,7 +21,8 @@ use crate::{
 ///
 /// Currently a submission without jobs consumes ~600k gas. Every job adds
 /// ~50k gas.
-const MAX_JOBS_PER_SUBMISSION: u32 = 3;
+const MAX_JOBS_PER_SUBMISSION_WITH_VERIFICATION: u32 = 2;
+const MAX_JOBS_PER_SUBMISSION_WITHOUT_VERIFICATION: u32 = 14;
 
 pub struct RoutingReceipt {
     pub acknowledgement: StdAck,
@@ -99,18 +100,26 @@ impl RequestRouter {
         env: Env,
         round: u64,
         randomness: &HexBinary,
+        is_verifying_tx: bool,
     ) -> StdResult<NewDrand> {
         archive_store(deps.storage, round, randomness);
 
+        let max_jobs_per_submission = if is_verifying_tx {
+            MAX_JOBS_PER_SUBMISSION_WITH_VERIFICATION
+        } else {
+            MAX_JOBS_PER_SUBMISSION_WITHOUT_VERIFICATION
+        };
+
         let mut msgs = Vec::<CosmosMsg>::new();
         let mut jobs_processed = 0;
+        // let max_jobs_per_submission
         while let Some(job) = unprocessed_drand_jobs_dequeue(deps.storage, round)? {
             increment_processed_drand_jobs(deps.storage, round)?;
             // Use IbcMsg::SendPacket to send packages to the proxies.
             let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness.clone())?;
             msgs.push(msg.into());
             jobs_processed += 1;
-            if jobs_processed >= MAX_JOBS_PER_SUBMISSION {
+            if jobs_processed >= max_jobs_per_submission {
                 break;
             }
         }

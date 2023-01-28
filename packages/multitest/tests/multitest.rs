@@ -134,6 +134,7 @@ fn integration_test() {
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9",
         )
         .unwrap(),
+        is_verifying_tx: true,
     };
     let _resp = app
         .execute_contract(Addr::unchecked(DRAND), addr_nois_gateway, &msg, &[])
