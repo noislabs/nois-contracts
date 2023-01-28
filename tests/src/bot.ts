@@ -153,6 +153,7 @@ export class MockBot {
       add_verified_round: {
         round: beacon.round,
         randomness: beacon.randomness,
+        is_verifying_tx: true,
       },
     };
     assert(this.gatewayAddress);

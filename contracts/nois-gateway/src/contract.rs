@@ -43,9 +43,11 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::AddVerifiedRound { round, randomness } => {
-            execute_add_verified_round(deps, env, info, round, randomness)
-        }
+        ExecuteMsg::AddVerifiedRound {
+            round,
+            randomness,
+            is_verifying_tx,
+        } => execute_add_verified_round(deps, env, info, round, randomness, is_verifying_tx),
         ExecuteMsg::SetDrandAddr { addr } => execute_set_drand_addr(deps, env, addr),
     }
 }
@@ -224,6 +226,7 @@ fn execute_add_verified_round(
     info: MessageInfo,
     round: u64,
     randomness: HexBinary,
+    is_verifying_tx: bool,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     ensure_eq!(
@@ -238,7 +241,7 @@ fn execute_add_verified_round(
         msgs,
         jobs_processed,
         jobs_left,
-    } = router.new_drand(deps, env, round, &randomness)?;
+    } = router.new_drand(deps, env, round, &randomness, is_verifying_tx)?;
     attributes.push(Attribute::new("jobs_processed", jobs_processed.to_string()));
     attributes.push(Attribute::new("jobs_left", jobs_left.to_string()));
 
@@ -299,15 +302,17 @@ mod tests {
         deps
     }
 
-    fn make_add_verified_round_msg(round: u64) -> ExecuteMsg {
+    fn make_add_verified_round_msg(round: u64, is_verifying_tx: bool) -> ExecuteMsg {
         match round {
             9 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/public/9
                 round: 9,
+
                 randomness: HexBinary::from_hex(
                     "1b9acda1c43e333bcf02ddce634b18ff79803a904097a5896710c7ae798b47ab",
                 )
                 .unwrap(),
+                is_verifying_tx,
             },
             72785 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/public/72785
@@ -316,6 +321,7 @@ mod tests {
                     "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9",
                 )
                 .unwrap(),
+                is_verifying_tx,
             },
             72786 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/public/72786
@@ -324,6 +330,7 @@ mod tests {
                     "0ed47e6ebc311192000df4469bb5a5a00445a9365e428d61c8c08d78dd1e51a8",
                 )
                 .unwrap(),
+                is_verifying_tx,
             },
             72787 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/public/72787
@@ -332,6 +339,7 @@ mod tests {
                     "d4ea3e5e43bf510c1b086613a9e68257b317202dbe5aab1b9182b65f51f4b82c",
                 )
                 .unwrap(),
+                is_verifying_tx,
             },
             2183668 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/public/2183668
@@ -340,6 +348,7 @@ mod tests {
                     "3436462283a07e695c41854bb953e5964d8737e7e29745afe54a9f4897b6c319",
                 )
                 .unwrap(),
+                is_verifying_tx,
             },
             2183669 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/public/2183669
@@ -348,6 +357,7 @@ mod tests {
                     "408de94b8c7e1972b06a4ab7636eb1ba2a176022a30d018c3b55e89289d41149",
                 )
                 .unwrap(),
+                is_verifying_tx,
             },
             2183670 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/public/2183670
@@ -356,6 +366,7 @@ mod tests {
                     "e5f7ba655389eee248575dde70cb9f3293c9774c8538136a135601907158d957",
                 )
                 .unwrap(),
+                is_verifying_tx,
             },
             2183671 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/public/2183671
@@ -364,6 +375,7 @@ mod tests {
                     "324e2a196293b42806c12c7bbd1aeba8d5617942f152a16588223f905f60801a",
                 )
                 .unwrap(),
+                is_verifying_tx,
             },
             _ => panic!("Test round {round} not set"),
         }
@@ -436,10 +448,10 @@ mod tests {
         const DRAND: &str = "drand_verifier_7";
 
         // drand contract unset, i.e. noone can submit
-        let msg = make_add_verified_round_msg(2183668);
+        let msg = make_add_verified_round_msg(2183668, true);
         let err = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
-        let msg = make_add_verified_round_msg(2183668);
+        let msg = make_add_verified_round_msg(2183668, true);
         let err = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
@@ -450,12 +462,12 @@ mod tests {
         let _res = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap();
 
         // Anon still cannot add round
-        let msg = make_add_verified_round_msg(2183668);
+        let msg = make_add_verified_round_msg(2183668, true);
         let err = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
         // But drand can
-        let msg = make_add_verified_round_msg(2183668);
+        let msg = make_add_verified_round_msg(2183668, true);
         let _res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
     }
 
@@ -489,7 +501,7 @@ mod tests {
         ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
 
         // Previous round processes no job
-        let msg = make_add_verified_round_msg(2183668);
+        let msg = make_add_verified_round_msg(2183668, true);
         let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
@@ -498,7 +510,7 @@ mod tests {
         assert_eq!(jobs_left, "0");
 
         // Process one job
-        let msg = make_add_verified_round_msg(2183669);
+        let msg = make_add_verified_round_msg(2183669, true);
         let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
@@ -511,8 +523,8 @@ mod tests {
         let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
         assert_eq!(jobs_left, "0");
 
-        // Create 3 job
-        for i in 0..3 {
+        // Create 2 job
+        for i in 0..2 {
             let msg = mock_ibc_packet_recv(
                 "foo",
                 &RequestBeaconPacket {
@@ -525,13 +537,12 @@ mod tests {
             ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
         }
 
-        // Process 3 jobs
-        let msg = make_add_verified_round_msg(2183670);
+        // Process 2 jobs
+        let msg = make_add_verified_round_msg(2183670, true);
         let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 3);
+        assert_eq!(res.messages.len(), 2);
         assert_eq!(res.messages[0].gas_limit, None);
         assert_eq!(res.messages[1].gas_limit, None);
-        assert_eq!(res.messages[2].gas_limit, None);
         assert!(matches!(
             res.messages[0].msg,
             CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
@@ -540,17 +551,13 @@ mod tests {
             res.messages[1].msg,
             CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
         ));
-        assert!(matches!(
-            res.messages[2].msg,
-            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
-        ));
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "3");
+        assert_eq!(jobs_processed, "2");
         let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
         assert_eq!(jobs_left, "0");
 
-        // Create 7 job
-        for i in 0..7 {
+        // Create 21 job
+        for i in 0..21 {
             let msg = mock_ibc_packet_recv(
                 "foo",
                 &RequestBeaconPacket {
@@ -563,26 +570,44 @@ mod tests {
             ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
         }
 
-        // Process first 3 jobs
-        let msg = make_add_verified_round_msg(2183671);
+        // Process first 2 jobs
+        let msg = make_add_verified_round_msg(2183671, true);
         let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 3);
+        assert_eq!(res.messages.len(), 2);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "3");
+        assert_eq!(jobs_processed, "2");
         let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "4");
+        assert_eq!(jobs_left, "19");
 
-        // Process next 3 jobs
-        let msg = make_add_verified_round_msg(2183671);
+        // Process next 2 jobs
+        let msg = make_add_verified_round_msg(2183671, true);
         let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 3);
+        assert_eq!(res.messages.len(), 2);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "3");
+        assert_eq!(jobs_processed, "2");
+        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
+        assert_eq!(jobs_left, "17");
+
+        // Process next 2 jobs
+        let msg = make_add_verified_round_msg(2183671, true);
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 2);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "2");
+        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
+        assert_eq!(jobs_left, "15");
+
+        // Process next 14 jobs
+        let msg = make_add_verified_round_msg(2183671, false);
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 14);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "14");
         let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
         assert_eq!(jobs_left, "1");
 
         // Process last 1 jobs
-        let msg = make_add_verified_round_msg(2183671);
+        let msg = make_add_verified_round_msg(2183671, false);
         let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
@@ -591,7 +616,7 @@ mod tests {
         assert_eq!(jobs_left, "0");
 
         // No jobs left for later submissions
-        let msg = make_add_verified_round_msg(2183671);
+        let msg = make_add_verified_round_msg(2183671, true);
         let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
@@ -658,7 +683,7 @@ mod tests {
             }
         );
 
-        let msg = make_add_verified_round_msg(2183669);
+        let msg = make_add_verified_round_msg(2183669, true);
         execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
 
         // 1 processed job, no unprocessed jobs
@@ -718,7 +743,7 @@ mod tests {
         );
 
         // process some
-        let msg = make_add_verified_round_msg(2183671);
+        let msg = make_add_verified_round_msg(2183671, true);
         execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
 
         // Some processed, rest unprocessed
@@ -726,8 +751,8 @@ mod tests {
             job_stats(deps.as_ref(), 2183671),
             DrandJobStatsResponse {
                 round: 2183671,
-                processed: 3,
-                unprocessed: 17,
+                processed: 2,
+                unprocessed: 18,
             }
         );
     }

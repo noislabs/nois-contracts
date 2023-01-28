@@ -542,7 +542,7 @@ test.serial("submit randomness for various job counts", async (t) => {
     t.log(`Gas: ${result.gasUsed}/${result.gasWanted}`);
     const packetsSentCount = ibcPacketsSent(result.logs);
     t.log("Number of packets sent:", packetsSentCount);
-    t.is(packetsSentCount, Math.min(jobs, 3));
+    t.is(packetsSentCount, Math.min(jobs, 2));
   }
 });
 

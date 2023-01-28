@@ -270,8 +270,10 @@ fn execute_add_round(
 
     let randomness: HexBinary = derive_randomness(signature.as_slice()).into();
     // Check if we need to verify the submission  or we just compare it to the registered randomness from the first submission of this round
+    let is_verifying_tx: bool;
 
     if submissions_count < NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND {
+        is_verifying_tx = true;
         // Check if the drand public key is valid
         let pk = g1_from_fixed_unchecked(DRAND_MAINNET_PUBKEY)
             .map_err(|_| ContractError::InvalidPubkey {})?;
@@ -282,6 +284,7 @@ fn execute_add_round(
         // Send verification reward
         reward_points += INCENTIVE_POINTS_FOR_VERIFICATION;
     } else {
+        is_verifying_tx = false;
         //Check that the submitted randomness for the round is the same as the one verified in the state by the first submission tx
         //If the randomness is different error contract
         let already_verified_randomness_for_this_round =
@@ -336,12 +339,17 @@ fn execute_add_round(
     ];
 
     // Execute the callback jobs and incentivise the drand bot based on howmany jobs they process
+
     let mut out_msgs = Vec::<CosmosMsg>::new();
     if let Some(gateway) = config.gateway {
         out_msgs.push(
             WasmMsg::Execute {
                 contract_addr: gateway.into(),
-                msg: to_binary(&NoisGatewayExecuteMsg::AddVerifiedRound { round, randomness })?,
+                msg: to_binary(&NoisGatewayExecuteMsg::AddVerifiedRound {
+                    round,
+                    randomness,
+                    is_verifying_tx,
+                })?,
                 funds: vec![],
             }
             .into(),

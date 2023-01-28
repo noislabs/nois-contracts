@@ -148,5 +148,9 @@ pub struct SubmissionsResponse {
 #[cw_serde]
 pub enum NoisGatewayExecuteMsg {
     /// Add drand beacon
-    AddVerifiedRound { round: u64, randomness: HexBinary },
+    AddVerifiedRound {
+        round: u64,
+        randomness: HexBinary,
+        is_verifying_tx: bool,
+    },
 }
