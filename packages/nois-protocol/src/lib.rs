@@ -1,6 +1,5 @@
 mod checks;
 mod ibc_msg;
-mod never;
 
 use cosmwasm_std::IbcOrder;
 
@@ -9,7 +8,6 @@ pub use ibc_msg::{
     DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket, RequestBeaconPacketAck,
     StdAck,
 };
-pub use never::Never;
 
 pub const IBC_APP_VERSION: &str = "nois-v4";
 pub const APP_ORDER: IbcOrder = IbcOrder::Unordered;

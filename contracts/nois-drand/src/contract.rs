@@ -798,7 +798,7 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
-                assert_eq!(msg, "Invalid input: human address too short")
+                assert_eq!(msg, "Invalid input: human address too short for this mock implementation (must be >= 3).")
             }
             _ => panic!("Unexpected error: {err:?}"),
         }
@@ -826,7 +826,7 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg }) => {
-                assert_eq!(msg, "Invalid input: human address too short")
+                assert_eq!(msg, "Invalid input: human address too short for this mock implementation (must be >= 3).")
             }
             _ => panic!("Unexpected error: {err:?}"),
         }
