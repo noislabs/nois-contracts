@@ -2,15 +2,15 @@ use cosmwasm_std::{
     attr, from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
-    IbcReceiveResponse, MessageInfo, QueryResponse, Reply, Response, StdError, StdResult, Storage,
-    SubMsg, SubMsgResult, Timestamp, WasmMsg,
+    IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response, StdError, StdResult,
+    Storage, SubMsg, SubMsgResult, Timestamp, WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, Never,
-    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, REQUEST_BEACON_PACKET_LIFETIME,
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
+    RequestBeaconPacketAck, StdAck, REQUEST_BEACON_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;

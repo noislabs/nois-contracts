@@ -2,11 +2,11 @@ use cosmwasm_std::{
     attr, ensure_eq, entry_point, from_binary, from_slice, to_binary, Attribute, Deps, DepsMut,
     Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, QueryResponse,
-    Response, StdResult,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never,
+    QueryResponse, Response, StdResult,
 };
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, Never, RequestBeaconPacket, StdAck,
+    check_order, check_version, DeliverBeaconPacketAck, RequestBeaconPacket, StdAck,
     IBC_APP_VERSION,
 };
 
