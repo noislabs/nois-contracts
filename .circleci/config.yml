@@ -247,10 +247,10 @@ jobs:
           name: Aggregate coverage data
           command: |
             mkdir -p reports
-            grcov . -s contracts/nois-drand/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-drand.info
-            grcov . -s contracts/nois-gateway/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-gateway.info
-            grcov . -s contracts/nois-icecube/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-icecube.info
-            grcov . -s packages/nois-protocol/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-protocol.info
+            grcov . --binary-path ./target/debug/ -s contracts/nois-drand/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-drand.info
+            grcov . --binary-path ./target/debug/ -s contracts/nois-gateway/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-gateway.info
+            grcov . --binary-path ./target/debug/ -s contracts/nois-icecube/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-icecube.info
+            grcov . --binary-path ./target/debug/ -s packages/nois-protocol/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-protocol.info
       - codecov/upload:
           file: reports/nois-drand.info
           flags: nois-drand
