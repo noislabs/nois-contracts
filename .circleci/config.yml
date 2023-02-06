@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  codecov: codecov/codecov@3.2.4
+
 workflows:
   version: 2
   test:
@@ -10,6 +13,7 @@ workflows:
       - contract_nois_icecube
       - contract_nois_proxy
       - contract_nois_monitoring
+      - coverage
       - cw-multitest
       - package_nois_protocol
       - lint
@@ -219,6 +223,42 @@ jobs:
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
           key: v2-contract_nois_icecube-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+
+  coverage:
+    docker:
+      - image: rust:1.65.0
+    steps:
+      - checkout
+      - run:
+          name: Install dependencies
+          command: |
+            rustup component add llvm-tools-preview
+            cargo install grcov
+      - run:
+          name: Run tests with gcov coverage
+          command: |
+            export RUSTC_BOOTSTRAP=1
+            export CARGO_INCREMENTAL=0
+            export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests"
+            export RUSTDOCFLAGS="-Cpanic=abort"
+            cargo build
+            cargo test --no-fail-fast || true
+      - run:
+          name: Aggregate coverage data
+          command: |
+            mkdir -p reports
+            grcov . -s contracts/nois-drand/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-drand.info
+            grcov . -s contracts/nois-gateway/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-gateway.info
+            grcov . -s packages/nois-protocol/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-protocol.info
+      - codecov/upload:
+          file: reports/nois-drand.info
+          flags: nois-drand
+      - codecov/upload:
+          file: reports/nois-gateway.info
+          flags: nois-gateway
+      - codecov/upload:
+          file: reports/nois-protocol.info
+          flags: nois-protocol
 
   cw-multitest:
     docker:
