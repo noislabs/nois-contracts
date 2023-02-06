@@ -239,16 +239,17 @@ jobs:
           command: |
             export RUSTC_BOOTSTRAP=1
             export CARGO_INCREMENTAL=0
-            export RUSTFLAGS="-Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests"
-            export RUSTDOCFLAGS="-Cpanic=abort"
+            export RUSTFLAGS="-Cinstrument-coverage"
             cargo build
-            cargo test --no-fail-fast || true
+            export LLVM_PROFILE_FILE="nois_coverage-%p-%m.profraw"
+            cargo test
       - run:
           name: Aggregate coverage data
           command: |
             mkdir -p reports
             grcov . -s contracts/nois-drand/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-drand.info
             grcov . -s contracts/nois-gateway/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-gateway.info
+            grcov . -s contracts/nois-icecube/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-icecube.info
             grcov . -s packages/nois-protocol/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-protocol.info
       - codecov/upload:
           file: reports/nois-drand.info
@@ -256,6 +257,9 @@ jobs:
       - codecov/upload:
           file: reports/nois-gateway.info
           flags: nois-gateway
+      - codecov/upload:
+          file: reports/nois-icecube.info
+          flags: nois-icecube
       - codecov/upload:
           file: reports/nois-protocol.info
           flags: nois-protocol
