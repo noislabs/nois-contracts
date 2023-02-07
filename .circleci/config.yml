@@ -241,8 +241,6 @@ jobs:
       - run:
           name: Run tests with gcov coverage
           command: |
-            export RUSTC_BOOTSTRAP=1
-            export CARGO_INCREMENTAL=0
             export RUSTFLAGS="-Cinstrument-coverage"
             cargo build
             export LLVM_PROFILE_FILE="nois_coverage-%p-%m.profraw"
