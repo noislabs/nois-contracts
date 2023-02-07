@@ -9,7 +9,7 @@ use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use crate::attributes::{
     ATTR_BOT, ATTR_RANDOMNESS, ATTR_REWARD_PAYOUT, ATTR_REWARD_POINTS, ATTR_ROUND,
 };
-use crate::bots::validate_moniker;
+use crate::bots::{eligible_group, group, validate_moniker};
 use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
 use crate::msg::{
@@ -365,7 +365,9 @@ fn execute_add_round(
     // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
 
-    let is_eligible = is_registered && is_allowlisted && !reward_points.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
+    let correct_group = Some(group(&info.sender)) == eligible_group(round);
+
+    let is_eligible = correct_group && is_registered && is_allowlisted && !reward_points.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
 
     let payout = if is_eligible {
         let desired_amount = reward_points * config.incentive_point_price;
