@@ -249,10 +249,18 @@ jobs:
           name: Aggregate coverage data
           command: |
             mkdir -p reports
-            grcov . --binary-path ./target/debug/ -s contracts/nois-drand/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-drand.info
-            grcov . --binary-path ./target/debug/ -s contracts/nois-gateway/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-gateway.info
-            grcov . --binary-path ./target/debug/ -s contracts/nois-icecube/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-icecube.info
-            grcov . --binary-path ./target/debug/ -s packages/nois-protocol/src -t lcov --llvm --branch --ignore-not-existing -o ./reports/nois-protocol.info
+            function grcov_contract() {
+              grcov . -s contracts/$1/src \
+                --binary-path ./target/debug/ \
+                --excl-start '^(pub(\((crate|super)\))? )?mod tests' \
+                --excl-stop '^}' \
+                -t lcov --llvm --branch --ignore-not-existing \
+                -o ./reports/$1.info
+            }
+
+            grcov_contract nois-drand
+            grcov_contract nois-gateway
+            grcov_contract nois-icecube
       - codecov/upload:
           file: reports/nois-drand.info
           flags: nois-drand
@@ -262,9 +270,6 @@ jobs:
       - codecov/upload:
           file: reports/nois-icecube.info
           flags: nois-icecube
-      - codecov/upload:
-          file: reports/nois-protocol.info
-          flags: nois-protocol
       - save_cache:
           paths:
             - /usr/local/cargo/registry
