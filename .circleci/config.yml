@@ -229,6 +229,10 @@ jobs:
       - image: rust:1.65.0
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - v2-coverage-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-coverage-rust:1.65.0-
       - run:
           name: Install dependencies
           command: |
@@ -263,6 +267,13 @@ jobs:
       - codecov/upload:
           file: reports/nois-protocol.info
           flags: nois-protocol
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - ~/project/target/debug/.fingerprint
+            - ~/project/target/debug/build
+            - ~/project/target/debug/deps
+          key: v2-coverage-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
   cw-multitest:
     docker:
