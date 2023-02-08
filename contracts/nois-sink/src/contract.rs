@@ -13,7 +13,7 @@ const BURN_DENOM: &str = "unois";
 
 #[entry_point]
 pub fn instantiate(
-    _deps: Deps,
+    _deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
@@ -130,7 +130,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {};
         let env = mock_env();
-        instantiate(deps.as_ref(), env.to_owned(), info, msg).unwrap();
+        instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
 
         let msg = ExecuteMsg::Burn {};
         let info = mock_info("creator", &[Coin::new(1_000, "bitcoin".to_string())]);
