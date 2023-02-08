@@ -919,13 +919,13 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let bot1 = "registered_bot1";
-        let bot2 = "registered_bot2";
-        let bot3 = "registered_bot3";
-        let bot4 = "registered_bot4";
-        let bot5 = "registered_bot5";
-        let bot6 = "registered_bot6";
-        let bot7 = "registered_bot7";
+        let bot1 = "registered_bot_761826381";
+        let bot2 = "registered_bot_98787233";
+        let bot3 = "registered_bot_12618926371";
+        let bot4 = "registered_bot_21739812";
+        let bot5 = "registered_bot_26737162";
+        let bot6 = "registered_bot_34216397";
+        let bot7 = "registered_bot_0821738";
 
         register_bot(deps.as_mut(), mock_info(bot1, &[]));
         register_bot(deps.as_mut(), mock_info(bot2, &[]));
@@ -938,13 +938,13 @@ mod tests {
         // add bots to allowlist
         let msg = ExecuteMsg::UpdateAllowlistBots {
             add: vec![
-                "registered_bot1".to_string(),
-                "registered_bot2".to_string(),
-                "registered_bot3".to_string(),
-                "registered_bot4".to_string(),
-                "registered_bot5".to_string(),
-                "registered_bot6".to_string(),
-                "registered_bot7".to_string(),
+                bot1.to_string(),
+                bot2.to_string(),
+                bot3.to_string(),
+                bot4.to_string(),
+                bot5.to_string(),
+                bot6.to_string(),
+                bot7.to_string(),
             ],
             remove: vec![],
         };
