@@ -367,7 +367,7 @@ fn execute_add_round(
 
     let is_eligible = is_registered && is_allowlisted && !reward_points.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
 
-    if is_eligible {
+    let payout = if is_eligible {
         let desired_amount = reward_points * config.incentive_point_price;
 
         let contract_balance = deps
@@ -376,26 +376,27 @@ fn execute_add_round(
             .amount;
 
         // The amount we'll actually pay out
-        let payout = if contract_balance >= desired_amount {
+        if contract_balance >= desired_amount {
             Coin {
                 amount: desired_amount,
                 denom: config.incentive_denom,
             }
         } else {
             Coin::new(0, config.incentive_denom)
-        };
-
-        attributes.push(Attribute::new(ATTR_REWARD_PAYOUT, payout.to_string()));
-
-        if !payout.amount.is_zero() {
-            out_msgs.push(
-                BankMsg::Send {
-                    to_address: info.sender.to_string(),
-                    amount: vec![payout],
-                }
-                .into(),
-            );
         }
+    } else {
+        Coin::new(0, config.incentive_denom)
+    };
+
+    attributes.push(Attribute::new(ATTR_REWARD_PAYOUT, payout.to_string()));
+    if !payout.amount.is_zero() {
+        out_msgs.push(
+            BankMsg::Send {
+                to_address: info.sender.to_string(),
+                amount: vec![payout],
+            }
+            .into(),
+        );
     }
 
     if !BEACONS.has(deps.storage, round) {
@@ -662,12 +663,15 @@ mod tests {
         };
         let info = mock_info("unregistered_bot", &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        let randomness = first_attr(response.attributes, "randomness").unwrap();
+        let attrs = response.attributes;
+        let randomness = first_attr(&attrs, "randomness").unwrap();
         assert_eq!(
             randomness,
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
         assert_eq!(response.messages.len(), 0);
+        assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "50");
+        assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
     }
 
     #[test]
