@@ -493,7 +493,10 @@ fn integration_test() {
     // Make sure that there is no incentive for this bot because it didn't do the verification and it was slow
     // i.e. enough drandbots have already verified this round.
     assert_eq!(first_attr(&wasm.attributes, "reward_points").unwrap(), "0");
-    assert_eq!(first_attr(&wasm.attributes, "reward_payout"), None);
+    assert_eq!(
+        first_attr(&wasm.attributes, "reward_payout").unwrap(),
+        "0unois"
+    );
 
     // Add round 8th submission
     // Check that when a submission has been verified in previous txs by enough other bots
