@@ -130,7 +130,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {};
         let env = mock_env();
-        instantiate(deps.as_ref(), env.to_owned(), info.to_owned(), msg).unwrap();
+        instantiate(deps.as_ref(), env.to_owned(), info, msg).unwrap();
 
         let msg = ExecuteMsg::Burn {};
         let info = mock_info("creator", &[Coin::new(1_000, "bitcoin".to_string())]);
@@ -173,12 +173,12 @@ mod tests {
                 Ash {
                     address: Addr::unchecked("burner"),
                     amount: Uint128::new(1000),
-                    timestamp: Timestamp::from_nanos(1571797419_879305533)
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
                     address: Addr::unchecked("burner-2"),
                     amount: Uint128::new(5000),
-                    timestamp: Timestamp::from_nanos(1571797419_879305533)
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
             ]
         );
