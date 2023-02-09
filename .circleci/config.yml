@@ -135,7 +135,7 @@ jobs:
             - ~/project/target/debug/deps
           key: v2-contract_nois_monitoring-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
 
-contract_nois_sink:
+  contract_nois_sink:
     docker:
       - image: rust:1.65.0
     working_directory: ~/project/contracts/nois-sink
