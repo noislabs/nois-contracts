@@ -8,7 +8,7 @@ use crate::error::ContractError;
 use crate::msg::{AshesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Ash, ASHES};
 
-/// Constant defining how many submissions per round will be rewarded
+/// Constant defining the denom of the Coin to be burnt
 const BURN_DENOM: &str = "unois";
 
 #[entry_point]
