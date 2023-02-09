@@ -64,7 +64,7 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
         deps.storage,
         ashes_count + 1,
         &Ash {
-            address: address.to_owned(),
+            address: address.clone(),
             amount,
             timestamp,
         },
