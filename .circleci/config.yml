@@ -291,6 +291,7 @@ jobs:
             grcov_contract nois-drand
             grcov_contract nois-gateway
             grcov_contract nois-icecube
+            grcov_contract nois-sink
       - codecov/upload:
           file: reports/nois-drand.info
           flags: nois-drand
@@ -300,6 +301,9 @@ jobs:
       - codecov/upload:
           file: reports/nois-icecube.info
           flags: nois-icecube
+      - codecov/upload:
+          file: reports/nois-sink.info
+          flags: nois-sink
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -419,7 +423,7 @@ jobs:
             - nois_icecube.wasm
             - nois_proxy.wasm
             - nois_gateway.wasm
-
+            - nois_sink.wasm
   ts-build:
     docker:
       - image: circleci/node:16
