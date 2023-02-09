@@ -1,4 +1,7 @@
-use cosmwasm_std::{coin, testing::mock_env, Addr, Coin, Decimal, Delegation, Uint128, Validator};
+use cosmwasm_std::{
+    coin, testing::mock_env, Addr, BlockInfo, Coin, Decimal, Delegation, Timestamp, Uint128,
+    Validator,
+};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{first_attr, mint_native, query_balance_native};
 
@@ -130,6 +133,7 @@ fn integration_test() {
     let msg = nois_icecube::msg::ExecuteMsg::SendFundsToDrand {
         funds: coin(300_000, "unois"),
     };
+
     app.execute_contract(
         Addr::unchecked("an_unhappy_drand_bot_operator"),
         addr_nois_icecube.to_owned(),
@@ -177,6 +181,15 @@ fn integration_test() {
             validator: "noislabs".to_string(),
         }
     );
+    println!("{}", app.block_info().height);
+    println!("{}", app.block_info().chain_id);
+    println!("{}", app.block_info().time);
+
+    app.set_block(BlockInfo {
+        height: 12345,
+        time: Timestamp::from_nanos(1571797419879305533).plus_seconds(3600),
+        chain_id: "cosmos-testnet-14002".to_string(),
+    });
 
     //TODO simulte advance many blocks to accumulate some staking rewards
 
@@ -184,7 +197,14 @@ fn integration_test() {
     let msg = nois_icecube::msg::ExecuteMsg::ClaimRewards {
         addr: "noislabs".to_string(),
     };
-    let _err = app
+    let resp = app
         .execute_contract(Addr::unchecked("owner"), addr_nois_icecube, &msg, &[])
-        .unwrap_err();
+        .unwrap();
+    let wasm = resp
+        .events
+        .iter()
+        .find(|ev| ev.ty == "withdraw_delegator_reward")
+        .unwrap();
+    // Make sure the the tx passed
+    assert_eq!(first_attr(&wasm.attributes, "amount").unwrap(), "6unois");
 }
