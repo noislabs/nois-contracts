@@ -181,9 +181,6 @@ fn integration_test() {
             validator: "noislabs".to_string(),
         }
     );
-    println!("{}", app.block_info().height);
-    println!("{}", app.block_info().chain_id);
-    println!("{}", app.block_info().time);
 
     app.set_block(BlockInfo {
         height: 12345,
