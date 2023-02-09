@@ -64,7 +64,7 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
 
     let msg = CosmosMsg::Bank(BankMsg::Burn { amount: info.funds });
     let key = ASHES
-        .range(deps.storage, None, None, Order::Ascending)
+        .range(deps.storage, None, None, Order::Descending)
         .map(|ash| ash.unwrap().0)
         .next()
         .unwrap_or_default();

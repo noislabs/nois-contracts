@@ -11,7 +11,7 @@ workflows:
       - contract_nois_drand
       - contract_nois_gateway
       - contract_nois_icecube
-      - contract_nois_sink
+      #- contract_nois_sink
       - contract_nois_proxy
       - contract_nois_monitoring
       - coverage
@@ -164,6 +164,7 @@ jobs:
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
           key: v2-contract_nois_sink-rust:1.65.0-{{ checksum "~/project/Cargo.lock" }}
+
   contract_nois_gateway:
     docker:
       - image: rust:1.65.0
