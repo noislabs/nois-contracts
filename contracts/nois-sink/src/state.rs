@@ -11,5 +11,6 @@ pub const ASHES_COUNT: Item<u32> = Item::new("ashes_count");
 pub struct Ash {
     pub address: Addr,
     pub amount: Coin,
-    pub timestamp: Timestamp,
+    /// Point in time (block time) when the Ash was created
+    pub burned: Timestamp,
 }
