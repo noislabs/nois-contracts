@@ -56,6 +56,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, ContractError> {
     //Check that the denom is correct
     ensure_eq!(info.funds[0].denom, BURN_DENOM, ContractError::WrongDenom);
+    ensure_eq!(info.funds.len(), 1, ContractError::TooManyCoins);
     let amount = info.funds[0].amount;
     let address = info.sender;
     let timestamp = env.block.time;
@@ -66,7 +67,7 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
         .map(|ash| ash.unwrap().0)
         .next()
         .unwrap_or_default();
-    //store the burner addr
+    //store the burner Ash
     ASHES.save(
         deps.storage,
         key + 1,
@@ -136,6 +137,15 @@ mod tests {
         let info = mock_info("creator", &[Coin::new(1_000, "bitcoin".to_string())]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
         assert_eq!(err, ContractError::WrongDenom);
+        let info = mock_info(
+            "creator",
+            &[
+                Coin::new(1_000, "unois".to_string()),
+                Coin::new(1_000, "bitcoin".to_string()),
+            ],
+        );
+        let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
+        assert_eq!(err, ContractError::TooManyCoins);
         let info = mock_info("burner", &[Coin::new(1_000, "unois".to_string())]);
         let resp = execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
         assert_eq!(
