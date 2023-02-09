@@ -53,7 +53,7 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
     let ashes_count = ASHES_COUNT.load(deps.storage).unwrap_or_default();
     ASHES_COUNT.save(deps.storage, &(ashes_count + 1))?;
 
-    let amount = info.funds[0].amount;
+    let amount = info.funds[0];
     let address = info.sender;
     let timestamp = env.block.time;
 
