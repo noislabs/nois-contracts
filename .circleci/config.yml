@@ -425,6 +425,7 @@ jobs:
             - nois_proxy.wasm
             - nois_gateway.wasm
             - nois_sink.wasm
+
   ts-build:
     docker:
       - image: circleci/node:16
