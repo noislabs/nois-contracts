@@ -1,4 +1,6 @@
-use cosmwasm_std::{coin, testing::mock_env, Addr, Coin, Decimal, Delegation, Uint128, Validator};
+use cosmwasm_std::{
+    coin, testing::mock_env, Addr, BlockInfo, Coin, Decimal, Delegation, Uint128, Validator,
+};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{first_attr, mint_native, query_balance_native};
 
@@ -130,6 +132,7 @@ fn integration_test() {
     let msg = nois_icecube::msg::ExecuteMsg::SendFundsToDrand {
         funds: coin(300_000, "unois"),
     };
+
     app.execute_contract(
         Addr::unchecked("an_unhappy_drand_bot_operator"),
         addr_nois_icecube.to_owned(),
@@ -178,13 +181,30 @@ fn integration_test() {
         }
     );
 
+    let block = app.block_info();
+    app.set_block(BlockInfo {
+        height: block.height + 1,
+        time: block.time.plus_seconds(3600),
+        chain_id: block.chain_id,
+    });
+
     //TODO simulte advance many blocks to accumulate some staking rewards
 
     // Make nois-icecube claim
     let msg = nois_icecube::msg::ExecuteMsg::ClaimRewards {
         addr: "noislabs".to_string(),
     };
-    let _err = app
+    let resp = app
         .execute_contract(Addr::unchecked("owner"), addr_nois_icecube, &msg, &[])
-        .unwrap_err();
+        .unwrap();
+    let withdraw_event = resp
+        .events
+        .iter()
+        .find(|ev| ev.ty == "withdraw_delegator_reward")
+        .unwrap();
+    // Make sure the the tx passed
+    assert_eq!(
+        first_attr(&withdraw_event.attributes, "amount").unwrap(),
+        "6unois"
+    );
 }
