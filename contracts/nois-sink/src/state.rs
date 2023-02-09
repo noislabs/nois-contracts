@@ -10,6 +10,6 @@ pub const ASHES_COUNT: Item<u32> = Item::new("ashes_count");
 #[cw_serde]
 pub struct Ash {
     pub address: Addr,
-    pub amount: Uint128,
+    pub amount: Coin,
     pub timestamp: Timestamp,
 }
