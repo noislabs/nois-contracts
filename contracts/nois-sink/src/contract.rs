@@ -21,13 +21,6 @@ pub fn instantiate(
     Ok(Response::default())
 }
 
-// This no-op migrate implementation allows us to upgrade within the 0.7 series.
-// No state changes expected.
-#[entry_point]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
-    Ok(Response::default())
-}
-
 #[entry_point]
 pub fn execute(
     deps: DepsMut,
