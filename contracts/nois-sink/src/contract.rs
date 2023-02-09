@@ -6,7 +6,7 @@ use cw_storage_plus::Bound;
 
 use crate::error::ContractError;
 use crate::msg::{AshesResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Ash, ASHES};
+use crate::state::{Ash, ASHES, ASHES_COUNT};
 
 /// Constant defining the denom of the Coin to be burnt
 const BURN_DENOM: &str = "unois";
@@ -57,21 +57,19 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
     //Check that the denom is correct
     ensure_eq!(info.funds.len(), 1, ContractError::TooManyOrNoCoins);
     ensure_eq!(info.funds[0].denom, BURN_DENOM, ContractError::WrongDenom);
+    let ashes_count = ASHES_COUNT.load(deps.storage).unwrap_or_default();
+    ASHES_COUNT.save(deps.storage, &(ashes_count + 1))?;
 
     let amount = info.funds[0].amount;
     let address = info.sender;
     let timestamp = env.block.time;
 
     let msg = CosmosMsg::Bank(BankMsg::Burn { amount: info.funds });
-    let key = ASHES
-        .range(deps.storage, None, None, Order::Descending)
-        .map(|ash| ash.unwrap().0)
-        .next()
-        .unwrap_or_default();
+
     //store the burner Ash
     ASHES.save(
         deps.storage,
-        key + 1,
+        ashes_count + 1,
         &Ash {
             address: address.to_owned(),
             amount,
@@ -150,7 +148,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
         assert_eq!(err, ContractError::TooManyOrNoCoins);
-        let info = mock_info("burner", &[Coin::new(1_000, "unois".to_string())]);
+        let info = mock_info("burner-1", &[Coin::new(1_000, "unois".to_string())]);
         let resp = execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
         assert_eq!(
             first_attr(&resp.attributes, "burnt amount").unwrap(),
@@ -158,14 +156,22 @@ mod tests {
         );
         assert_eq!(
             first_attr(&resp.attributes, "burn initiator").unwrap(),
-            "burner"
+            "burner-1"
         );
         assert_eq!(
             first_attr(&resp.attributes, "timestamp").unwrap(),
             "1571797419.879305533"
         );
 
-        let info = mock_info("burner-2", &[Coin::new(5_000, "unois".to_string())]);
+        let info = mock_info("burner-2", &[Coin::new(2_000, "unois".to_string())]);
+        execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
+        let info = mock_info("burner-3", &[Coin::new(3_000, "unois".to_string())]);
+        execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
+        let info = mock_info("burner-4", &[Coin::new(4_000, "unois".to_string())]);
+        execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
+        let info = mock_info("burner-5", &[Coin::new(5_000, "unois".to_string())]);
+        execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
+        let info = mock_info("burner-6", &[Coin::new(6_000, "unois".to_string())]);
         execute(deps.as_mut(), env, info, msg).unwrap();
 
         // Test Query Asc
@@ -186,13 +192,33 @@ mod tests {
             ashes_response,
             [
                 Ash {
-                    address: Addr::unchecked("burner"),
+                    address: Addr::unchecked("burner-1"),
                     amount: Uint128::new(1000),
                     timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
                     address: Addr::unchecked("burner-2"),
+                    amount: Uint128::new(2000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    address: Addr::unchecked("burner-3"),
+                    amount: Uint128::new(3000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    address: Addr::unchecked("burner-4"),
+                    amount: Uint128::new(4000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    address: Addr::unchecked("burner-5"),
                     amount: Uint128::new(5000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    address: Addr::unchecked("burner-6"),
+                    amount: Uint128::new(6000),
                     timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
             ]
@@ -216,12 +242,32 @@ mod tests {
             ashes_response,
             [
                 Ash {
-                    address: Addr::unchecked("burner-2"),
+                    address: Addr::unchecked("burner-6"),
+                    amount: Uint128::new(6000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    address: Addr::unchecked("burner-5"),
                     amount: Uint128::new(5000),
                     timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
-                    address: Addr::unchecked("burner"),
+                    address: Addr::unchecked("burner-4"),
+                    amount: Uint128::new(4000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    address: Addr::unchecked("burner-3"),
+                    amount: Uint128::new(3000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    address: Addr::unchecked("burner-2"),
+                    amount: Uint128::new(2000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    address: Addr::unchecked("burner-1"),
                     amount: Uint128::new(1000),
                     timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },

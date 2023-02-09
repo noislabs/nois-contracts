@@ -11,7 +11,7 @@ workflows:
       - contract_nois_drand
       - contract_nois_gateway
       - contract_nois_icecube
-      #- contract_nois_sink
+      - contract_nois_sink
       - contract_nois_proxy
       - contract_nois_monitoring
       - coverage
