@@ -7,7 +7,7 @@ pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    /// Add drand beacon
+    /// Burns the tokens that are sent as `funds` with this message
     Burn {},
 }
 
