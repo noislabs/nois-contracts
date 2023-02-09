@@ -55,8 +55,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 
 fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, ContractError> {
     //Check that the denom is correct
+    ensure_eq!(info.funds.len(), 1, ContractError::TooManyOrNoCoins);
     ensure_eq!(info.funds[0].denom, BURN_DENOM, ContractError::WrongDenom);
-    ensure_eq!(info.funds.len(), 1, ContractError::TooManyCoins);
+
     let amount = info.funds[0].amount;
     let address = info.sender;
     let timestamp = env.block.time;
@@ -145,7 +146,10 @@ mod tests {
             ],
         );
         let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
-        assert_eq!(err, ContractError::TooManyCoins);
+        assert_eq!(err, ContractError::TooManyOrNoCoins);
+        let info = mock_info("creator", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
+        assert_eq!(err, ContractError::TooManyOrNoCoins);
         let info = mock_info("burner", &[Coin::new(1_000, "unois".to_string())]);
         let resp = execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
         assert_eq!(

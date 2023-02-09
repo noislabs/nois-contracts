@@ -10,6 +10,6 @@ pub enum ContractError {
     #[error("Wrong coin denom")]
     WrongDenom,
 
-    #[error("Too many coins sent")]
-    TooManyCoins,
+    #[error("Too many coins sent or no coins at all")]
+    TooManyOrNoCoins,
 }
