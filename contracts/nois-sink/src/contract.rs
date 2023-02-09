@@ -168,6 +168,7 @@ mod tests {
         let info = mock_info("burner-2", &[Coin::new(5_000, "unois".to_string())]);
         execute(deps.as_mut(), env, info, msg).unwrap();
 
+        // Test Query Asc
         let AshesResponse { ashes } = from_binary(
             &query(
                 deps.as_ref(),
@@ -192,6 +193,36 @@ mod tests {
                 Ash {
                     address: Addr::unchecked("burner-2"),
                     amount: Uint128::new(5000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+            ]
+        );
+
+        // Test Query Desc
+        let AshesResponse { ashes } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::AshesDesc {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let ashes_response = ashes.iter().map(|ash| ash.to_owned()).collect::<Vec<Ash>>();
+        assert_eq!(
+            ashes_response,
+            [
+                Ash {
+                    address: Addr::unchecked("burner-2"),
+                    amount: Uint128::new(5000),
+                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    address: Addr::unchecked("burner"),
+                    amount: Uint128::new(1000),
                     timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
             ]
