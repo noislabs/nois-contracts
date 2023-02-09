@@ -1,3 +1,3 @@
-# Nois Drand
+# Nois Sink
 
-Drand backend for beacon verification.
+Nois-sink is a contract that burns NOIS native coins.
