@@ -72,7 +72,7 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
 
     Ok(Response::new()
         .add_message(msg)
-        .add_attribute("burnt amount", amount)
+        .add_attribute("burnt amount", amount.to_string())
         .add_attribute("burn initiator", address)
         .add_attribute("timestamp", timestamp.to_string()))
 }
