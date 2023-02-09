@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Timestamp, Uint128};
+use cosmwasm_std::{Addr, Coin, Timestamp};
 use cw_storage_plus::{Item, Map};
 
 // A history of all burns
@@ -12,5 +12,5 @@ pub struct Ash {
     pub burner: Addr,
     pub amount: Coin,
     /// Point in time (block time) when the Ash was created
-    pub burned: Timestamp,
+    pub burnt: Timestamp,
 }

@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, BankMsg, CosmosMsg, Deps, DepsMut, Empty, Env, MessageInfo,
-    Order, QueryResponse, Response, StdResult,
+    ensure_eq, entry_point, to_binary, BankMsg, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order,
+    QueryResponse, Response, StdResult,
 };
 use cw_storage_plus::Bound;
 
@@ -53,28 +53,30 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
     let ashes_count = ASHES_COUNT.load(deps.storage).unwrap_or_default();
     ASHES_COUNT.save(deps.storage, &(ashes_count + 1))?;
 
-    let amount = info.funds[0];
+    let amount = info.funds;
     let address = info.sender;
-    let timestamp = env.block.time;
+    let burnt = env.block.time;
 
-    let msg = CosmosMsg::Bank(BankMsg::Burn { amount: info.funds });
+    let msg = CosmosMsg::Bank(BankMsg::Burn {
+        amount: amount.clone(),
+    });
 
     //store the burner Ash
     ASHES.save(
         deps.storage,
         ashes_count + 1,
         &Ash {
-            address: address.clone(),
-            amount,
-            timestamp,
+            burner: address.clone(),
+            amount: amount[0].clone(),
+            burnt,
         },
     )?;
 
     Ok(Response::new()
         .add_message(msg)
-        .add_attribute("burnt amount", amount.to_string())
+        .add_attribute("burnt amount", amount[0].to_string())
         .add_attribute("burn initiator", address)
-        .add_attribute("timestamp", timestamp.to_string()))
+        .add_attribute("time", burnt.to_string()))
 }
 
 fn query_ashes(
@@ -104,7 +106,7 @@ mod tests {
     use crate::msg::ExecuteMsg;
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, Addr, Attribute, Coin, Timestamp, Uint128};
+    use cosmwasm_std::{from_binary, Addr, Attribute, Coin, Timestamp};
 
     fn first_attr(data: impl AsRef<[Attribute]>, search_key: &str) -> Option<String> {
         data.as_ref().iter().find_map(|a| {
@@ -123,11 +125,11 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {};
         let env = mock_env();
-        instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
+        instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
 
         let msg = ExecuteMsg::Burn {};
         let info = mock_info("creator", &[Coin::new(1_000, "bitcoin".to_string())]);
-        let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::WrongDenom);
         let info = mock_info(
             "creator",
@@ -136,35 +138,31 @@ mod tests {
                 Coin::new(1_000, "bitcoin".to_string()),
             ],
         );
-        let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::TooManyOrNoCoins);
         let info = mock_info("creator", &[]);
-        let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::TooManyOrNoCoins);
         let info = mock_info("burner-1", &[Coin::new(1_000, "unois".to_string())]);
-        let resp = execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
+        let resp = execute(deps.as_mut(), env.clone(), info, msg.clone()).unwrap();
         assert_eq!(
             first_attr(&resp.attributes, "burnt amount").unwrap(),
-            "1000"
+            "1000unois"
         );
         assert_eq!(
             first_attr(&resp.attributes, "burn initiator").unwrap(),
             "burner-1"
         );
         assert_eq!(
-            first_attr(&resp.attributes, "timestamp").unwrap(),
+            first_attr(&resp.attributes, "time").unwrap(),
             "1571797419.879305533"
         );
 
         let info = mock_info("burner-2", &[Coin::new(2_000, "unois".to_string())]);
-        execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
+        execute(deps.as_mut(), env.clone(), info, msg.clone()).unwrap();
         let info = mock_info("burner-3", &[Coin::new(3_000, "unois".to_string())]);
-        execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
+        execute(deps.as_mut(), env.clone(), info, msg.clone()).unwrap();
         let info = mock_info("burner-4", &[Coin::new(4_000, "unois".to_string())]);
-        execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
-        let info = mock_info("burner-5", &[Coin::new(5_000, "unois".to_string())]);
-        execute(deps.as_mut(), env.to_owned(), info, msg.to_owned()).unwrap();
-        let info = mock_info("burner-6", &[Coin::new(6_000, "unois".to_string())]);
         execute(deps.as_mut(), env, info, msg).unwrap();
 
         // Test Query Asc
@@ -185,34 +183,24 @@ mod tests {
             ashes_response,
             [
                 Ash {
-                    address: Addr::unchecked("burner-1"),
-                    amount: Uint128::new(1000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    burner: Addr::unchecked("burner-1"),
+                    amount: Coin::new(1_000, "unois"),
+                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
-                    address: Addr::unchecked("burner-2"),
-                    amount: Uint128::new(2000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    burner: Addr::unchecked("burner-2"),
+                    amount: Coin::new(2_000, "unois"),
+                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
-                    address: Addr::unchecked("burner-3"),
-                    amount: Uint128::new(3000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    burner: Addr::unchecked("burner-3"),
+                    amount: Coin::new(3_000, "unois"),
+                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
-                    address: Addr::unchecked("burner-4"),
-                    amount: Uint128::new(4000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
-                },
-                Ash {
-                    address: Addr::unchecked("burner-5"),
-                    amount: Uint128::new(5000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
-                },
-                Ash {
-                    address: Addr::unchecked("burner-6"),
-                    amount: Uint128::new(6000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    burner: Addr::unchecked("burner-4"),
+                    amount: Coin::new(4_000, "unois"),
+                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
             ]
         );
@@ -235,34 +223,24 @@ mod tests {
             ashes_response,
             [
                 Ash {
-                    address: Addr::unchecked("burner-6"),
-                    amount: Uint128::new(6000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    burner: Addr::unchecked("burner-4"),
+                    amount: Coin::new(4_000, "unois"),
+                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
-                    address: Addr::unchecked("burner-5"),
-                    amount: Uint128::new(5000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    burner: Addr::unchecked("burner-3"),
+                    amount: Coin::new(3_000, "unois"),
+                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
-                    address: Addr::unchecked("burner-4"),
-                    amount: Uint128::new(4000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    burner: Addr::unchecked("burner-2"),
+                    amount: Coin::new(2_000, "unois"),
+                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
-                    address: Addr::unchecked("burner-3"),
-                    amount: Uint128::new(3000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
-                },
-                Ash {
-                    address: Addr::unchecked("burner-2"),
-                    amount: Uint128::new(2000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
-                },
-                Ash {
-                    address: Addr::unchecked("burner-1"),
-                    amount: Uint128::new(1000),
-                    timestamp: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    burner: Addr::unchecked("burner-1"),
+                    amount: Coin::new(1_000, "unois"),
+                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
             ]
         );
