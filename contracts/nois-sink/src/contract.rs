@@ -183,9 +183,8 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
-        let ashes_response = ashes.iter().map(|ash| ash.to_owned()).collect::<Vec<Ash>>();
         assert_eq!(
-            ashes_response,
+            ashes,
             [
                 Ash {
                     burner: Addr::unchecked("burner-1"),
@@ -223,9 +222,8 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
-        let ashes_response = ashes.iter().map(|ash| ash.to_owned()).collect::<Vec<Ash>>();
         assert_eq!(
-            ashes_response,
+            ashes,
             [
                 Ash {
                     burner: Addr::unchecked("burner-4"),
@@ -245,6 +243,136 @@ mod tests {
                 Ash {
                     burner: Addr::unchecked("burner-1"),
                     amount: Coin::new(1_000, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn query_works_for_more_than_10_elements() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {};
+        let env = mock_env();
+        instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
+
+        // Send 12 burn messages
+        for a in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] {
+            let msg = ExecuteMsg::Burn {};
+            let info = mock_info("joe", &[Coin::new(a, "unois")]);
+            execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        }
+
+        // asc, limit 3
+        let AshesResponse { ashes } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::AshesAsc {
+                    start_after: None,
+                    limit: Some(3),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ashes,
+            [
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(1, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(2, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(3, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+            ]
+        );
+
+        // asc, limit None
+        let AshesResponse { ashes } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::AshesAsc {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ashes,
+            [
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(1, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(2, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(3, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(4, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(5, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(6, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(7, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(8, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(9, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(10, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(11, "unois"),
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(12, "unois"),
                     time: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
             ]
