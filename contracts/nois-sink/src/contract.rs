@@ -47,36 +47,44 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
 }
 
 fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, ContractError> {
-    //Check that the denom is correct
-    ensure_eq!(info.funds.len(), 1, ContractError::TooManyOrNoCoins);
-    ensure_eq!(info.funds[0].denom, BURN_DENOM, ContractError::WrongDenom);
-    let ashes_count = ASHES_COUNT.load(deps.storage).unwrap_or_default();
+    let MessageInfo {
+        mut funds,
+        sender: burner,
+    } = info;
+
+    if funds.len() > 1 {
+        return Err(ContractError::TooManyCoins);
+    }
+
+    // Get first coin and ensure it has the correct denom
+    let amount = funds.pop().ok_or(ContractError::NoCoins)?;
+    ensure_eq!(amount.denom, BURN_DENOM, ContractError::WrongDenom);
+
+    let ashes_count = ASHES_COUNT.may_load(deps.storage)?.unwrap_or_default();
     ASHES_COUNT.save(deps.storage, &(ashes_count + 1))?;
 
-    let amount = info.funds;
-    let address = info.sender;
-    let burnt = env.block.time;
-
-    let msg = CosmosMsg::Bank(BankMsg::Burn {
-        amount: amount.clone(),
-    });
+    let time = env.block.time;
 
     //store the burner Ash
     ASHES.save(
         deps.storage,
         ashes_count + 1,
         &Ash {
-            burner: address.clone(),
-            amount: amount[0].clone(),
-            burnt,
+            burner: burner.clone(),
+            amount: amount.clone(),
+            time,
         },
     )?;
 
+    let msg = CosmosMsg::Bank(BankMsg::Burn {
+        amount: vec![amount.clone()],
+    });
+
     Ok(Response::new()
         .add_message(msg)
-        .add_attribute("burnt amount", amount[0].to_string())
-        .add_attribute("burn initiator", address)
-        .add_attribute("time", burnt.to_string()))
+        .add_attribute("burnt_amount", amount.to_string())
+        .add_attribute("burner", burner)
+        .add_attribute("time", time.to_string()))
 }
 
 fn query_ashes(
@@ -139,20 +147,17 @@ mod tests {
             ],
         );
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
-        assert_eq!(err, ContractError::TooManyOrNoCoins);
+        assert_eq!(err, ContractError::TooManyCoins);
         let info = mock_info("creator", &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
-        assert_eq!(err, ContractError::TooManyOrNoCoins);
+        assert_eq!(err, ContractError::NoCoins);
         let info = mock_info("burner-1", &[Coin::new(1_000, "unois".to_string())]);
         let resp = execute(deps.as_mut(), env.clone(), info, msg.clone()).unwrap();
         assert_eq!(
-            first_attr(&resp.attributes, "burnt amount").unwrap(),
+            first_attr(&resp.attributes, "burnt_amount").unwrap(),
             "1000unois"
         );
-        assert_eq!(
-            first_attr(&resp.attributes, "burn initiator").unwrap(),
-            "burner-1"
-        );
+        assert_eq!(first_attr(&resp.attributes, "burner").unwrap(), "burner-1");
         assert_eq!(
             first_attr(&resp.attributes, "time").unwrap(),
             "1571797419.879305533"
@@ -185,22 +190,22 @@ mod tests {
                 Ash {
                     burner: Addr::unchecked("burner-1"),
                     amount: Coin::new(1_000, "unois"),
-                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
                     burner: Addr::unchecked("burner-2"),
                     amount: Coin::new(2_000, "unois"),
-                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
                     burner: Addr::unchecked("burner-3"),
                     amount: Coin::new(3_000, "unois"),
-                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
                     burner: Addr::unchecked("burner-4"),
                     amount: Coin::new(4_000, "unois"),
-                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
             ]
         );
@@ -225,22 +230,22 @@ mod tests {
                 Ash {
                     burner: Addr::unchecked("burner-4"),
                     amount: Coin::new(4_000, "unois"),
-                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
                     burner: Addr::unchecked("burner-3"),
                     amount: Coin::new(3_000, "unois"),
-                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
                     burner: Addr::unchecked("burner-2"),
                     amount: Coin::new(2_000, "unois"),
-                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
                 Ash {
                     burner: Addr::unchecked("burner-1"),
                     amount: Coin::new(1_000, "unois"),
-                    burnt: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
                 },
             ]
         );
