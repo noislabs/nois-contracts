@@ -116,6 +116,8 @@ mod tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{from_binary, Addr, Attribute, Coin, Timestamp};
 
+    const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
+
     fn first_attr(data: impl AsRef<[Attribute]>, search_key: &str) -> Option<String> {
         data.as_ref().iter().find_map(|a| {
             if a.key == search_key {
@@ -189,22 +191,22 @@ mod tests {
                 Ash {
                     burner: Addr::unchecked("burner-1"),
                     amount: Coin::new(1_000, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("burner-2"),
                     amount: Coin::new(2_000, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("burner-3"),
                     amount: Coin::new(3_000, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("burner-4"),
                     amount: Coin::new(4_000, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
             ]
         );
@@ -228,22 +230,22 @@ mod tests {
                 Ash {
                     burner: Addr::unchecked("burner-4"),
                     amount: Coin::new(4_000, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("burner-3"),
                     amount: Coin::new(3_000, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("burner-2"),
                     amount: Coin::new(2_000, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("burner-1"),
                     amount: Coin::new(1_000, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
             ]
         );
@@ -284,17 +286,17 @@ mod tests {
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(1, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(2, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(3, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
             ]
         );
@@ -318,62 +320,62 @@ mod tests {
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(1, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(2, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(3, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(4, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(5, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(6, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(7, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(8, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(9, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(10, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(11, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(12, "unois"),
-                    time: Timestamp::from_nanos(1_571_797_419_879_305_533)
+                    time: DEFAULT_TIME
                 },
             ]
         );
