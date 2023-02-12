@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New sink contract ([#151])
+
+[#151]: https://github.com/noislabs/nois-contracts/pull/151
+
 ### Changes
 
 - Bump drand-verify to 0.4, using pairing for the BLS verification.
