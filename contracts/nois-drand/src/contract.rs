@@ -327,6 +327,8 @@ fn execute_add_round(
         submissions_key,
         &StoredSubmission {
             time: env.block.time,
+            height: env.block.height,
+            tx_index: env.transaction.map(|ti| ti.index),
         },
     )?;
 
@@ -441,7 +443,6 @@ fn execute_set_gateway_addr(
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::msg::ExecuteMsg;
 
@@ -450,6 +451,10 @@ mod tests {
 
     const TESTING_MANAGER: &str = "mnrg";
     const TESTING_MIN_ROUND: u64 = 72785;
+
+    const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
+    const DEFAULT_HEIGHT: u64 = 12345;
+    const DEFAULT_TX_INDEX: Option<u32> = Some(3);
 
     fn make_add_round_msg(round: u64) -> ExecuteMsg {
         match round {
@@ -1468,7 +1473,9 @@ mod tests {
             response.submissions,
             [QueriedSubmission {
                 bot: Addr::unchecked(bot1),
-                time: Timestamp::from_nanos(1571797419879305533),
+                time: DEFAULT_TIME,
+                height: DEFAULT_HEIGHT,
+                tx_index: DEFAULT_TX_INDEX,
             }]
         );
 
@@ -1490,11 +1497,15 @@ mod tests {
             [
                 QueriedSubmission {
                     bot: Addr::unchecked(bot1),
-                    time: Timestamp::from_nanos(1571797419879305533),
+                    time: DEFAULT_TIME,
+                    height: DEFAULT_HEIGHT,
+                    tx_index: DEFAULT_TX_INDEX,
                 },
                 QueriedSubmission {
                     bot: Addr::unchecked(bot2),
-                    time: Timestamp::from_nanos(1571797419879305533),
+                    time: DEFAULT_TIME,
+                    height: DEFAULT_HEIGHT,
+                    tx_index: DEFAULT_TX_INDEX,
                 },
             ]
         );
@@ -1517,15 +1528,21 @@ mod tests {
             [
                 QueriedSubmission {
                     bot: Addr::unchecked(bot1),
-                    time: Timestamp::from_nanos(1571797419879305533),
+                    time: DEFAULT_TIME,
+                    height: DEFAULT_HEIGHT,
+                    tx_index: DEFAULT_TX_INDEX,
                 },
                 QueriedSubmission {
                     bot: Addr::unchecked(bot2),
-                    time: Timestamp::from_nanos(1571797419879305533),
+                    time: DEFAULT_TIME,
+                    height: DEFAULT_HEIGHT,
+                    tx_index: DEFAULT_TX_INDEX,
                 },
                 QueriedSubmission {
                     bot: Addr::unchecked(bot3),
-                    time: Timestamp::from_nanos(1571797419879305533),
+                    time: DEFAULT_TIME,
+                    height: DEFAULT_HEIGHT,
+                    tx_index: DEFAULT_TX_INDEX,
                 },
             ]
         );

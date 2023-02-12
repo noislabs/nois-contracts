@@ -125,16 +125,26 @@ pub struct IsAllowListedResponse {
 pub struct QueriedSubmission {
     /// Address of the bot
     pub bot: Addr,
-    /// Submission time
+    /// Submission time (block time)
     pub time: Timestamp,
+    /// Submission block height
+    pub height: u64,
+    /// Submission tx index
+    pub tx_index: Option<u32>,
 }
 
 impl QueriedSubmission {
     pub fn make(stored: StoredSubmission, bot_address: Addr) -> Self {
-        let StoredSubmission { time } = stored;
+        let StoredSubmission {
+            time,
+            height,
+            tx_index,
+        } = stored;
         Self {
             bot: bot_address,
             time,
+            height,
+            tx_index,
         }
     }
 }
