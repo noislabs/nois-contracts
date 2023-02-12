@@ -187,94 +187,63 @@ fn integration_test() {
         }
     );
 
+    const BOT1: &str = "drand_bot_one";
+    const BOT2: &str = "drand_bot_2";
+    const BOT3: &str = "drand_bot_three33333";
+    const BOT4: &str = "drand_bot_4";
+    const BOT5: &str = "drand_bot_5";
+    const BOT6: &str = "drand_bot_six_";
+    const BOT7: &str = "drand_bot_7";
+    const BOT8: &str = "drand_bot_8";
+
     // register bots
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: "drand_bot_1".to_string(),
+        moniker: BOT1.to_string(),
     };
-    app.execute_contract(
-        Addr::unchecked("drand_bot_1"),
-        addr_nois_drand.to_owned(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(BOT1), addr_nois_drand.to_owned(), &msg, &[])
+        .unwrap();
     // register bot 2
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: "drand_bot_2".to_string(),
+        moniker: BOT2.to_string(),
     };
-    app.execute_contract(
-        Addr::unchecked("drand_bot_2"),
-        addr_nois_drand.to_owned(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(BOT2), addr_nois_drand.to_owned(), &msg, &[])
+        .unwrap();
     // register bot 3
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: "drand_bot_3".to_string(),
+        moniker: BOT3.to_string(),
     };
-    app.execute_contract(
-        Addr::unchecked("drand_bot_3"),
-        addr_nois_drand.to_owned(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(BOT3), addr_nois_drand.to_owned(), &msg, &[])
+        .unwrap();
     // register bot 4
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: "drand_bot_4".to_string(),
+        moniker: BOT4.to_string(),
     };
-    app.execute_contract(
-        Addr::unchecked("drand_bot_4"),
-        addr_nois_drand.to_owned(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(BOT4), addr_nois_drand.to_owned(), &msg, &[])
+        .unwrap();
     // register bot 5
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: "drand_bot_5".to_string(),
+        moniker: BOT5.to_string(),
     };
-    app.execute_contract(
-        Addr::unchecked("drand_bot_5"),
-        addr_nois_drand.to_owned(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(BOT5), addr_nois_drand.to_owned(), &msg, &[])
+        .unwrap();
     // register bot 6
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: "drand_bot_6".to_string(),
+        moniker: BOT6.to_string(),
     };
-    app.execute_contract(
-        Addr::unchecked("drand_bot_6"),
-        addr_nois_drand.to_owned(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(BOT6), addr_nois_drand.to_owned(), &msg, &[])
+        .unwrap();
     // register bot 7
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: "drand_bot_7".to_string(),
+        moniker: BOT7.to_string(),
     };
-    app.execute_contract(
-        Addr::unchecked("drand_bot_7"),
-        addr_nois_drand.to_owned(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(BOT7), addr_nois_drand.to_owned(), &msg, &[])
+        .unwrap();
     // register bot 8
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: "drand_bot_8".to_string(),
+        moniker: BOT8.to_string(),
     };
-    app.execute_contract(
-        Addr::unchecked("drand_bot_8"),
-        addr_nois_drand.to_owned(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(Addr::unchecked(BOT8), addr_nois_drand.to_owned(), &msg, &[])
+        .unwrap();
 
     // whitelist bot doesn't work by non admin
     let msg = nois_drand::msg::ExecuteMsg::UpdateAllowlistBots {
@@ -298,14 +267,14 @@ fn integration_test() {
     // add  bot to allow list
     let msg = nois_drand::msg::ExecuteMsg::UpdateAllowlistBots {
         add: vec![
-            "drand_bot_1".to_string(),
-            "drand_bot_2".to_string(),
-            "drand_bot_3".to_string(),
-            "drand_bot_4".to_string(),
-            "drand_bot_5".to_string(),
-            "drand_bot_6".to_string(),
-            "drand_bot_7".to_string(),
-            "drand_bot_8".to_string(),
+            BOT1.to_string(),
+            BOT2.to_string(),
+            BOT3.to_string(),
+            BOT4.to_string(),
+            BOT5.to_string(),
+            BOT6.to_string(),
+            BOT7.to_string(),
+            BOT8.to_string(),
         ],
         remove: vec![],
     };
@@ -325,12 +294,7 @@ fn integration_test() {
         signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
     };
     let resp = app
-        .execute_contract(
-            Addr::unchecked("drand_bot_1"),
-            addr_nois_drand.clone(),
-            &msg,
-            &[],
-        )
+        .execute_contract(Addr::unchecked(BOT1), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -351,12 +315,7 @@ fn integration_test() {
         signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
     };
     let resp = app
-        .execute_contract(
-            Addr::unchecked("drand_bot_2"),
-            addr_nois_drand.clone(),
-            &msg,
-            &[],
-        )
+        .execute_contract(Addr::unchecked(BOT2), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -377,12 +336,7 @@ fn integration_test() {
         signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
     };
     let resp = app
-        .execute_contract(
-            Addr::unchecked("drand_bot_3"),
-            addr_nois_drand.clone(),
-            &msg,
-            &[],
-        )
+        .execute_contract(Addr::unchecked(BOT3), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -403,12 +357,7 @@ fn integration_test() {
         signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
     };
     let resp = app
-        .execute_contract(
-            Addr::unchecked("drand_bot_4"),
-            addr_nois_drand.clone(),
-            &msg,
-            &[],
-        )
+        .execute_contract(Addr::unchecked(BOT4), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -429,12 +378,7 @@ fn integration_test() {
         signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
     };
     let resp = app
-        .execute_contract(
-            Addr::unchecked("drand_bot_5"),
-            addr_nois_drand.clone(),
-            &msg,
-            &[],
-        )
+        .execute_contract(Addr::unchecked(BOT5), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -455,12 +399,7 @@ fn integration_test() {
         signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
     };
     let resp = app
-        .execute_contract(
-            Addr::unchecked("drand_bot_6"),
-            addr_nois_drand.clone(),
-            &msg,
-            &[],
-        )
+        .execute_contract(Addr::unchecked(BOT6), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -481,12 +420,7 @@ fn integration_test() {
         signature: HexBinary::from_hex("82f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
     };
     let resp = app
-        .execute_contract(
-            Addr::unchecked("drand_bot_7"),
-            addr_nois_drand.clone(),
-            &msg,
-            &[],
-        )
+        .execute_contract(Addr::unchecked(BOT7), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -510,7 +444,7 @@ fn integration_test() {
         signature: HexBinary::from_hex("92f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
     };
     let err = app
-        .execute_contract(Addr::unchecked("drand_bot_8"), addr_nois_drand, &msg, &[])
+        .execute_contract(Addr::unchecked(BOT8), addr_nois_drand, &msg, &[])
         .unwrap_err();
 
     assert!(matches!(

@@ -9,7 +9,7 @@ use drand_verify::{derive_randomness, g1_from_fixed_unchecked, verify};
 use crate::attributes::{
     ATTR_BOT, ATTR_RANDOMNESS, ATTR_REWARD_PAYOUT, ATTR_REWARD_POINTS, ATTR_ROUND,
 };
-use crate::bots::validate_moniker;
+use crate::bots::{eligible_group, group, validate_moniker};
 use crate::drand::DRAND_MAINNET_PUBKEY;
 use crate::error::ContractError;
 use crate::msg::{
@@ -365,7 +365,9 @@ fn execute_add_round(
     // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
 
-    let is_eligible = is_registered && is_allowlisted && !reward_points.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
+    let correct_group = Some(group(&info.sender)) == eligible_group(round);
+
+    let is_eligible = correct_group && is_registered && is_allowlisted && !reward_points.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
 
     let payout = if is_eligible {
         let desired_amount = reward_points * config.incentive_point_price;
@@ -917,13 +919,13 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let bot1 = "registered_bot1";
-        let bot2 = "registered_bot2";
-        let bot3 = "registered_bot3";
-        let bot4 = "registered_bot4";
-        let bot5 = "registered_bot5";
-        let bot6 = "registered_bot6";
-        let bot7 = "registered_bot7";
+        let bot1 = "registered_bot_761826381";
+        let bot2 = "registered_bot_98787233";
+        let bot3 = "registered_bot_12618926371";
+        let bot4 = "registered_bot_21739812";
+        let bot5 = "registered_bot_26737162";
+        let bot6 = "registered_bot_34216397";
+        let bot7 = "registered_bot_0821738";
 
         register_bot(deps.as_mut(), mock_info(bot1, &[]));
         register_bot(deps.as_mut(), mock_info(bot2, &[]));
@@ -936,13 +938,13 @@ mod tests {
         // add bots to allowlist
         let msg = ExecuteMsg::UpdateAllowlistBots {
             add: vec![
-                "registered_bot1".to_string(),
-                "registered_bot2".to_string(),
-                "registered_bot3".to_string(),
-                "registered_bot4".to_string(),
-                "registered_bot5".to_string(),
-                "registered_bot6".to_string(),
-                "registered_bot7".to_string(),
+                bot1.to_string(),
+                bot2.to_string(),
+                bot3.to_string(),
+                bot4.to_string(),
+                bot5.to_string(),
+                bot6.to_string(),
+                bot7.to_string(),
             ],
             remove: vec![],
         };
