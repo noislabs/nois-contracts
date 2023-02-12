@@ -57,7 +57,12 @@ pub const ALLOWLIST: Map<&Addr, ()> = Map::new("allowlist");
 
 #[cw_serde]
 pub struct StoredSubmission {
+    /// Submission time (block time)
     pub time: Timestamp,
+    /// Submission block height
+    pub height: u64,
+    /// Submission tx index
+    pub tx_index: Option<u32>,
 }
 
 /// Stores the submission for an efficient (round, address) lookup
