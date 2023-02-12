@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Introduce reward point system for drand submissions.
 - Upgrade CosmWasm to 1.2.
 - icecube: Rename `admin` to `manager`.
+- drand: Only pay out rewards for bots in the right group ([#147]).
+
+[#147]: https://github.com/noislabs/nois-contracts/pull/147
 
 ## [0.8.0]
 
