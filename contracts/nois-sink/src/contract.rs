@@ -301,6 +301,40 @@ mod tests {
             ]
         );
 
+        // asc, limit 3, start after 2
+        let AshesResponse { ashes } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::AshesAsc {
+                    start_after: Some(2),
+                    limit: Some(3),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ashes,
+            [
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(3, "unois"),
+                    time: DEFAULT_TIME
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(4, "unois"),
+                    time: DEFAULT_TIME
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(5, "unois"),
+                    time: DEFAULT_TIME
+                },
+            ]
+        );
+
         // asc, limit None
         let AshesResponse { ashes } = from_binary(
             &query(
@@ -375,6 +409,69 @@ mod tests {
                 Ash {
                     burner: Addr::unchecked("joe"),
                     amount: Coin::new(12, "unois"),
+                    time: DEFAULT_TIME
+                },
+            ]
+        );
+
+        // desc, limit 3, start after 6
+        let AshesResponse { ashes } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::AshesDesc {
+                    start_after: Some(6),
+                    limit: Some(3),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ashes,
+            [
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(5, "unois"),
+                    time: DEFAULT_TIME
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(4, "unois"),
+                    time: DEFAULT_TIME
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(3, "unois"),
+                    time: DEFAULT_TIME
+                },
+            ]
+        );
+
+        // desc, limit 3, start after 5
+        let AshesResponse { ashes } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::AshesDesc {
+                    start_after: Some(3),
+                    limit: Some(5),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ashes,
+            [
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(2, "unois"),
+                    time: DEFAULT_TIME
+                },
+                Ash {
+                    burner: Addr::unchecked("joe"),
+                    amount: Coin::new(1, "unois"),
                     time: DEFAULT_TIME
                 },
             ]
