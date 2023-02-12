@@ -1,4 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::{Addr, Coin, Timestamp};
 
 use crate::state::Ash;
 
@@ -34,7 +35,33 @@ pub enum QueryMsg {
     },
 }
 
+/// Like Ash but plus id
+#[cw_serde]
+pub struct QueriedAsh {
+    pub id: u32,
+    pub burner: Addr,
+    pub amount: Coin,
+    /// Point in time (block time) when the Ash was created
+    pub time: Timestamp,
+}
+
+impl QueriedAsh {
+    pub fn make(ash: Ash, id: u32) -> Self {
+        let Ash {
+            burner,
+            amount,
+            time,
+        } = ash;
+        Self {
+            id,
+            burner,
+            amount,
+            time,
+        }
+    }
+}
+
 #[cw_serde]
 pub struct AshesResponse {
-    pub ashes: Vec<Ash>,
+    pub ashes: Vec<QueriedAsh>,
 }
