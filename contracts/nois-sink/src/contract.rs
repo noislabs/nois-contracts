@@ -274,7 +274,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {};
         let env = mock_env();
-        instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
+        instantiate(deps.as_mut(), env, info, msg).unwrap();
 
         // Send 12 burn messages
         for a in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] {
