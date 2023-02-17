@@ -400,23 +400,23 @@ test.serial("demo contract can be used", async (t) => {
     // RequestBeacon packet
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
-    // const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    // t.deepEqual(fromBinary(stdAck.result), {
-    //   processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
-    // });
+    const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
+    t.deepEqual(fromBinary(stdAck.result), {
+      processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+    });
 
     // DeliverBeacon packet
-    // const infoB2A = await link.relayAll();
-    // assertPacketsFromB(infoB2A, 1, true);
+    const infoB2A = await link.relayAll();
+    assertPacketsFromB(infoB2A, 1, true);
 
-    // const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
-    //   result: { job_id: jobId },
-    // });
-    // t.log(myResult);
-    // t.regex(myResult, /3\.1[0-9]+/);
+    const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
+      result: { job_id: jobId },
+    });
+    t.log(myResult);
+    t.regex(myResult, /3\.1[0-9]+/);
 
-    // const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
-    // t.log(results);
+    const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
+    t.log(results);
   }
 
   // Round submitted after request
