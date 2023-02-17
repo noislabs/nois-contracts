@@ -160,18 +160,16 @@ fn receive_request_beacon(
     channel: String,
     msg: RequestBeaconPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    let RequestBeaconPacket {
-        sender,
-        after,
-        job_id,
-    } = msg;
-    validate_job_id(&job_id)?;
+    let RequestBeaconPacket { origin, after } = msg;
+
+    // TODO: why do we care about the job ID defined by the dapp?
+    validate_job_id(&origin.job_id)?;
 
     let router = RequestRouter::new();
     let RoutingReceipt {
         acknowledgement,
         msgs,
-    } = router.route(deps, env, channel, after, sender, job_id)?;
+    } = router.route(deps, env, channel, after, origin)?;
 
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
@@ -289,7 +287,7 @@ mod tests {
     use cosmwasm_std::{
         coin, from_binary, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps, Timestamp,
     };
-    use nois_protocol::{DeliverBeaconPacket, APP_ORDER, BAD_APP_ORDER};
+    use nois_protocol::{DeliverBeaconPacket, RequestBeaconOrigin, APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
 
@@ -493,8 +491,10 @@ mod tests {
             "foo",
             &RequestBeaconPacket {
                 after: Timestamp::from_seconds(1660941090 - 1),
-                job_id: "test 1".to_string(),
-                sender: "my_dapp".to_string(),
+                origin: RequestBeaconOrigin {
+                    job_id: "test 1".to_string(),
+                    sender: "my_dapp".to_string(),
+                },
             },
         )
         .unwrap();
@@ -529,8 +529,10 @@ mod tests {
                 "foo",
                 &RequestBeaconPacket {
                     after: Timestamp::from_seconds(1660941120 - 1),
-                    job_id: format!("test {i}"),
-                    sender: "my_dapp".to_string(),
+                    origin: RequestBeaconOrigin {
+                        job_id: format!("test {i}"),
+                        sender: "my_dapp".to_string(),
+                    },
                 },
             )
             .unwrap();
@@ -562,8 +564,10 @@ mod tests {
                 "foo",
                 &RequestBeaconPacket {
                     after: Timestamp::from_seconds(1660941150 - 1),
-                    job_id: format!("test {i}"),
-                    sender: "my_dapp".to_string(),
+                    origin: RequestBeaconOrigin {
+                        job_id: format!("test {i}"),
+                        sender: "my_dapp".to_string(),
+                    },
                 },
             )
             .unwrap();
@@ -666,8 +670,10 @@ mod tests {
             "foo",
             &RequestBeaconPacket {
                 after: Timestamp::from_seconds(1660941090 - 1),
-                job_id: "test 1".to_string(),
-                sender: "my_dapp".to_string(),
+                origin: RequestBeaconOrigin {
+                    job_id: "test 1".to_string(),
+                    sender: "my_dapp".to_string(),
+                },
             },
         )
         .unwrap();
@@ -701,8 +707,10 @@ mod tests {
             "foo",
             &RequestBeaconPacket {
                 after: Timestamp::from_seconds(1660941090 - 1),
-                job_id: "test 2".to_string(),
-                sender: "my_dapp".to_string(),
+                origin: RequestBeaconOrigin {
+                    sender: "my_dapp".to_string(),
+                    job_id: "test 2".to_string(),
+                },
             },
         )
         .unwrap();
@@ -724,8 +732,10 @@ mod tests {
                 "foo",
                 &RequestBeaconPacket {
                     after: Timestamp::from_seconds(1660941150 - 1),
-                    job_id: format!("job {i}"),
-                    sender: "my_dapp".to_string(),
+                    origin: RequestBeaconOrigin {
+                        sender: "my_dapp".to_string(),
+                        job_id: format!("job {i}"),
+                    },
                 },
             )
             .unwrap();
@@ -821,8 +831,10 @@ mod tests {
         let packet = DeliverBeaconPacket {
             source_id: "backend:123:456".to_string(),
             randomness: HexBinary::from_hex("aabbccdd").unwrap(),
-            sender: "joe".to_string(),
-            job_id: "hihi".to_string(),
+            origin: RequestBeaconOrigin {
+                sender: "joe".to_string(),
+                job_id: "hihi".to_string(),
+            },
         };
 
         // Success ack (delivered)

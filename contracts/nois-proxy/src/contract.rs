@@ -9,8 +9,8 @@ use cosmwasm_std::{
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
-    RequestBeaconPacketAck, StdAck, REQUEST_BEACON_PACKET_LIFETIME,
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconOrigin,
+    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, REQUEST_BEACON_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -98,8 +98,10 @@ fn execute_get_next_randomness(
 
     let packet = RequestBeaconPacket {
         after,
-        sender: info.sender.into(),
-        job_id,
+        origin: RequestBeaconOrigin {
+            sender: info.sender.into(),
+            job_id,
+        },
     };
     let channel_id = get_gateway_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
@@ -131,8 +133,10 @@ fn execute_get_randomness_after(
 
     let packet = RequestBeaconPacket {
         after,
-        sender: info.sender.into(),
-        job_id,
+        origin: RequestBeaconOrigin {
+            sender: info.sender.into(),
+            job_id,
+        },
     };
     let channel_id = get_gateway_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
@@ -324,10 +328,9 @@ pub fn ibc_packet_receive(
         let DeliverBeaconPacket {
             source_id: _,
             randomness,
-            sender,
-            job_id,
+            origin,
         } = from_binary(&packet.packet.data)?;
-        receive_deliver_beacon(deps, randomness, sender, job_id)
+        receive_deliver_beacon(deps, randomness, origin)
     })()
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
@@ -342,12 +345,14 @@ pub fn ibc_packet_receive(
 fn receive_deliver_beacon(
     deps: DepsMut,
     randomness: HexBinary,
-    sender: String,
-    job_id: String,
+    origin: RequestBeaconOrigin,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let Config {
         callback_gas_limit, ..
     } = CONFIG.load(deps.storage)?;
+
+    let RequestBeaconOrigin { sender, job_id } = origin;
+
     // Create the message for executing the callback.
     // This can fail for various reasons, like
     // - `sender` not being a contract
@@ -789,9 +794,11 @@ mod tests {
 
         // The proxy -> gateway packet we get the acknowledgement for
         let packet = RequestBeaconPacket {
-            sender: "contract345".to_string(),
             after: Timestamp::from_seconds(321),
-            job_id: "hello".to_string(),
+            origin: RequestBeaconOrigin {
+                sender: "contract345".to_string(),
+                job_id: "hello".to_string(),
+            },
         };
 
         // Success ack (processed)

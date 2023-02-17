@@ -8,9 +8,7 @@ use serde::Serialize;
 pub struct RequestBeaconPacket {
     /// Beacon publish time must be > `after`
     pub after: Timestamp,
-    /// The address from which the proxy was executed, i.e. the randomness consumer
-    pub sender: String,
-    pub job_id: String,
+    pub origin: RequestBeaconOrigin,
 }
 
 #[cw_serde]
@@ -33,6 +31,17 @@ pub struct DeliverBeaconPacket {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
     pub source_id: String,
     pub randomness: HexBinary,
+    pub origin: RequestBeaconOrigin,
+}
+
+/// This struct contains information about the origin of the beacon request. It helps the
+/// proxy to route the beacon response to the final destination.
+/// The IBC communication between proxy and gateway does not need this information. It is
+/// just passed along.
+#[cw_serde]
+pub struct RequestBeaconOrigin {
+    /// The address of the dapp that requested the beacon. This is used by the proxy
+    /// to send the callback.
     pub sender: String,
     pub job_id: String,
 }
