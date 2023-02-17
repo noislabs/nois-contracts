@@ -400,6 +400,11 @@ pub fn ibc_packet_ack(
             attributes.push(attr("ack_type", ack_type));
         }
         StdAck::Error(err) => {
+            // The Request Beacon IBC packet failed, e.g. because the requested round
+            // is too old. Here we should send the dapp an error callback as the randomness
+            // will never come. Unfortunately we cannot map this packet to the job because
+            // we don't know the sequence when emitting a IbcMsg::SendPacket.
+            // https://github.com/CosmWasm/wasmd/issues/1154
             is_error = true;
             attributes.push(attr("error", err));
         }
