@@ -11,7 +11,6 @@ import { ibcPacketsSent, MockBot } from "./bot";
 import {
   GatewayExecuteMsg,
   GatewayInstantiateMsg,
-  IcecubeInstantiateMsg,
   OsmosisContractPaths,
   osmosisContracts,
   ProxyInstantiateMsg,
@@ -527,23 +526,4 @@ test.serial("submit randomness for various job counts", async (t) => {
     t.log("Number of packets sent:", packetsSentCount);
     t.is(packetsSentCount, Math.min(jobs, 2));
   }
-});
-
-test.serial("icecube works", async (t) => {
-  const osmoClient = await setupOsmosisClient();
-
-  const msg: IcecubeInstantiateMsg = {
-    manager: osmoClient.senderAddress,
-  };
-  await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    (t.context as TestContext).osmosisCodeIds.icecube,
-    msg,
-    "Icecube instance",
-    "auto"
-  );
-
-  // TODO: do something cool with the icecube contract
-
-  t.pass();
 });
