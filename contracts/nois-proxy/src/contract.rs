@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event, HexBinary,
-    Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
-    IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
-    IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response, StdError, StdResult,
-    Storage, SubMsg, SubMsgResult, Timestamp, WasmMsg,
+    attr, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin, Deps, DepsMut, Env,
+    Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response,
+    StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
@@ -98,10 +98,10 @@ fn execute_get_next_randomness(
 
     let packet = RequestBeaconPacket {
         after,
-        origin: RequestBeaconOrigin {
+        origin: to_binary(&RequestBeaconOrigin {
             sender: info.sender.into(),
             job_id,
-        },
+        })?,
     };
     let channel_id = get_gateway_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
@@ -133,10 +133,10 @@ fn execute_get_randomness_after(
 
     let packet = RequestBeaconPacket {
         after,
-        origin: RequestBeaconOrigin {
+        origin: to_binary(&RequestBeaconOrigin {
             sender: info.sender.into(),
             job_id,
-        },
+        })?,
     };
     let channel_id = get_gateway_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
@@ -345,13 +345,13 @@ pub fn ibc_packet_receive(
 fn receive_deliver_beacon(
     deps: DepsMut,
     randomness: HexBinary,
-    origin: RequestBeaconOrigin,
+    origin: Binary,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let Config {
         callback_gas_limit, ..
     } = CONFIG.load(deps.storage)?;
 
-    let RequestBeaconOrigin { sender, job_id } = origin;
+    let RequestBeaconOrigin { sender, job_id } = from_slice(&origin)?;
 
     // Create the message for executing the callback.
     // This can fail for various reasons, like
@@ -795,10 +795,11 @@ mod tests {
         // The proxy -> gateway packet we get the acknowledgement for
         let packet = RequestBeaconPacket {
             after: Timestamp::from_seconds(321),
-            origin: RequestBeaconOrigin {
+            origin: to_binary(&RequestBeaconOrigin {
                 sender: "contract345".to_string(),
                 job_id: "hello".to_string(),
-            },
+            })
+            .unwrap(),
         };
 
         // Success ack (processed)

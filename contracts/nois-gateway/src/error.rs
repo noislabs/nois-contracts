@@ -13,8 +13,8 @@ pub enum ContractError {
     ContractAlreadySet,
 
     // Jobs
-    #[error("Job ID exceeds length limit.")]
-    JobIdTooLong,
+    #[error("Origin data exceeds length limit.")]
+    OriginTooLong,
 
     #[error("Sender is unauthorized to add verified round.")]
     UnauthorizedAddVerifiedRound,

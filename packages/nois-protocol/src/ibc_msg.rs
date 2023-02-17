@@ -8,7 +8,8 @@ use serde::Serialize;
 pub struct RequestBeaconPacket {
     /// Beacon publish time must be > `after`
     pub after: Timestamp,
-    pub origin: RequestBeaconOrigin,
+    /// The origin data set by the proxy in a proxy specific format.
+    pub origin: Binary,
 }
 
 #[cw_serde]
@@ -31,7 +32,8 @@ pub struct DeliverBeaconPacket {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
     pub source_id: String,
     pub randomness: HexBinary,
-    pub origin: RequestBeaconOrigin,
+    /// The origin data set by the proxy in a proxy specific format.
+    pub origin: Binary,
 }
 
 /// This struct contains information about the origin of the beacon request. It helps the

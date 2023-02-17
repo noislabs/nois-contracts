@@ -1,11 +1,10 @@
 //! The request router module decides which randomness backend is used
 
 use cosmwasm_std::{
-    to_binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
+    to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
 };
 use nois_protocol::{
-    DeliverBeaconPacket, RequestBeaconOrigin, RequestBeaconPacketAck, StdAck,
-    DELIVER_BEACON_PACKET_LIFETIME,
+    DeliverBeaconPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME,
 };
 
 use crate::{
@@ -49,7 +48,7 @@ impl RequestRouter {
         env: Env,
         channel: String,
         after: Timestamp,
-        origin: RequestBeaconOrigin,
+        origin: Binary,
     ) -> StdResult<RoutingReceipt> {
         // Here we currently only have one backend
         self.handle_drand(deps, env, channel, after, origin)
@@ -61,7 +60,7 @@ impl RequestRouter {
         env: Env,
         channel: String,
         after: Timestamp,
-        origin: RequestBeaconOrigin,
+        origin: Binary,
     ) -> StdResult<RoutingReceipt> {
         let (round, source_id) = commit_to_drand_round(after);
 
