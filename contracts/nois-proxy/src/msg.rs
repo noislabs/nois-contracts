@@ -12,6 +12,8 @@ pub struct InstantiateMsg {
     pub withdrawal_address: String,
     /// In test mode the min publish time calculation is detached from the clock.
     pub test_mode: bool,
+    /// The amount of gas that the callback to the dapp can consume
+    pub callback_gas_limit: u64,
 }
 
 #[cw_serde]

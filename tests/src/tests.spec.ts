@@ -93,6 +93,7 @@ test.serial("set up channel", async (t) => {
     prices: coins(1_000_000, "ucosm"),
     withdrawal_address: wasmClient.senderAddress,
     test_mode: true,
+    callback_gas_limit: 500_000,
   };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
@@ -153,6 +154,7 @@ async function instantiateAndConnectIbc(testMode: boolean, mockDrandAddr: string
     prices: coins(1_000_000, "ucosm"),
     withdrawal_address: wasmClient.senderAddress,
     test_mode: testMode,
+    callback_gas_limit: 500_000,
   };
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,

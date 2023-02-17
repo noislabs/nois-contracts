@@ -10,6 +10,8 @@ pub struct Config {
     // The address to which withdrawals will be made
     pub withdrawal_address: Addr,
     pub test_mode: bool,
+    /// The amount of gas that the callback to the dapp can consume
+    pub callback_gas_limit: u64,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

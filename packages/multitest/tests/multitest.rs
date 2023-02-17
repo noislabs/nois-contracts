@@ -104,6 +104,7 @@ fn integration_test() {
                 prices: vec![Coin::new(1_000_000, "unoisx")],
                 withdrawal_address: "dao_dao_dao_dao_dao".to_string(),
                 test_mode: false,
+                callback_gas_limit: 500_000,
             },
             &[],
             "Nois-Proxy",
@@ -122,6 +123,7 @@ fn integration_test() {
                 prices: vec![Coin::new(1_000_000, "unoisx")],
                 withdrawal_address: Addr::unchecked("dao_dao_dao_dao_dao"),
                 test_mode: false,
+                callback_gas_limit: 500_000,
             },
         }
     );
