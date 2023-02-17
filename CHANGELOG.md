@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - drand: Store height and tx_index of submission to allow finding transaction for a submission ([#153]).
 - proxy: Make callback gas limit configurable and reduce value to 500k in tests.
 - Pull out `RequestBeaconOrigin` struct which belongs to the proxy-dapp communication.
+- Bump IBC protocol version to "nois-v5".
 
 [#147]: https://github.com/noislabs/nois-contracts/pull/147
 [#153]: https://github.com/noislabs/nois-contracts/issues/153
