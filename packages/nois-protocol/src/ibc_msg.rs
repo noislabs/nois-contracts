@@ -36,18 +36,6 @@ pub struct DeliverBeaconPacket {
     pub origin: Binary,
 }
 
-/// This struct contains information about the origin of the beacon request. It helps the
-/// proxy to route the beacon response to the final destination.
-/// The IBC communication between proxy and gateway does not need this information. It is
-/// just passed along.
-#[cw_serde]
-pub struct RequestBeaconOrigin {
-    /// The address of the dapp that requested the beacon. This is used by the proxy
-    /// to send the callback.
-    pub sender: String,
-    pub job_id: String,
-}
-
 #[cw_serde]
 pub enum DeliverBeaconPacketAck {
     Delivered { job_id: String },

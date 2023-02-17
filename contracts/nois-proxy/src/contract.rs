@@ -9,15 +9,15 @@ use cosmwasm_std::{
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconOrigin,
-    RequestBeaconPacket, RequestBeaconPacketAck, StdAck, REQUEST_BEACON_PACKET_LIFETIME,
+    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
+    RequestBeaconPacketAck, StdAck, REQUEST_BEACON_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
     ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
-    PricesResponse, QueryMsg,
+    PricesResponse, QueryMsg, RequestBeaconOrigin,
 };
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, GATEWAY_CHANNEL};

@@ -286,7 +286,8 @@ mod tests {
     use cosmwasm_std::{
         coin, from_binary, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps, Timestamp,
     };
-    use nois_protocol::{DeliverBeaconPacket, RequestBeaconOrigin, APP_ORDER, BAD_APP_ORDER};
+    use nois_protocol::{DeliverBeaconPacket, APP_ORDER, BAD_APP_ORDER};
+    use nois_proxy::msg::RequestBeaconOrigin;
 
     const CREATOR: &str = "creator";
 
