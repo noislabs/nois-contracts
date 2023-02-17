@@ -43,6 +43,7 @@ export interface ProxyInstantiateMsg {
   readonly prices: Array<Coin>;
   readonly withdrawal_address: string;
   readonly test_mode: boolean;
+  readonly callback_gas_limit: number;
 }
 
 export interface WasmdContractPaths {

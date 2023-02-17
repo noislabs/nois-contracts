@@ -35,12 +35,14 @@ pub fn instantiate(
         prices,
         withdrawal_address,
         test_mode,
+        callback_gas_limit,
     } = msg;
     let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
     let config = Config {
         prices,
         withdrawal_address,
         test_mode,
+        callback_gas_limit,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -313,7 +315,7 @@ pub fn ibc_channel_close(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_receive(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     packet: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, Never> {
@@ -325,7 +327,7 @@ pub fn ibc_packet_receive(
             sender,
             job_id,
         } = from_binary(&packet.packet.data)?;
-        receive_deliver_beacon(randomness, sender, job_id)
+        receive_deliver_beacon(deps, randomness, sender, job_id)
     })()
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
@@ -338,10 +340,14 @@ pub fn ibc_packet_receive(
 }
 
 fn receive_deliver_beacon(
+    deps: DepsMut,
     randomness: HexBinary,
     sender: String,
     job_id: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
+    let Config {
+        callback_gas_limit, ..
+    } = CONFIG.load(deps.storage)?;
     // Create the message for executing the callback.
     // This can fail for various reasons, like
     // - `sender` not being a contract
@@ -361,7 +367,7 @@ fn receive_deliver_beacon(
         },
         CALLBACK_ID,
     )
-    .with_gas_limit(2_000_000);
+    .with_gas_limit(callback_gas_limit);
 
     let acknowledgement = StdAck::success(&DeliverBeaconPacketAck::Delivered {
         job_id: job_id.clone(),
@@ -443,6 +449,7 @@ mod tests {
             prices: vec![Coin::new(1_000000, "unoisx")],
             withdrawal_address: CREATOR.to_string(),
             test_mode: true,
+            callback_gas_limit: 500_000,
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -476,6 +483,7 @@ mod tests {
             prices: vec![Coin::new(1_000000, "unoisx")],
             withdrawal_address: "foo".to_string(),
             test_mode: false,
+            callback_gas_limit: 500_000,
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
