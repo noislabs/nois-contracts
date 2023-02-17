@@ -408,6 +408,9 @@ test.serial("demo contract can be used", async (t) => {
     // DeliverBeacon packet
     const infoB2A = await link.relayAll();
     assertPacketsFromB(infoB2A, 1, true);
+    const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
+    t.log(stdAckDeliver);
+    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
 
     const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       result: { job_id: jobId },
@@ -459,6 +462,9 @@ test.serial("demo contract can be used", async (t) => {
     // DeliverBeacon packet
     const infoB2A2 = await link.relayAll();
     assertPacketsFromB(infoB2A2, 1, true);
+    const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
+    t.log(stdAckDeliver);
+    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
 
     const myResult2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       result: { job_id: jobId },
