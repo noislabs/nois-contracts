@@ -554,7 +554,6 @@ dependencies = [
  "cw-storage-plus",
  "nois",
  "nois-protocol",
- "nois-proxy",
  "serde",
  "thiserror",
 ]

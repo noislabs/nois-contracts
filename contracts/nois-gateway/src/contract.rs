@@ -284,10 +284,9 @@ mod tests {
         mock_ibc_packet_recv, mock_info, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
-        coin, from_binary, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps, Timestamp,
+        coin, from_binary, Binary, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps, Timestamp,
     };
     use nois_protocol::{DeliverBeaconPacket, APP_ORDER, BAD_APP_ORDER};
-    use nois_proxy::msg::RequestBeaconOrigin;
 
     const CREATOR: &str = "creator";
 
@@ -388,6 +387,11 @@ mod tests {
                 None
             }
         })
+    }
+
+    /// Creates a testing origin
+    fn origin(job: u32) -> Binary {
+        format!("job {job}").into_bytes().into()
     }
 
     // connect will run through the entire handshake to set up a proper connect and
@@ -491,11 +495,7 @@ mod tests {
             "foo",
             &RequestBeaconPacket {
                 after: Timestamp::from_seconds(1660941090 - 1),
-                origin: to_binary(&RequestBeaconOrigin {
-                    job_id: "test 1".to_string(),
-                    sender: "my_dapp".to_string(),
-                })
-                .unwrap(),
+                origin: origin(1),
             },
         )
         .unwrap();
@@ -530,11 +530,7 @@ mod tests {
                 "foo",
                 &RequestBeaconPacket {
                     after: Timestamp::from_seconds(1660941120 - 1),
-                    origin: to_binary(&RequestBeaconOrigin {
-                        job_id: format!("test {i}"),
-                        sender: "my_dapp".to_string(),
-                    })
-                    .unwrap(),
+                    origin: origin(i),
                 },
             )
             .unwrap();
@@ -566,11 +562,7 @@ mod tests {
                 "foo",
                 &RequestBeaconPacket {
                     after: Timestamp::from_seconds(1660941150 - 1),
-                    origin: to_binary(&RequestBeaconOrigin {
-                        job_id: format!("test {i}"),
-                        sender: "my_dapp".to_string(),
-                    })
-                    .unwrap(),
+                    origin: origin(i),
                 },
             )
             .unwrap();
@@ -673,11 +665,7 @@ mod tests {
             "foo",
             &RequestBeaconPacket {
                 after: Timestamp::from_seconds(1660941090 - 1),
-                origin: to_binary(&RequestBeaconOrigin {
-                    job_id: "test 1".to_string(),
-                    sender: "my_dapp".to_string(),
-                })
-                .unwrap(),
+                origin: origin(1),
             },
         )
         .unwrap();
@@ -711,11 +699,7 @@ mod tests {
             "foo",
             &RequestBeaconPacket {
                 after: Timestamp::from_seconds(1660941090 - 1),
-                origin: to_binary(&RequestBeaconOrigin {
-                    sender: "my_dapp".to_string(),
-                    job_id: "test 2".to_string(),
-                })
-                .unwrap(),
+                origin: origin(2),
             },
         )
         .unwrap();
@@ -737,11 +721,7 @@ mod tests {
                 "foo",
                 &RequestBeaconPacket {
                     after: Timestamp::from_seconds(1660941150 - 1),
-                    origin: to_binary(&RequestBeaconOrigin {
-                        sender: "my_dapp".to_string(),
-                        job_id: format!("job {i}"),
-                    })
-                    .unwrap(),
+                    origin: origin(i),
                 },
             )
             .unwrap();
@@ -837,11 +817,7 @@ mod tests {
         let packet = DeliverBeaconPacket {
             source_id: "backend:123:456".to_string(),
             randomness: HexBinary::from_hex("aabbccdd").unwrap(),
-            origin: to_binary(&RequestBeaconOrigin {
-                sender: "joe".to_string(),
-                job_id: "hihi".to_string(),
-            })
-            .unwrap(),
+            origin: origin(1),
         };
 
         // Success ack (delivered)

@@ -26,4 +26,3 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 thiserror = { version = "1.0.23" }
 
 [dev-dependencies]
-nois-proxy = { path = "../../contracts/nois-proxy"}
