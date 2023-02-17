@@ -109,10 +109,15 @@ interface SetupInfo {
   };
 }
 
+interface InstantiateAndConnectOptions {
+  readonly testMode?: boolean;
+  readonly mockDrandAddr: string;
+  readonly callback_gas_limit?: number;
+}
+
 async function instantiateAndConnectIbc(
   t: ExecutionContext,
-  testMode: boolean,
-  mockDrandAddr: string
+  options: InstantiateAndConnectOptions
 ): Promise<SetupInfo> {
   const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
 
@@ -120,8 +125,8 @@ async function instantiateAndConnectIbc(
   const proxyMsg: ProxyInstantiateMsg = {
     prices: coins(1_000_000, "ucosm"),
     withdrawal_address: wasmClient.senderAddress,
-    test_mode: testMode,
-    callback_gas_limit: 500_000,
+    test_mode: options.testMode ?? true,
+    callback_gas_limit: options.callback_gas_limit ?? 500_000,
   };
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
@@ -141,7 +146,7 @@ async function instantiateAndConnectIbc(
     "auto"
   );
 
-  const setDrandMsg: GatewayExecuteMsg = { set_drand_addr: { addr: mockDrandAddr } };
+  const setDrandMsg: GatewayExecuteMsg = { set_drand_addr: { addr: options.mockDrandAddr } };
   await osmoClient.sign.execute(osmoClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
 
   const [noisProxyInfo, noisGatewayInfo] = await Promise.all([
@@ -194,11 +199,9 @@ async function instantiateAndConnectIbc(
 
 test.serial("proxy works", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
-    t,
-    true,
-    bot.address
-  );
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
+    mockDrandAddr: bot.address,
+  });
   bot.setGatewayAddress(noisGatewayAddress);
 
   t.log(`Getting randomness prices ...`);
@@ -279,11 +282,10 @@ test.serial("proxy works", async (t) => {
 
 test.serial("proxy works for get_randomness_after", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
-    t,
-    false,
-    bot.address
-  );
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
+    testMode: false,
+    mockDrandAddr: bot.address,
+  });
   bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
@@ -373,8 +375,7 @@ test.serial("demo contract can be used", async (t) => {
   const bot = await MockBot.connect();
   const { wasmClient, noisDemoAddress, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
     t,
-    true,
-    bot.address
+    { mockDrandAddr: bot.address }
   );
   bot.setGatewayAddress(noisGatewayAddress);
 
@@ -472,11 +473,10 @@ test.serial("demo contract can be used", async (t) => {
 
 test.serial("submit randomness for various job counts", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
-    t,
-    false,
-    bot.address
-  );
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
+    testMode: false,
+    mockDrandAddr: bot.address,
+  });
   bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
