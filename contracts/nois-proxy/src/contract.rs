@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    attr, from_binary, to_binary, Attribute, BankMsg, Coin, Deps, DepsMut, Env, Event, HexBinary,
-    Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
-    IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg,
-    IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response, StdError, StdResult,
-    Storage, SubMsg, SubMsgResult, Timestamp, WasmMsg,
+    attr, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin, Deps, DepsMut, Env,
+    Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response,
+    StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
@@ -17,7 +17,7 @@ use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
     ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
-    PricesResponse, QueryMsg,
+    PricesResponse, QueryMsg, RequestBeaconOrigin,
 };
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, CONFIG, GATEWAY_CHANNEL};
@@ -98,8 +98,10 @@ fn execute_get_next_randomness(
 
     let packet = RequestBeaconPacket {
         after,
-        sender: info.sender.into(),
-        job_id,
+        origin: to_binary(&RequestBeaconOrigin {
+            sender: info.sender.into(),
+            job_id,
+        })?,
     };
     let channel_id = get_gateway_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
@@ -131,8 +133,10 @@ fn execute_get_randomness_after(
 
     let packet = RequestBeaconPacket {
         after,
-        sender: info.sender.into(),
-        job_id,
+        origin: to_binary(&RequestBeaconOrigin {
+            sender: info.sender.into(),
+            job_id,
+        })?,
     };
     let channel_id = get_gateway_channel(deps.storage)?;
     let msg = IbcMsg::SendPacket {
@@ -324,10 +328,9 @@ pub fn ibc_packet_receive(
         let DeliverBeaconPacket {
             source_id: _,
             randomness,
-            sender,
-            job_id,
+            origin,
         } = from_binary(&packet.packet.data)?;
-        receive_deliver_beacon(deps, randomness, sender, job_id)
+        receive_deliver_beacon(deps, randomness, origin)
     })()
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
@@ -342,12 +345,14 @@ pub fn ibc_packet_receive(
 fn receive_deliver_beacon(
     deps: DepsMut,
     randomness: HexBinary,
-    sender: String,
-    job_id: String,
+    origin: Binary,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let Config {
         callback_gas_limit, ..
     } = CONFIG.load(deps.storage)?;
+
+    let RequestBeaconOrigin { sender, job_id } = from_slice(&origin)?;
+
     // Create the message for executing the callback.
     // This can fail for various reasons, like
     // - `sender` not being a contract
@@ -400,6 +405,11 @@ pub fn ibc_packet_ack(
             attributes.push(attr("ack_type", ack_type));
         }
         StdAck::Error(err) => {
+            // The Request Beacon IBC packet failed, e.g. because the requested round
+            // is too old. Here we should send the dapp an error callback as the randomness
+            // will never come. Unfortunately we cannot map this packet to the job because
+            // we don't know the sequence when emitting a IbcMsg::SendPacket.
+            // https://github.com/CosmWasm/wasmd/issues/1154
             is_error = true;
             attributes.push(attr("error", err));
         }
@@ -784,9 +794,12 @@ mod tests {
 
         // The proxy -> gateway packet we get the acknowledgement for
         let packet = RequestBeaconPacket {
-            sender: "contract345".to_string(),
             after: Timestamp::from_seconds(321),
-            job_id: "hello".to_string(),
+            origin: to_binary(&RequestBeaconOrigin {
+                sender: "contract345".to_string(),
+                job_id: "hello".to_string(),
+            })
+            .unwrap(),
         };
 
         // Success ack (processed)

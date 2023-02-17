@@ -8,9 +8,8 @@ use serde::Serialize;
 pub struct RequestBeaconPacket {
     /// Beacon publish time must be > `after`
     pub after: Timestamp,
-    /// The address from which the proxy was executed, i.e. the randomness consumer
-    pub sender: String,
-    pub job_id: String,
+    /// The origin data set by the proxy in a proxy specific format.
+    pub origin: Binary,
 }
 
 #[cw_serde]
@@ -33,8 +32,8 @@ pub struct DeliverBeaconPacket {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
     pub source_id: String,
     pub randomness: HexBinary,
-    pub sender: String,
-    pub job_id: String,
+    /// The origin data set by the proxy in a proxy specific format.
+    pub origin: Binary,
 }
 
 #[cw_serde]

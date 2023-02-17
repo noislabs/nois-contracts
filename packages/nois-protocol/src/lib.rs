@@ -9,7 +9,7 @@ pub use ibc_msg::{
     StdAck,
 };
 
-pub const IBC_APP_VERSION: &str = "nois-v4";
+pub const IBC_APP_VERSION: &str = "nois-v5";
 pub const APP_ORDER: IbcOrder = IbcOrder::Unordered;
 // we use this for tests to ensure it is rejected
 pub const BAD_APP_ORDER: IbcOrder = IbcOrder::Ordered;

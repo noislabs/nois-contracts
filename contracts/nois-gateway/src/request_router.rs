@@ -1,7 +1,7 @@
 //! The request router module decides which randomness backend is used
 
 use cosmwasm_std::{
-    to_binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
+    to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
 };
 use nois_protocol::{
     DeliverBeaconPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME,
@@ -48,11 +48,10 @@ impl RequestRouter {
         env: Env,
         channel: String,
         after: Timestamp,
-        sender: String,
-        job_id: String,
+        origin: Binary,
     ) -> StdResult<RoutingReceipt> {
         // Here we currently only have one backend
-        self.handle_drand(deps, env, channel, after, sender, job_id)
+        self.handle_drand(deps, env, channel, after, origin)
     }
 
     fn handle_drand(
@@ -61,8 +60,7 @@ impl RequestRouter {
         env: Env,
         channel: String,
         after: Timestamp,
-        sender: String,
-        job_id: String,
+        origin: Binary,
     ) -> StdResult<RoutingReceipt> {
         let (round, source_id) = commit_to_drand_round(after);
 
@@ -71,8 +69,7 @@ impl RequestRouter {
         let job = Job {
             source_id: source_id.clone(),
             channel,
-            sender,
-            job_id,
+            origin,
         };
 
         let mut msgs = Vec::<CosmosMsg>::new();
@@ -139,10 +136,9 @@ fn create_deliver_beacon_ibc_message(
     randomness: HexBinary,
 ) -> Result<IbcMsg, StdError> {
     let packet = DeliverBeaconPacket {
-        sender: job.sender,
-        job_id: job.job_id,
         randomness,
         source_id: job.source_id,
+        origin: job.origin,
     };
     let msg = IbcMsg::SendPacket {
         channel_id: job.channel,

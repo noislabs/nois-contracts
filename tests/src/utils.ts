@@ -7,7 +7,7 @@ const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingCosmWasmClient, 
 
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
-export const NoisProtocolIbcVersion = "nois-v4";
+export const NoisProtocolIbcVersion = "nois-v5";
 
 // This creates a client for the CosmWasm chain, that can interact with contracts
 export async function setupWasmClient(): Promise<CosmWasmSigner> {

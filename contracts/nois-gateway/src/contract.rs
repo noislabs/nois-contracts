@@ -11,7 +11,7 @@ use nois_protocol::{
 };
 
 use crate::error::ContractError;
-use crate::job_id::validate_job_id;
+use crate::job_id::validate_origin;
 use crate::msg::{ConfigResponse, DrandJobStatsResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, CONFIG};
@@ -160,18 +160,15 @@ fn receive_request_beacon(
     channel: String,
     msg: RequestBeaconPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    let RequestBeaconPacket {
-        sender,
-        after,
-        job_id,
-    } = msg;
-    validate_job_id(&job_id)?;
+    let RequestBeaconPacket { origin, after } = msg;
+
+    validate_origin(&origin)?;
 
     let router = RequestRouter::new();
     let RoutingReceipt {
         acknowledgement,
         msgs,
-    } = router.route(deps, env, channel, after, sender, job_id)?;
+    } = router.route(deps, env, channel, after, origin)?;
 
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
@@ -287,7 +284,7 @@ mod tests {
         mock_ibc_packet_recv, mock_info, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
-        coin, from_binary, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps, Timestamp,
+        coin, from_binary, Binary, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps, Timestamp,
     };
     use nois_protocol::{DeliverBeaconPacket, APP_ORDER, BAD_APP_ORDER};
 
@@ -392,6 +389,11 @@ mod tests {
         })
     }
 
+    /// Creates a testing origin
+    fn origin(job: u32) -> Binary {
+        format!("job {job}").into_bytes().into()
+    }
+
     // connect will run through the entire handshake to set up a proper connect and
     // save the account (tested in detail in `proper_handshake_flow`)
     fn connect(mut deps: DepsMut, channel_id: &str, account: impl Into<String>) {
@@ -493,8 +495,7 @@ mod tests {
             "foo",
             &RequestBeaconPacket {
                 after: Timestamp::from_seconds(1660941090 - 1),
-                job_id: "test 1".to_string(),
-                sender: "my_dapp".to_string(),
+                origin: origin(1),
             },
         )
         .unwrap();
@@ -529,8 +530,7 @@ mod tests {
                 "foo",
                 &RequestBeaconPacket {
                     after: Timestamp::from_seconds(1660941120 - 1),
-                    job_id: format!("test {i}"),
-                    sender: "my_dapp".to_string(),
+                    origin: origin(i),
                 },
             )
             .unwrap();
@@ -562,8 +562,7 @@ mod tests {
                 "foo",
                 &RequestBeaconPacket {
                     after: Timestamp::from_seconds(1660941150 - 1),
-                    job_id: format!("test {i}"),
-                    sender: "my_dapp".to_string(),
+                    origin: origin(i),
                 },
             )
             .unwrap();
@@ -666,8 +665,7 @@ mod tests {
             "foo",
             &RequestBeaconPacket {
                 after: Timestamp::from_seconds(1660941090 - 1),
-                job_id: "test 1".to_string(),
-                sender: "my_dapp".to_string(),
+                origin: origin(1),
             },
         )
         .unwrap();
@@ -701,8 +699,7 @@ mod tests {
             "foo",
             &RequestBeaconPacket {
                 after: Timestamp::from_seconds(1660941090 - 1),
-                job_id: "test 2".to_string(),
-                sender: "my_dapp".to_string(),
+                origin: origin(2),
             },
         )
         .unwrap();
@@ -724,8 +721,7 @@ mod tests {
                 "foo",
                 &RequestBeaconPacket {
                     after: Timestamp::from_seconds(1660941150 - 1),
-                    job_id: format!("job {i}"),
-                    sender: "my_dapp".to_string(),
+                    origin: origin(i),
                 },
             )
             .unwrap();
@@ -821,8 +817,7 @@ mod tests {
         let packet = DeliverBeaconPacket {
             source_id: "backend:123:456".to_string(),
             randomness: HexBinary::from_hex("aabbccdd").unwrap(),
-            sender: "joe".to_string(),
-            job_id: "hihi".to_string(),
+            origin: origin(1),
         };
 
         // Success ack (delivered)

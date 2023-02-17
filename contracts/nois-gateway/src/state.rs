@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, StdResult, Storage};
+use cosmwasm_std::{Addr, Binary, StdResult, Storage};
 use cw_storage_plus::{Deque, Item, Map};
 
 #[cw_serde]
@@ -17,10 +17,7 @@ pub struct Job {
     pub source_id: String,
     // The channel the job came from and we have to send the response to
     pub channel: String,
-    // contract address on the app chain
-    pub sender: String,
-    /// A job ID assigned by the caller
-    pub job_id: String,
+    pub origin: Binary,
 }
 
 #[inline]
