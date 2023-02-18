@@ -52,6 +52,8 @@ impl QueriedBeacon {
 /// An entry of this map looks like round_number =>  {verified_time, randomness}
 pub const BEACONS: Map<u64, VerifiedBeacon> = Map::new("beacons");
 
+pub const HIGHEST_ROUND: Item<u64> = Item::new("highest_round");
+
 pub const BOTS: Map<&Addr, Bot> = Map::new("bots");
 pub const ALLOWLIST: Map<&Addr, ()> = Map::new("allowlist");
 

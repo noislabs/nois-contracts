@@ -38,6 +38,7 @@ pub enum ExecuteMsg {
     SetGatewayAddr {
         addr: String,
     },
+    DeleteOldSubmissions {},
 }
 
 #[cw_serde]

@@ -19,7 +19,7 @@ use crate::msg::{
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
-    BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    BOTS, CONFIG, HIGHEST_ROUND, SUBMISSIONS, SUBMISSIONS_ORDER,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -27,6 +27,9 @@ const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u32 = 3;
 const INCENTIVE_POINTS_FOR_VERIFICATION: Uint128 = Uint128::new(35);
 const INCENTIVE_POINTS_FOR_FAST_BOT: Uint128 = Uint128::new(15);
+
+/// How many round's submission are kept in state before they are eligible to deletion
+const ROUND_HISTORY_LIFECYCLE: u64 = 1000;
 
 #[entry_point]
 pub fn instantiate(
@@ -43,6 +46,7 @@ pub fn instantiate(
         incentive_point_price: msg.incentive_point_price,
         incentive_denom: msg.incentive_denom,
     };
+    HIGHEST_ROUND.save(deps.storage, &msg.min_round);
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
 }
@@ -72,6 +76,7 @@ pub fn execute(
             execute_update_allowlist_bots(deps, info, add, remove)
         }
         ExecuteMsg::SetGatewayAddr { addr } => execute_set_gateway_addr(deps, env, addr),
+        ExecuteMsg::DeleteOldSubmissions {} => execute_delete_old_submissions(deps, env),
     }
 }
 
@@ -251,6 +256,9 @@ fn execute_add_round(
     let min_round = config.min_round;
     if round < min_round {
         return Err(ContractError::RoundTooLow { round, min_round });
+    }
+    if round > HIGHEST_ROUND.load(deps.storage)? {
+        HIGHEST_ROUND.save(deps.storage, &round)?;
     }
 
     // Initialise the incentive to 0
@@ -439,6 +447,38 @@ fn execute_set_gateway_addr(
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new().add_attribute("nois-gateway-address", nois_gateway))
+}
+
+fn execute_delete_old_submissions(deps: DepsMut, _env: Env) -> Result<Response, ContractError> {
+    // Get the highest submitted round
+    let heighest_round = HIGHEST_ROUND.load(deps.storage)?;
+    // Check that we have  some round's submissions that are old enough to delete
+    if heighest_round < CONFIG.load(deps.storage)?.min_round + ROUND_HISTORY_LIFECYCLE {
+        return Err(ContractError::NoSubmissionsToDelete {});
+    }
+    // Calculate the round before which we will delete all submissions
+    let round_before_which_to_delete = heighest_round - ROUND_HISTORY_LIFECYCLE;
+    // Get submissions to remove.
+    // This is not working yet, erroring
+    let submission_keys_to_remove: Vec<(u64, &Addr)> = SUBMISSIONS
+        .keys(deps.storage, None, None, Order::Ascending)
+        .filter(|key| {
+            if let round = key.unwrap().0 {
+                round < round_before_which_to_delete
+            } else {
+                false
+            }
+        })
+        .collect();
+    // Removesubmissions all submission until that old round
+    for submission in submission_keys_to_remove {
+        SUBMISSIONS.remove(deps.storage, submission);
+    }
+
+    Ok(Response::new().add_attribute(
+        "deleted-submissions",
+        submission_keys_to_remove.len().to_string(),
+    ))
 }
 
 #[cfg(test)]

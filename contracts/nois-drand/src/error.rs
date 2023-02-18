@@ -35,4 +35,7 @@ pub enum ContractError {
 
     #[error("A submission for the same round from the same bot exists already")]
     SubmissionExists,
+
+    #[error("No submissions to delete")]
+    NoSubmissionsToDelete,
 }
