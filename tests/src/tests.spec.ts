@@ -1,18 +1,17 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
 import { ExecuteInstruction, fromBinary, toBinary } from "@cosmjs/cosmwasm-stargate";
-import { fromUtf8 } from "@cosmjs/encoding";
+import { sha256 } from "@cosmjs/crypto";
+import { fromUtf8, toHex } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
-import test from "ava";
+import test, { ExecutionContext } from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
-import { Bot, ibcPacketsSent, MockBot } from "./bot";
+import { ibcPacketsSent, MockBot } from "./bot";
 import {
-  DrandInstantiateMsg,
   GatewayExecuteMsg,
   GatewayInstantiateMsg,
-  IcecubeInstantiateMsg,
   OsmosisContractPaths,
   osmosisContracts,
   ProxyInstantiateMsg,
@@ -31,59 +30,24 @@ import {
 const { osmosis: oldOsmo, setup, wasmd, fundAccount } = testutils;
 const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
 
-let wasmCodeIds: Record<keyof WasmdContractPaths, number>;
-let osmosisCodeIds: Record<keyof OsmosisContractPaths, number>;
+interface TestContext {
+  wasmCodeIds: Record<keyof WasmdContractPaths, number>;
+  osmosisCodeIds: Record<keyof OsmosisContractPaths, number>;
+}
 
 test.before(async (t) => {
   const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
   t.log("Upload contracts ...");
-  [wasmCodeIds, osmosisCodeIds] = await Promise.all([
+  const [wasmCodeIds, osmosisCodeIds] = await Promise.all([
     uploadContracts(t, wasmClient, wasmContracts),
     uploadContracts(t, osmoClient, osmosisContracts),
   ]);
-  t.pass();
-});
-
-test.serial("Bot can submit to drand", async (t) => {
-  // Instantiate Drand on osmosis
-  const osmoClient = await setupOsmosisClient();
-
-  const msg: DrandInstantiateMsg = {
-    manager: osmoClient.senderAddress,
-    min_round: 2183660,
-    incentive_point_price: "0",
-    incentive_denom: "unois",
+  const context: TestContext = {
+    wasmCodeIds,
+    osmosisCodeIds,
   };
-  const { contractAddress: drandAddress } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    osmosisCodeIds.drand,
-    msg,
-    "Drand instance",
-    "auto"
-  );
-  t.log(`Instantiated drand at ${drandAddress} with msg ${JSON.stringify(msg)}`);
-  t.truthy(drandAddress);
-
-  const before = await osmoClient.sign.queryContractSmart(drandAddress, {
-    beacon: { round: 2183666 },
-  });
-  t.deepEqual(before, { beacon: null });
-
-  const bot = await Bot.connect(drandAddress);
-
-  // Register
-  await bot.register("joe");
-
-  // Submit
-  const addRundRes = await bot.submitRound(2183666);
-  t.log(`Gas used: ${addRundRes.gasUsed}/${addRundRes.gasWanted}`);
-
-  const after = await osmoClient.sign.queryContractSmart(drandAddress, {
-    beacon: { round: 2183666 },
-  });
-  t.regex(after.beacon.published, /^1660941000000000000$/);
-  t.regex(after.beacon.verified, /^1[0-9]{18}$/);
-  t.is(after.beacon.randomness, "768bd188a948f1f2959d15c657f159dd34bdf741b7d4b17a29b877eb36c04dcf");
+  t.context = context;
+  t.pass();
 });
 
 test.serial("set up channel", async (t) => {
@@ -97,7 +61,7 @@ test.serial("set up channel", async (t) => {
   };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
-    wasmCodeIds.proxy,
+    (t.context as TestContext).wasmCodeIds.proxy,
     proxyMsg,
     "Proxy instance",
     "auto"
@@ -111,7 +75,7 @@ test.serial("set up channel", async (t) => {
   const msg: GatewayInstantiateMsg = {};
   const { contractAddress: gatewayAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisCodeIds.gateway,
+    (t.context as TestContext).osmosisCodeIds.gateway,
     msg,
     "Gateway instance",
     "auto"
@@ -146,19 +110,28 @@ interface SetupInfo {
   };
 }
 
-async function instantiateAndConnectIbc(testMode: boolean, mockDrandAddr: string): Promise<SetupInfo> {
+interface InstantiateAndConnectOptions {
+  readonly testMode?: boolean;
+  readonly mockDrandAddr: string;
+  readonly callback_gas_limit?: number;
+}
+
+async function instantiateAndConnectIbc(
+  t: ExecutionContext,
+  options: InstantiateAndConnectOptions
+): Promise<SetupInfo> {
   const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
 
   // Instantiate proxy on appchain
   const proxyMsg: ProxyInstantiateMsg = {
     prices: coins(1_000_000, "ucosm"),
     withdrawal_address: wasmClient.senderAddress,
-    test_mode: testMode,
-    callback_gas_limit: 500_000,
+    test_mode: options.testMode ?? true,
+    callback_gas_limit: options.callback_gas_limit ?? 500_000,
   };
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
-    wasmCodeIds.proxy,
+    (t.context as TestContext).wasmCodeIds.proxy,
     proxyMsg,
     "Proxy instance",
     "auto"
@@ -168,13 +141,13 @@ async function instantiateAndConnectIbc(testMode: boolean, mockDrandAddr: string
   const instantiateMsg: GatewayInstantiateMsg = {};
   const { contractAddress: noisGatewayAddress } = await osmoClient.sign.instantiate(
     osmoClient.senderAddress,
-    osmosisCodeIds.gateway,
+    (t.context as TestContext).osmosisCodeIds.gateway,
     instantiateMsg,
     "Gateway instance",
     "auto"
   );
 
-  const setDrandMsg: GatewayExecuteMsg = { set_drand_addr: { addr: mockDrandAddr } };
+  const setDrandMsg: GatewayExecuteMsg = { set_drand_addr: { addr: options.mockDrandAddr } };
   await osmoClient.sign.execute(osmoClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
 
   const [noisProxyInfo, noisGatewayInfo] = await Promise.all([
@@ -207,7 +180,7 @@ async function instantiateAndConnectIbc(testMode: boolean, mockDrandAddr: string
   // Instantiate demo app
   const { contractAddress: noisDemoAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
-    wasmCodeIds.demo,
+    (t.context as TestContext).wasmCodeIds.demo,
     { nois_proxy: noisProxyAddress },
     "A demo contract",
     "auto"
@@ -227,7 +200,9 @@ async function instantiateAndConnectIbc(testMode: boolean, mockDrandAddr: string
 
 test.serial("proxy works", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(true, bot.address);
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
+    mockDrandAddr: bot.address,
+  });
   bot.setGatewayAddress(noisGatewayAddress);
 
   t.log(`Getting randomness prices ...`);
@@ -308,7 +283,10 @@ test.serial("proxy works", async (t) => {
 
 test.serial("proxy works for get_randomness_after", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(false, bot.address);
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
+    testMode: false,
+    mockDrandAddr: bot.address,
+  });
   bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
@@ -397,8 +375,8 @@ test.serial("proxy works for get_randomness_after", async (t) => {
 test.serial("demo contract can be used", async (t) => {
   const bot = await MockBot.connect();
   const { wasmClient, noisDemoAddress, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
-    true,
-    bot.address
+    t,
+    { mockDrandAddr: bot.address }
   );
   bot.setGatewayAddress(noisGatewayAddress);
 
@@ -423,23 +401,26 @@ test.serial("demo contract can be used", async (t) => {
     // RequestBeacon packet
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
-    // const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    // t.deepEqual(fromBinary(stdAck.result), {
-    //   processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
-    // });
+    const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
+    t.deepEqual(fromBinary(stdAck.result), {
+      processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+    });
 
     // DeliverBeacon packet
-    // const infoB2A = await link.relayAll();
-    // assertPacketsFromB(infoB2A, 1, true);
+    const infoB2A = await link.relayAll();
+    assertPacketsFromB(infoB2A, 1, true);
+    const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
+    t.log(stdAckDeliver);
+    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
 
-    // const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
-    //   result: { job_id: jobId },
-    // });
-    // t.log(myResult);
-    // t.regex(myResult, /3\.1[0-9]+/);
+    const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
+      result: { job_id: jobId },
+    });
+    t.log(myResult);
+    t.regex(myResult, /3\.1[0-9]+/);
 
-    // const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
-    // t.log(results);
+    const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
+    t.log(results);
   }
 
   // Round submitted after request
@@ -482,6 +463,9 @@ test.serial("demo contract can be used", async (t) => {
     // DeliverBeacon packet
     const infoB2A2 = await link.relayAll();
     assertPacketsFromB(infoB2A2, 1, true);
+    const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
+    t.log(stdAckDeliver);
+    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
 
     const myResult2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       result: { job_id: jobId },
@@ -494,9 +478,139 @@ test.serial("demo contract can be used", async (t) => {
   }
 });
 
+test.serial("demo contract runs into out of gas in callback", async (t) => {
+  const bot = await MockBot.connect();
+  const { wasmClient, noisDemoAddress, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
+    t,
+    {
+      mockDrandAddr: bot.address,
+      callback_gas_limit: 1_000, // Very low value
+    }
+  );
+  bot.setGatewayAddress(noisGatewayAddress);
+
+  const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
+  const payment = coin(price, "ucosm");
+  t.log(`Got randomness price from query: ${payment.amount}${payment.denom}`);
+
+  // Correct round submitted before request
+  {
+    await bot.submitNext();
+
+    const jobId = Date.now().toString();
+    await wasmClient.sign.execute(
+      wasmClient.senderAddress,
+      noisDemoAddress,
+      { estimate_pi: { job_id: jobId } },
+      "auto",
+      undefined,
+      [payment]
+    );
+
+    // RequestBeacon packet
+    const infoA2B = await link.relayAll();
+    assertPacketsFromA(infoA2B, 1, true);
+    const stdAckRequest = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
+    t.deepEqual(fromBinary(stdAckRequest.result), {
+      processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+    });
+
+    // DeliverBeacon packet (check ack and transaction of the ack)
+    const infoB2A = await link.relayAll();
+    assertPacketsFromB(infoB2A, 1, true);
+    const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
+    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
+
+    // This block is a workaround for https://github.com/confio/ts-relayer/pull/264
+    const block = await wasmClient.sign.getBlock(infoB2A.acksFromA[0].height);
+    t.is(block.txs.length, 1);
+    const txId = toHex(sha256(block.txs[0])).toUpperCase();
+
+    const tx = await wasmClient.sign.getTx(txId);
+    assert(tx);
+    const callbackEvent = tx.events.find((e) => e.type.startsWith("wasm-nois-callback"));
+    t.deepEqual(callbackEvent?.attributes, [
+      {
+        key: "_contract_address",
+        value: noisProxyAddress,
+      },
+      {
+        key: "success",
+        value: "false",
+      },
+      {
+        key: "log",
+        value: "codespace: sdk, code: 11",
+      },
+    ]);
+  }
+
+  // Round submitted after request
+  {
+    const jobId = Date.now().toString();
+    await wasmClient.sign.execute(
+      wasmClient.senderAddress,
+      noisDemoAddress,
+      { estimate_pi: { job_id: jobId } },
+      "auto",
+      undefined,
+      [payment]
+    );
+
+    // RequestBeacon packet
+    const infoA2B = await link.relayAll();
+    assertPacketsFromA(infoA2B, 1, true);
+    const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+      }),
+    });
+
+    // DeliverBeacon packet not yet
+    const infoB2A = await link.relayAll();
+    assertPacketsFromB(infoB2A, 0, true);
+
+    // Round incoming
+    await bot.submitNext();
+
+    // DeliverBeacon packet (check ack and transaction of the ack)
+    const infoB2A2 = await link.relayAll();
+    assertPacketsFromB(infoB2A2, 1, true);
+    const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
+    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
+
+    // This block is a workaround for https://github.com/confio/ts-relayer/pull/264
+    const block = await wasmClient.sign.getBlock(infoB2A2.acksFromA[0].height);
+    t.is(block.txs.length, 1);
+    const txId = toHex(sha256(block.txs[0])).toUpperCase();
+
+    const tx = await wasmClient.sign.getTx(txId);
+    assert(tx);
+    const callbackEvent = tx.events.find((e) => e.type.startsWith("wasm-nois-callback"));
+    t.deepEqual(callbackEvent?.attributes, [
+      {
+        key: "_contract_address",
+        value: noisProxyAddress,
+      },
+      {
+        key: "success",
+        value: "false",
+      },
+      {
+        key: "log",
+        value: "codespace: sdk, code: 11",
+      },
+    ]);
+  }
+});
+
 test.serial("submit randomness for various job counts", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(false, bot.address);
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
+    testMode: false,
+    mockDrandAddr: bot.address,
+  });
   bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
@@ -546,17 +660,4 @@ test.serial("submit randomness for various job counts", async (t) => {
     t.log("Number of packets sent:", packetsSentCount);
     t.is(packetsSentCount, Math.min(jobs, 2));
   }
-});
-
-test.serial("icecube works", async (t) => {
-  const osmoClient = await setupOsmosisClient();
-
-  const msg: IcecubeInstantiateMsg = {
-    manager: osmoClient.senderAddress,
-  };
-  await osmoClient.sign.instantiate(osmoClient.senderAddress, osmosisCodeIds.icecube, msg, "Icecube instance", "auto");
-
-  // TODO: do something cool with the icecube contract
-
-  t.pass();
 });
