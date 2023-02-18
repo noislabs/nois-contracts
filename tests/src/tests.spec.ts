@@ -1,7 +1,8 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
 import { ExecuteInstruction, fromBinary, toBinary } from "@cosmjs/cosmwasm-stargate";
-import { fromUtf8 } from "@cosmjs/encoding";
+import { sha256 } from "@cosmjs/crypto";
+import { fromUtf8, toHex } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test, { ExecutionContext } from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
@@ -475,6 +476,114 @@ test.serial("demo contract can be used", async (t) => {
     const results2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
     t.log(results2);
   }
+});
+
+test.serial("demo contract runs into out of gas in callback", async (t) => {
+  const bot = await MockBot.connect();
+  const { wasmClient, noisDemoAddress, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
+    t,
+    {
+      mockDrandAddr: bot.address,
+      callback_gas_limit: 1_000, // Very low value
+    }
+  );
+  bot.setGatewayAddress(noisGatewayAddress);
+
+  const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
+  const payment = coin(price, "ucosm");
+  t.log(`Got randomness price from query: ${payment.amount}${payment.denom}`);
+
+  // Correct round submitted before request
+  {
+    await bot.submitNext();
+
+    const jobId = Date.now().toString();
+    await wasmClient.sign.execute(
+      wasmClient.senderAddress,
+      noisDemoAddress,
+      { estimate_pi: { job_id: jobId } },
+      "auto",
+      undefined,
+      [payment]
+    );
+
+    // RequestBeacon packet
+    const infoA2B = await link.relayAll();
+    assertPacketsFromA(infoA2B, 1, true);
+    const stdAckRequest = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
+    t.deepEqual(fromBinary(stdAckRequest.result), {
+      processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+    });
+
+    // DeliverBeacon packet
+    const infoB2A = await link.relayAll();
+    assertPacketsFromB(infoB2A, 1, true);
+    infoB2A.acksFromA[0].height;
+    t.log("Now what?");
+    t.log(infoB2A);
+    const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
+    t.log(stdAckDeliver);
+    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: "1676672389390" } });
+
+    const block = await wasmClient.sign.getBlock(infoB2A.acksFromA[0].height);
+    t.is(block.txs.length, 1);
+    const txId = toHex(sha256(block.txs[0])).toUpperCase();
+    const tx = await wasmClient.sign.getTx(txId);
+    t.log(tx);
+  }
+
+  /*
+  // Round submitted after request
+  {
+    const jobId = Date.now().toString();
+    await wasmClient.sign.execute(
+      wasmClient.senderAddress,
+      noisDemoAddress,
+      { estimate_pi: { job_id: jobId } },
+      "auto",
+      undefined,
+      [payment]
+    );
+
+    // RequestBeacon packet
+    const infoA2B = await link.relayAll();
+    assertPacketsFromA(infoA2B, 1, true);
+    const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
+    t.deepEqual(stdAck, {
+      result: toBinary({
+        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+      }),
+    });
+
+    // DeliverBeacon packet not yet
+    const infoB2A = await link.relayAll();
+    assertPacketsFromB(infoB2A, 0, true);
+
+    const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
+      result: { job_id: jobId },
+    });
+    t.is(myResult, null);
+
+    const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
+    t.log(results);
+
+    // Round incoming
+    await bot.submitNext();
+
+    // DeliverBeacon packet
+    const infoB2A2 = await link.relayAll();
+    assertPacketsFromB(infoB2A2, 1, true);
+
+    const myResult2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
+      result: { job_id: jobId },
+    });
+    t.log(myResult2);
+    t.regex(myResult2, /3\.1[0-9]+/);
+
+    const results2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
+    t.log(results2);
+  }
+  */
 });
 
 test.serial("submit randomness for various job counts", async (t) => {
