@@ -31,6 +31,7 @@ const INCENTIVE_POINTS_FOR_FAST_BOT: Uint128 = Uint128::new(15);
 /// How many rounds are kept in state before their submissions are eligible to deletion
 /// If  we are round  5000 and ROUND_HISTORY_LIFECYCLE =1000 then delete  everything before 5000-1000=4000
 const ROUND_HISTORY_LIFECYCLE: u64 = 1000;
+// TODO : Add a limit to the deletion for max gas predictability
 
 #[entry_point]
 pub fn instantiate(
