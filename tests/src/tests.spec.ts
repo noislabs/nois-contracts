@@ -515,24 +515,36 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
       processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
     });
 
-    // DeliverBeacon packet
+    // DeliverBeacon packet (check ack and transaction of the ack)
     const infoB2A = await link.relayAll();
     assertPacketsFromB(infoB2A, 1, true);
-    infoB2A.acksFromA[0].height;
-    t.log("Now what?");
-    t.log(infoB2A);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
-    t.log(stdAckDeliver);
-    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: "1676672389390" } });
+    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
 
+    // This block is a workaround for https://github.com/confio/ts-relayer/pull/264
     const block = await wasmClient.sign.getBlock(infoB2A.acksFromA[0].height);
     t.is(block.txs.length, 1);
     const txId = toHex(sha256(block.txs[0])).toUpperCase();
+
     const tx = await wasmClient.sign.getTx(txId);
-    t.log(tx);
+    assert(tx);
+    const callbackEvent = tx.events.find((e) => e.type.startsWith("wasm-nois-callback"));
+    t.deepEqual(callbackEvent?.attributes, [
+      {
+        key: "_contract_address",
+        value: noisProxyAddress,
+      },
+      {
+        key: "success",
+        value: "false",
+      },
+      {
+        key: "log",
+        value: "codespace: sdk, code: 11",
+      },
+    ]);
   }
 
-  /*
   // Round submitted after request
   {
     const jobId = Date.now().toString();
@@ -559,31 +571,38 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const infoB2A = await link.relayAll();
     assertPacketsFromB(infoB2A, 0, true);
 
-    const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
-      result: { job_id: jobId },
-    });
-    t.is(myResult, null);
-
-    const results = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
-    t.log(results);
-
     // Round incoming
     await bot.submitNext();
 
-    // DeliverBeacon packet
+    // DeliverBeacon packet (check ack and transaction of the ack)
     const infoB2A2 = await link.relayAll();
     assertPacketsFromB(infoB2A2, 1, true);
+    const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
+    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
 
-    const myResult2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
-      result: { job_id: jobId },
-    });
-    t.log(myResult2);
-    t.regex(myResult2, /3\.1[0-9]+/);
+    // This block is a workaround for https://github.com/confio/ts-relayer/pull/264
+    const block = await wasmClient.sign.getBlock(infoB2A2.acksFromA[0].height);
+    t.is(block.txs.length, 1);
+    const txId = toHex(sha256(block.txs[0])).toUpperCase();
 
-    const results2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, { results: {} });
-    t.log(results2);
+    const tx = await wasmClient.sign.getTx(txId);
+    assert(tx);
+    const callbackEvent = tx.events.find((e) => e.type.startsWith("wasm-nois-callback"));
+    t.deepEqual(callbackEvent?.attributes, [
+      {
+        key: "_contract_address",
+        value: noisProxyAddress,
+      },
+      {
+        key: "success",
+        value: "false",
+      },
+      {
+        key: "log",
+        value: "codespace: sdk, code: 11",
+      },
+    ]);
   }
-  */
 });
 
 test.serial("submit randomness for various job counts", async (t) => {
