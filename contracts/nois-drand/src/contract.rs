@@ -25,8 +25,14 @@ use crate::state::{
 /// Constant defining how many submissions per round will be rewarded
 const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u32 = 3;
-const INCENTIVE_POINTS_FOR_VERIFICATION: Uint128 = Uint128::new(35);
-const INCENTIVE_POINTS_FOR_FAST_BOT: Uint128 = Uint128::new(15);
+/// Point system for rewarding submisisons.
+///
+/// We use small integers here which are later multipied with a constant to
+/// pay out the rewards.
+/// For values up to 100 per submission we can safely sum up `Number.MAX_SAFE_INTEGER / 100 = 90071992547409`.
+/// This is one submission per second for 3 million years.
+const INCENTIVE_POINTS_FOR_VERIFICATION: u64 = 35;
+const INCENTIVE_POINTS_FOR_FAST_BOT: u64 = 15;
 
 #[entry_point]
 pub fn instantiate(
@@ -254,7 +260,7 @@ fn execute_add_round(
     }
 
     // Initialise the incentive to 0
-    let mut reward_points = Uint128::new(0);
+    let mut reward_points = 0u64;
 
     // Get the number of submission before this one.
     // The submissions are indexed 0-based, i.e. the number of elements is
@@ -360,7 +366,10 @@ fn execute_add_round(
         // TODO incentivise on processed_jobs;
     }
 
-    attributes.push(Attribute::new(ATTR_REWARD_POINTS, reward_points));
+    attributes.push(Attribute::new(
+        ATTR_REWARD_POINTS,
+        reward_points.to_string(),
+    ));
 
     // Pay the bot incentive
     // For now a bot needs to be registered, allowlisted and fast to  get incentives.
@@ -369,10 +378,10 @@ fn execute_add_round(
 
     let correct_group = Some(group(&info.sender)) == eligible_group(round);
 
-    let is_eligible = correct_group && is_registered && is_allowlisted && !reward_points.is_zero(); // Allowed and registered bot that gathered contribution points get incentives
+    let is_eligible = correct_group && is_registered && is_allowlisted && reward_points != 0; // Allowed and registered bot that gathered contribution points get incentives
 
     let payout = if is_eligible {
-        let desired_amount = reward_points * config.incentive_point_price;
+        let desired_amount = Uint128::from(reward_points) * config.incentive_point_price;
 
         let contract_balance = deps
             .querier
