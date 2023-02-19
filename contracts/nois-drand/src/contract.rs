@@ -27,10 +27,10 @@ const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
 const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u32 = 3;
 /// Point system for rewarding submisisons.
 ///
-/// We use small integers here which are later multipied with a constant to
+/// We use small integers here which are later multiplied with a constant to
 /// pay out the rewards.
-/// For values up to 100 per submission we can safely sum up `Number.MAX_SAFE_INTEGER / 100 = 90071992547409`.
-/// This is one submission per second for 3 million years.
+/// For values up to 100 points per submission we can safely sum up `Number.MAX_SAFE_INTEGER / 100 = 90071992547409` times.
+/// This is two submissions per minute for 85 million years or one submission per second for 3 million years.
 const INCENTIVE_POINTS_FOR_VERIFICATION: u64 = 35;
 const INCENTIVE_POINTS_FOR_FAST_BOT: u64 = 15;
 
@@ -202,6 +202,7 @@ fn execute_register_bot(
         _ => Bot {
             moniker,
             rounds_added: 0,
+            reward_points: 0,
         },
     };
     BOTS.save(deps.storage, &info.sender, &bot)?;
@@ -323,6 +324,7 @@ fn execute_add_round(
 
     if let Some(mut bot) = BOTS.may_load(deps.storage, &info.sender)? {
         is_registered = true;
+        bot.rounds_added += 1;
         bot.rounds_added += 1;
         BOTS.save(deps.storage, &info.sender, &bot)?;
     }
@@ -1198,6 +1200,7 @@ mod tests {
                 moniker: "Nickname1".to_string(),
                 address: Addr::unchecked(&bot_addr),
                 rounds_added: 0,
+                reward_points: 0,
             }
         );
 
@@ -1226,6 +1229,7 @@ mod tests {
                 moniker: "Another nickname".to_string(),
                 address: Addr::unchecked(&bot_addr),
                 rounds_added: 0,
+                reward_points: 0,
             }
         );
     }
