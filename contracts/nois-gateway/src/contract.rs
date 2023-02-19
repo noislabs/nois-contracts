@@ -189,11 +189,7 @@ pub fn ibc_packet_ack(
     match ack {
         StdAck::Result(data) => {
             is_error = false;
-            let response: DeliverBeaconPacketAck = from_binary(&data)?;
-            let ack_type: String = match response {
-                DeliverBeaconPacketAck::Delivered { job_id: _ } => "delivered".to_string(),
-            };
-            attributes.push(attr("ack_type", ack_type));
+            let _response: DeliverBeaconPacketAck = from_binary(&data)?;
         }
         StdAck::Error(err) => {
             is_error = true;
@@ -821,9 +817,7 @@ mod tests {
         };
 
         // Success ack (delivered)
-        let ack = StdAck::success(DeliverBeaconPacketAck::Delivered {
-            job_id: "hihi".to_string(),
-        });
+        let ack = StdAck::success(DeliverBeaconPacketAck::default());
         let msg = mock_ibc_packet_ack(
             "channel-12",
             &packet,
@@ -835,7 +829,6 @@ mod tests {
         assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "false");
         assert_eq!(first_attr(&attributes, "error"), None);
-        assert_eq!(first_attr(&attributes, "ack_type").unwrap(), "delivered");
 
         // Error ack
         let ack = StdAck::error("kaputt");
@@ -850,6 +843,5 @@ mod tests {
         assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "true");
         assert_eq!(first_attr(&attributes, "error").unwrap(), "kaputt");
-        assert_eq!(first_attr(&attributes, "ack_type"), None);
     }
 }
