@@ -82,8 +82,11 @@ pub const SUBMISSIONS_ORDER: Map<(u64, u32), Addr> = Map::new("submissions_order
 #[cw_serde]
 pub struct Bot {
     pub moniker: String,
-    /// Number of rounds added
+    /// Number of rounds added.
+    /// All valid round submissions are counted independently of the reward.
     pub rounds_added: u64,
+    /// The total number of reward points collected.
+    pub reward_points: u64,
 }
 
 /// Like [`Bot`] but with address
@@ -91,16 +94,20 @@ pub struct Bot {
 pub struct QueriedBot {
     pub moniker: String,
     pub address: Addr,
-    /// Number of rounds added
+    /// Number of rounds added.
+    /// All valid round submissions are counted independently of the reward.
     pub rounds_added: u64,
+    /// The total number of reward points collected.
+    pub reward_points: u64,
 }
 
 impl QueriedBot {
-    pub fn make(beacon: Bot, address: Addr) -> Self {
+    pub fn make(bot: Bot, address: Addr) -> Self {
         Self {
             address,
-            moniker: beacon.moniker,
-            rounds_added: beacon.rounds_added,
+            moniker: bot.moniker,
+            rounds_added: bot.rounds_added,
+            reward_points: bot.reward_points,
         }
     }
 }
