@@ -374,11 +374,9 @@ fn receive_deliver_beacon(
     )
     .with_gas_limit(callback_gas_limit);
 
-    let acknowledgement = StdAck::success(&DeliverBeaconPacketAck::Delivered {
-        job_id: job_id.clone(),
-    });
+    let ack = StdAck::success(DeliverBeaconPacketAck::default());
     Ok(IbcReceiveResponse::new()
-        .set_ack(acknowledgement)
+        .set_ack(ack)
         .add_attribute("action", "acknowledge_ibc_query")
         .add_attribute("job_id", job_id)
         .add_submessage(msg))

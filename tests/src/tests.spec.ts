@@ -237,7 +237,7 @@ test.serial("proxy works", async (t) => {
     const info2 = await link.relayAll();
     assertPacketsFromB(info2, 1, true);
     const ack2 = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(ack2.result), { delivered: { job_id: "eins" } });
+    t.deepEqual(fromBinary(ack2.result), {});
   }
 
   t.log("Executing get_next_randomness for a round that does not yet exists");
@@ -352,7 +352,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromB(info, 1, true);
     const ack = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
-    t.deepEqual(ack, { result: toBinary({ delivered: { job_id: "second job" } }) });
+    t.deepEqual(ack, { result: toBinary({}) });
   }
 
   {
@@ -368,7 +368,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromB(info, 1, true);
     const ack = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
-    t.deepEqual(ack, { result: toBinary({ delivered: { job_id: "first job" } }) });
+    t.deepEqual(ack, { result: toBinary({}) });
   }
 });
 
@@ -411,7 +411,7 @@ test.serial("demo contract can be used", async (t) => {
     assertPacketsFromB(infoB2A, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
     t.log(stdAckDeliver);
-    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
+    t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
     const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       result: { job_id: jobId },
@@ -465,7 +465,7 @@ test.serial("demo contract can be used", async (t) => {
     assertPacketsFromB(infoB2A2, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
     t.log(stdAckDeliver);
-    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
+    t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
     const myResult2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       result: { job_id: jobId },
@@ -519,7 +519,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const infoB2A = await link.relayAll();
     assertPacketsFromB(infoB2A, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
+    t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
     // This block is a workaround for https://github.com/confio/ts-relayer/pull/264
     const block = await wasmClient.sign.getBlock(infoB2A.acksFromA[0].height);
@@ -578,7 +578,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const infoB2A2 = await link.relayAll();
     assertPacketsFromB(infoB2A2, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(stdAckDeliver.result), { delivered: { job_id: jobId } });
+    t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
     // This block is a workaround for https://github.com/confio/ts-relayer/pull/264
     const block = await wasmClient.sign.getBlock(infoB2A2.acksFromA[0].height);

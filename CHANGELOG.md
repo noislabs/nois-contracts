@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - proxy: Make callback gas limit configurable and reduce value to 500k in tests.
 - Pull out `RequestBeaconOrigin` struct which belongs to the proxy-dapp communication.
 - Bump IBC protocol version to "nois-v5".
+- protocol: Remove unused job_id from `DeliverBeaconPacketAck`
 
 [#147]: https://github.com/noislabs/nois-contracts/pull/147
 [#153]: https://github.com/noislabs/nois-contracts/issues/153
