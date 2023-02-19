@@ -319,15 +319,11 @@ fn execute_add_round(
         return Err(ContractError::SubmissionExists);
     }
 
-    // True if and only if bot has been registered before
-    let mut is_registered = false;
+    let bot = BOTS.may_load(deps.storage, &info.sender)?;
 
-    if let Some(mut bot) = BOTS.may_load(deps.storage, &info.sender)? {
-        is_registered = true;
-        bot.rounds_added += 1;
-        bot.rounds_added += 1;
-        BOTS.save(deps.storage, &info.sender, &bot)?;
-    }
+    // True if and only if bot has been registered before
+    let is_registered = bot.is_some();
+
     let is_allowlisted = ALLOWLIST.has(deps.storage, &info.sender);
 
     SUBMISSIONS.save(
@@ -368,11 +364,6 @@ fn execute_add_round(
         // TODO incentivise on processed_jobs;
     }
 
-    attributes.push(Attribute::new(
-        ATTR_REWARD_POINTS,
-        reward_points.to_string(),
-    ));
-
     // Pay the bot incentive
     // For now a bot needs to be registered, allowlisted and fast to  get incentives.
     // We can easily make unregistered bots eligible for incentives as well by changing
@@ -380,7 +371,22 @@ fn execute_add_round(
 
     let correct_group = Some(group(&info.sender)) == eligible_group(round);
 
-    let is_eligible = correct_group && is_registered && is_allowlisted && reward_points != 0; // Allowed and registered bot that gathered contribution points get incentives
+    let is_eligible = correct_group && is_registered && is_allowlisted && reward_points != 0; // Allowed and registered bot that gathered reward points get incentives
+
+    if !is_eligible {
+        reward_points = 0;
+    }
+
+    attributes.push(Attribute::new(
+        ATTR_REWARD_POINTS,
+        reward_points.to_string(),
+    ));
+
+    if let Some(mut bot) = bot {
+        bot.rounds_added += 1;
+        bot.reward_points += reward_points;
+        BOTS.save(deps.storage, &info.sender, &bot)?;
+    }
 
     let payout = if is_eligible {
         let desired_amount = Uint128::from(reward_points) * config.incentive_point_price;
@@ -585,6 +591,14 @@ mod tests {
         execute(deps, mock_env(), info, register_bot_msg).unwrap();
     }
 
+    fn allowlist_bot(deps: DepsMut, addr: impl Into<String>) {
+        let msg = ExecuteMsg::UpdateAllowlistBots {
+            add: vec![addr.into()],
+            remove: vec![],
+        };
+        execute(deps, mock_env(), mock_info(TESTING_MANAGER, &[]), msg).unwrap();
+    }
+
     #[test]
     fn add_round_verifies_and_stores_randomness() {
         let mut deps = mock_dependencies();
@@ -688,7 +702,7 @@ mod tests {
             "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9"
         );
         assert_eq!(response.messages.len(), 0);
-        assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "50");
+        assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
     }
 
@@ -888,18 +902,14 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("registered_bot", &[]);
+        const MYBOT: &str = "mybot_12"; // eligable for odd rounds
+
+        let info = mock_info(MYBOT, &[]);
         register_bot(deps.as_mut(), info);
-        // add bot to allowlist
-        let info = mock_info(TESTING_MANAGER, &[]);
-        let msg = ExecuteMsg::UpdateAllowlistBots {
-            add: vec!["registered_bot".to_string()],
-            remove: vec![],
-        };
-        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        allowlist_bot(deps.as_mut(), MYBOT);
 
         let msg = make_add_round_msg(72785);
-        let info = mock_info("registered_bot", &[]);
+        let info = mock_info(MYBOT, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(response.messages.len(), 0);
         let attrs = response.attributes;
@@ -1620,6 +1630,133 @@ mod tests {
                 "bot_b".to_string(),
                 "bot_c".to_string()
             ]
+        );
+    }
+
+    #[test]
+    fn query_bot_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_point_price: Uint128::new(20_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        const UNREGISTERED: &str = "unregistered_bot";
+        const REGISTERED: &str = "registered_bot";
+        const ALLOWLISTED: &str = "allowlisted_bot";
+
+        register_bot(deps.as_mut(), mock_info(REGISTERED, &[]));
+        register_bot(deps.as_mut(), mock_info(ALLOWLISTED, &[]));
+        allowlist_bot(deps.as_mut(), ALLOWLISTED);
+
+        // Unregisrered
+        let BotResponse { bot } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Bot {
+                    address: UNREGISTERED.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(bot, None);
+
+        // Registered
+        let BotResponse { bot } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Bot {
+                    address: REGISTERED.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            bot.unwrap(),
+            QueriedBot {
+                address: Addr::unchecked(REGISTERED),
+                moniker: "Best Bot".to_string(),
+                rounds_added: 0,
+                reward_points: 0,
+            }
+        );
+
+        add_test_rounds(deps.as_mut(), REGISTERED);
+
+        let BotResponse { bot } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Bot {
+                    address: REGISTERED.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            bot.unwrap(),
+            QueriedBot {
+                address: Addr::unchecked(REGISTERED),
+                moniker: "Best Bot".to_string(),
+                rounds_added: 3,
+                reward_points: 0, // Not allowlisted
+            }
+        );
+
+        // Allowlisted
+        let BotResponse { bot } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Bot {
+                    address: ALLOWLISTED.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            bot.unwrap(),
+            QueriedBot {
+                address: Addr::unchecked(ALLOWLISTED),
+                moniker: "Best Bot".to_string(),
+                rounds_added: 0,
+                reward_points: 0,
+            }
+        );
+
+        add_test_rounds(deps.as_mut(), ALLOWLISTED);
+
+        let BotResponse { bot } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Bot {
+                    address: ALLOWLISTED.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            bot.unwrap(),
+            QueriedBot {
+                address: Addr::unchecked(ALLOWLISTED),
+                moniker: "Best Bot".to_string(),
+                rounds_added: 3,
+                reward_points: 2
+                    * (INCENTIVE_POINTS_FOR_FAST_BOT + INCENTIVE_POINTS_FOR_VERIFICATION),
+            }
         );
     }
 
