@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.0]
+## [0.9.0] - 2023-02-20
 
 [v0.9.0 article](https://scripta.network/@desmos1mvwy0d9kerz6yp9gj0u3alge9jjyjdu5m0hkpe/fd070691-1d67-4131-b0c7-034476c088e2)
 
@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - proxy: Make callback gas limit configurable and reduce value to 500k in tests.
 - Pull out `RequestBeaconOrigin` struct which belongs to the proxy-dapp communication.
 - Bump IBC protocol version to "nois-v5".
+- protocol: Remove unused job_id from `DeliverBeaconPacketAck`
+- drand: Add `reward_points` to bot stats
 
 [#147]: https://github.com/noislabs/nois-contracts/pull/147
 [#153]: https://github.com/noislabs/nois-contracts/issues/153
@@ -39,5 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.8.0...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/noislabs/nois-contracts/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/noislabs/nois-contracts/tree/v0.8.0

@@ -26,7 +26,7 @@ pub enum RequestBeaconPacketAck {
     },
 }
 
-/// This is the message we send over the IBC channel from nois-gateway to nois-proxy
+/// This is the message we send over the IBC channel from nois-gateway to nois-proxy.
 #[cw_serde]
 pub struct DeliverBeaconPacket {
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
@@ -36,10 +36,14 @@ pub struct DeliverBeaconPacket {
     pub origin: Binary,
 }
 
+/// The ack the proxy must send when receiving a [`DeliverBeaconPacket`].
+///
+/// This is a lighweight structre as the gateway does not do anything other than
+/// simple logging of the beacon delivery ack.
+#[non_exhaustive]
 #[cw_serde]
-pub enum DeliverBeaconPacketAck {
-    Delivered { job_id: String },
-}
+#[derive(Default)]
+pub struct DeliverBeaconPacketAck {}
 
 /// This is a generic ICS acknowledgement format.
 /// Proto defined here: https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147
