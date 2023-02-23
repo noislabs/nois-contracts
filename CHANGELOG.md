@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.0] - 2023-02-20
 
+[v0.9.0 article](https://scripta.network/@desmos1mvwy0d9kerz6yp9gj0u3alge9jjyjdu5m0hkpe/fd070691-1d67-4131-b0c7-034476c088e2)
+
 ### Added
 
 - New sink contract ([#151])
@@ -34,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#153]: https://github.com/noislabs/nois-contracts/issues/153
 
 ## [0.8.0]
+
+[v0.8.0 article](https://scripta.network/@desmos1s5rsl054mufsu2nhqn2wmvsmx0s2vwkcxwwwuv/d3e8db51-a111-4870-8fa0-4c37df9081b5)
 
 Base version for starting the CHANGELOG.
 
