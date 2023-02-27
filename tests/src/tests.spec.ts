@@ -1,8 +1,7 @@
 import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
 import { ExecuteInstruction, fromBinary, toBinary } from "@cosmjs/cosmwasm-stargate";
-import { sha256 } from "@cosmjs/crypto";
-import { fromUtf8, toHex } from "@cosmjs/encoding";
+import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test, { ExecutionContext } from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
@@ -521,12 +520,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
     t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
-    // This block is a workaround for https://github.com/confio/ts-relayer/pull/264
-    const block = await wasmClient.sign.getBlock(infoB2A.acksFromA[0].height);
-    t.is(block.txs.length, 1);
-    const txId = toHex(sha256(block.txs[0])).toUpperCase();
-
-    const tx = await wasmClient.sign.getTx(txId);
+    const tx = await wasmClient.sign.getTx(infoB2A.acksFromA[0].txHash);
     assert(tx);
     const callbackEvent = tx.events.find((e) => e.type.startsWith("wasm-nois-callback"));
     t.deepEqual(callbackEvent?.attributes, [
@@ -580,12 +574,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
     t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
-    // This block is a workaround for https://github.com/confio/ts-relayer/pull/264
-    const block = await wasmClient.sign.getBlock(infoB2A2.acksFromA[0].height);
-    t.is(block.txs.length, 1);
-    const txId = toHex(sha256(block.txs[0])).toUpperCase();
-
-    const tx = await wasmClient.sign.getTx(txId);
+    const tx = await wasmClient.sign.getTx(infoB2A2.acksFromA[0].txHash);
     assert(tx);
     const callbackEvent = tx.events.find((e) => e.type.startsWith("wasm-nois-callback"));
     t.deepEqual(callbackEvent?.attributes, [
