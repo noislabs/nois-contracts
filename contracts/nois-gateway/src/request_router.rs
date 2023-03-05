@@ -3,12 +3,12 @@
 use cosmwasm_std::{
     to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
 };
+use drand_common::{round_after, DRAND_CHAIN_HASH};
 use nois_protocol::{
     DeliverBeaconPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME,
 };
 
 use crate::{
-    drand::{round_after, DRAND_CHAIN_HASH},
     drand_archive::{archive_lookup, archive_store},
     state::{
         increment_processed_drand_jobs, unprocessed_drand_jobs_dequeue,

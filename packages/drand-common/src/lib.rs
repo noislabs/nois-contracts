@@ -5,6 +5,7 @@ use cosmwasm_std::Timestamp;
 /// See <https://drand.love/developer/> and <https://drand.cloudflare.com/info>
 pub const DRAND_CHAIN_HASH: &str =
     "8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce";
+
 pub const DRAND_GENESIS: Timestamp = Timestamp::from_seconds(1595431050);
 pub const DRAND_ROUND_LENGTH: u64 = 30_000_000_000; // in nanoseconds
 
