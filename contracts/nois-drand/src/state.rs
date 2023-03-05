@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
 use cw_storage_plus::{Item, Map};
 
-use crate::drand::time_of_round;
+use drand_common::time_of_round;
 
 #[cw_serde]
 pub struct Config {

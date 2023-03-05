@@ -544,6 +544,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
+ "drand-common",
  "drand-verify",
  "hex",
  "nois",
