@@ -290,9 +290,9 @@ fn integration_test() {
 
     // Add round
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
-        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-        round: 72785,
-        signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
+        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+        round: 72780,
+        signature: HexBinary::from_hex("86ac005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap(),
     };
     let resp = app
         .execute_contract(Addr::unchecked(BOT1), addr_nois_drand.clone(), &msg, &[])
@@ -310,9 +310,9 @@ fn integration_test() {
     );
     // Add round 2nd submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
-        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-        round: 72785,
-        signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
+        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+        round: 72780,
+        signature: HexBinary::from_hex("86ac005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap(),
     };
     let resp = app
         .execute_contract(Addr::unchecked(BOT2), addr_nois_drand.clone(), &msg, &[])
@@ -330,9 +330,9 @@ fn integration_test() {
     );
     // Add round 3rd submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
-        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-        round: 72785,
-        signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
+        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+        round: 72780,
+        signature: HexBinary::from_hex("86ac005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap(),
     };
     let resp = app
         .execute_contract(Addr::unchecked(BOT3), addr_nois_drand.clone(), &msg, &[])
@@ -350,9 +350,9 @@ fn integration_test() {
     );
     // Add round 4th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
-        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-        round: 72785,
-        signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
+        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+        round: 72780,
+        signature: HexBinary::from_hex("86ac005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap(),
     };
     let resp = app
         .execute_contract(Addr::unchecked(BOT4), addr_nois_drand.clone(), &msg, &[])
@@ -370,9 +370,9 @@ fn integration_test() {
     );
     // Add round 5th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
-        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-        round: 72785,
-        signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
+        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+        round: 72780,
+        signature: HexBinary::from_hex("86ac005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap(),
     };
     let resp = app
         .execute_contract(Addr::unchecked(BOT5), addr_nois_drand.clone(), &msg, &[])
@@ -390,9 +390,9 @@ fn integration_test() {
     );
     // Add round 6th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
-        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-        round: 72785,
-        signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
+        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+        round: 72780,
+        signature: HexBinary::from_hex("86ac005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap(),
     };
     let resp = app
         .execute_contract(Addr::unchecked(BOT6), addr_nois_drand.clone(), &msg, &[])
@@ -410,9 +410,9 @@ fn integration_test() {
     );
     // Add round 7th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
-        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-        round: 72785,
-        signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
+        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+        round: 72780,
+        signature: HexBinary::from_hex("86ac005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap(),
     };
     let resp = app
         .execute_contract(Addr::unchecked(BOT7), addr_nois_drand.clone(), &msg, &[])
@@ -427,15 +427,15 @@ fn integration_test() {
         "0unois"
     );
 
-    // Add round 8th submission
+    // Add round 8th submission: invalid siganture
+    //
     // Check that when a submission has been verified in previous txs by enough other bots
-    // And when a new bot brings a submission that won'tgo through verification. It should fail if it
-    // is different from the randomness already registered on contract state for that round
-    // Note that the previous_signature can be altered in this case without the contract returning an error.
+    // and when a new bot brings a submission that won't go through verification. It should fail if it
+    // is different from the randomness already registered on contract state for that round.
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
-        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-        round: 72785,
-        signature: HexBinary::from_hex("92f5d3d2de4db19d40a6980e8aa37842a0e55d1df06bd68bddc8d60002e8e959eb9cfa368b3c1b77d18f02a54fe047b80f0989315f83b12a74fd8679c4f12aae86eaf6ab5690b34f1fddd50ee3cc6f6cdf59e95526d5a5d82aaa84fa6f181e42").unwrap(),
+        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+        round: 72780,
+        signature: HexBinary::from_hex("886832ac1b059709a8966347fc447773e15ceff1eada944504fa541ab71c1d1c9ff4f2bbc69f90669a0cf936d018ab52").unwrap(),
     };
     let err = app
         .execute_contract(Addr::unchecked(BOT8), addr_nois_drand, &msg, &[])
