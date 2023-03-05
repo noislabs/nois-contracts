@@ -311,7 +311,7 @@ mod tests {
                 // curl -sS https://drand.cloudflare.com/public/72785
                 round: 72785,
                 randomness: HexBinary::from_hex(
-                    "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9",
+                    "650be14f6ffd7dcb67df9138c3b7d7d6bca455d0438fc81d3fbb24a4ee038f36",
                 )
                 .unwrap(),
                 is_verifying_tx,
