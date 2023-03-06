@@ -18,6 +18,11 @@ There are two CosmWasm-enabled blockchains running locally.
 
 - nois-gateway (runs on the randomness chain; one instance globally)
   - it gets the requests for randomness via IBC and redirects them to the randomness source (ex drand)
+- nois-payment (runs on the randomness chain; one instance per randomness consumer proxy/outpost)
+  - This contract gets created during IBC channel creation between a proxy and nois-gateway.
+  - It holds the funds for a specific customer. It plays the role of the randomness credit/balance.
+  - If this contract holds enough funds the randomness request is processed else it is rejected.
+  - The used funds are then partly burnt/ sent to the community pool or used to incentivise the relayer.
 - nois-drand is the entrypoint to the randomness beacon coming from drand through the drand bots. (runs on the randomness chain; one instance globally)
   - it verifies the randomness before it is stored on chain.
   - it initiates the callback messages to consumer DAPPS on randomness consumer chains (juno, stargaze ...) whenever the randomness is available. this callback is sent to the nois-proxy which is deployed on the consumer chain.
