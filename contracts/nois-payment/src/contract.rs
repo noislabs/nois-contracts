@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    entry_point, to_binary, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
+    ensure_eq, entry_point, to_binary, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     QueryResponse, Response, StdResult, Uint128, WasmMsg,
 };
 
@@ -7,31 +7,30 @@ use crate::error::ContractError;
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, NoisSinkExecuteMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
-/// Constant defining the denom of the Coin to be burnt
+/// Constant defining the denom of the Coin to be used for payment
 const PAYMENT_DENOM: &str = "unois";
 
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let nois_sink_addr = deps
         .api
         .addr_validate(&msg.nois_sink)
         .map_err(|_| ContractError::InvalidAddress)?;
-    //SINK.save(deps.storage, &nois_sink_addr)?;
     let nois_com_pool_addr = deps
         .api
         .addr_validate(&msg.nois_com_pool_addr)
         .map_err(|_| ContractError::InvalidAddress)?;
-    //COMMUNITY_POOL.save(deps.storage, &nois_com_pool_addr)?;
     CONFIG.save(
         deps.storage,
         &Config {
             community_pool: nois_com_pool_addr,
             sink: nois_sink_addr,
+            gateway: info.sender,
         },
     )?;
     Ok(Response::new()
@@ -78,6 +77,10 @@ fn execute_pay(
     relayer: (String, Uint128),
 ) -> Result<Response, ContractError> {
     let funds = info.funds;
+
+    // Make sure the caller is gateway to make sure malicious people can't drain someone else's payment balance
+    let gateway = CONFIG.load(deps.storage).unwrap().gateway;
+    ensure_eq!(info.sender, gateway, ContractError::Unauthorized);
 
     // Check there are no funds. Not a payable Msg
     if !funds.is_empty() {
@@ -158,7 +161,8 @@ mod tests {
             config,
             ConfigResponse {
                 community_pool: Addr::unchecked(NOIS_COMMUNITY_POOL),
-                sink: Addr::unchecked(NOIS_SINK)
+                sink: Addr::unchecked(NOIS_SINK),
+                gateway: Addr::unchecked(NOIS_GATEWAY),
             }
         );
     }
@@ -182,6 +186,26 @@ mod tests {
 
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::DontSendFunds));
+    }
+    #[test]
+    fn only_gateway_can_pay() {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            nois_sink: NOIS_SINK.to_string(),
+            nois_com_pool_addr: NOIS_COMMUNITY_POOL.to_string(),
+        };
+        let info = mock_info(NOIS_GATEWAY, &[]);
+        let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
+
+        let info = mock_info("a-malicious-person", &[]);
+        let msg = ExecuteMsg::Pay {
+            burn: Uint128::new(500_000),
+            community_pool: Uint128::new(450_000),
+            relayer: ("some-relayer".to_string(), Uint128::new(50_000)),
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
     }
 
     #[test]

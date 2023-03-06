@@ -12,4 +12,7 @@ pub enum ContractError {
 
     #[error("Invalid Address")]
     InvalidAddress,
+
+    #[error("Unothorised! Make sure you call this contract from the gateway ")]
+    Unauthorized,
 }

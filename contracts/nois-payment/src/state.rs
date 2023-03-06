@@ -8,6 +8,8 @@ pub struct Config {
     pub sink: Addr,
     /// The address of the community pool.
     pub community_pool: Addr,
+    /// The address of nois-gateway
+    pub gateway: Addr,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

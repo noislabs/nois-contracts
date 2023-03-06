@@ -11,7 +11,7 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    /// Burns the tokens that are sent as `funds` with this message
+    /// Pays by distributing the funds according to what has been instructed by the gateway
     Pay {
         burn: Uint128,
         community_pool: Uint128,
