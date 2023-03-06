@@ -1,6 +1,8 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
 
+use crate::state::Config;
+
 #[cw_serde]
 pub struct InstantiateMsg {
     pub nois_sink: String,
@@ -25,4 +27,11 @@ pub enum NoisSinkExecuteMsg {
 
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum QueryMsg {}
+pub enum QueryMsg {
+    /// Get the config state
+    #[returns(ConfigResponse)]
+    Config {},
+}
+
+// We define a custom struct for each query response
+pub type ConfigResponse = Config;
