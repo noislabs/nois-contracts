@@ -66,7 +66,7 @@ fn execute_pay(
     let funds = info.funds;
 
     // Check there are no funds. Not a payable Msg
-    if funds.len() > 0 {
+    if !funds.is_empty() {
         return Err(ContractError::DontSendFunds);
     }
     // Check relayer addr is valid
@@ -74,17 +74,13 @@ fn execute_pay(
         .addr_validate(relayer.0.as_str())
         .map_err(|_| ContractError::InvalidAddress)?;
 
-    let mut out_msgs = Vec::<CosmosMsg>::new();
-
     // Burn
-    out_msgs.push(
-        WasmMsg::Execute {
-            contract_addr: SINK.load(deps.storage).unwrap().to_string(),
-            msg: to_binary(&NoisSinkExecuteMsg::Burn {})?,
-            funds: vec![Coin::new(burn.into(), PAYMENT_DENOM)],
-        }
-        .into(),
-    );
+    let mut out_msgs: Vec<CosmosMsg> = vec![WasmMsg::Execute {
+        contract_addr: SINK.load(deps.storage).unwrap().to_string(),
+        msg: to_binary(&NoisSinkExecuteMsg::Burn {})?,
+        funds: vec![Coin::new(burn.into(), PAYMENT_DENOM)],
+    }
+    .into()];
 
     // Send to relayer
     out_msgs.push(
