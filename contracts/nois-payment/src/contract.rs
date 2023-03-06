@@ -30,13 +30,14 @@ pub fn instantiate(
         &Config {
             community_pool: nois_com_pool_addr,
             sink: nois_sink_addr,
-            gateway: info.sender,
+            gateway: info.sender.to_owned(),
         },
     )?;
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("nois_sink", msg.nois_sink)
-        .add_attribute("nois_community_pool", msg.nois_com_pool_addr))
+        .add_attribute("nois_community_pool", msg.nois_com_pool_addr)
+        .add_attribute("nois_gateway", info.sender))
 }
 
 #[entry_point]
