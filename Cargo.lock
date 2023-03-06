@@ -594,6 +594,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nois-payment"
+version = "0.8.0"
+dependencies = [
+ "cosmwasm-schema",
+ "cosmwasm-std",
+ "cw-storage-plus",
+ "nois",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
 name = "nois-protocol"
 version = "0.9.0"
 dependencies = [
