@@ -51,7 +51,7 @@ export interface WasmdContractPaths {
   readonly demo: string;
 }
 
-export interface OsmosisContractPaths {
+export interface NoisContractPaths {
   readonly icecube: string;
   readonly gateway: string;
   readonly drand: string;
@@ -62,7 +62,7 @@ export const wasmContracts: WasmdContractPaths = {
   demo: "./internal/nois_demo.wasm",
 };
 
-export const osmosisContracts: OsmosisContractPaths = {
+export const noisContracts: NoisContractPaths = {
   icecube: "./internal/nois_icecube.wasm",
   gateway: "./internal/nois_gateway.wasm",
   drand: "./internal/nois_drand.wasm",
@@ -71,7 +71,7 @@ export const osmosisContracts: OsmosisContractPaths = {
 export async function uploadContracts(
   t: ExecutionContext,
   cosmwasm: CosmWasmSigner,
-  contracts: WasmdContractPaths | OsmosisContractPaths
+  contracts: WasmdContractPaths | NoisContractPaths
 ): Promise<Record<string, number>> {
   const results: Record<string, number> = {};
 

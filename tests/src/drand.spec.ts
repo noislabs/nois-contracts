@@ -1,34 +1,34 @@
 import test from "ava";
 
 import { Bot } from "./bot";
-import { DrandInstantiateMsg, OsmosisContractPaths, osmosisContracts, uploadContracts } from "./contracts";
-import { setupOsmosisClient } from "./utils";
+import { DrandInstantiateMsg, NoisContractPaths, noisContracts, uploadContracts } from "./contracts";
+import { setupNoisClient } from "./utils";
 
 interface TestContext {
-  osmosisCodeIds: Record<keyof OsmosisContractPaths, number>;
+  osmosisCodeIds: Record<keyof NoisContractPaths, number>;
 }
 
 test.before(async (t) => {
-  const osmoClient = await setupOsmosisClient();
+  const noisClient = await setupNoisClient();
   t.log("Upload contracts ...");
-  const osmosisCodeIds = await uploadContracts(t, osmoClient, osmosisContracts);
+  const osmosisCodeIds = await uploadContracts(t, noisClient, noisContracts);
   const context: TestContext = { osmosisCodeIds };
   t.context = context;
   t.pass();
 });
 
 test.serial("drand: bot can submit", async (t) => {
-  // Instantiate Drand on osmosis
-  const osmoClient = await setupOsmosisClient();
+  // Instantiate Drand on Nois
+  const noisClient = await setupNoisClient();
 
   const msg: DrandInstantiateMsg = {
-    manager: osmoClient.senderAddress,
+    manager: noisClient.senderAddress,
     min_round: 2183660,
     incentive_point_price: "0",
     incentive_denom: "unois",
   };
-  const { contractAddress: drandAddress } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
+  const { contractAddress: drandAddress } = await noisClient.sign.instantiate(
+    noisClient.senderAddress,
     (t.context as TestContext).osmosisCodeIds.drand,
     msg,
     "Drand instance",
@@ -37,7 +37,7 @@ test.serial("drand: bot can submit", async (t) => {
   t.log(`Instantiated drand at ${drandAddress} with msg ${JSON.stringify(msg)}`);
   t.truthy(drandAddress);
 
-  const before = await osmoClient.sign.queryContractSmart(drandAddress, {
+  const before = await noisClient.sign.queryContractSmart(drandAddress, {
     beacon: { round: 2183666 },
   });
   t.deepEqual(before, { beacon: null });
@@ -51,7 +51,7 @@ test.serial("drand: bot can submit", async (t) => {
   const addRundRes = await bot.submitRound(2183666);
   t.log(`Gas used: ${addRundRes.gasUsed}/${addRundRes.gasWanted}`);
 
-  const after = await osmoClient.sign.queryContractSmart(drandAddress, {
+  const after = await noisClient.sign.queryContractSmart(drandAddress, {
     beacon: { round: 2183666 },
   });
   t.regex(after.beacon.published, /^1660941000000000000$/);

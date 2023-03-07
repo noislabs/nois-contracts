@@ -1,11 +1,33 @@
 import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/relayer";
+import { ChainDefinition } from "@confio/relayer/build/lib/helpers";
 import { fromBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 
-const { fundAccount, generateMnemonic, osmosis: oldOsmo, signingCosmWasmClient, wasmd } = testutils;
+const { fundAccount, generateMnemonic, signingCosmWasmClient, wasmd } = testutils;
 
-const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
+export const nois: ChainDefinition = {
+  tendermintUrlWs: "ws://localhost:26655",
+  tendermintUrlHttp: "http://localhost:26655",
+  chainId: "noisd-1",
+  prefix: "nois",
+  denomStaking: "unois",
+  denomFee: "unois",
+  minFee: "0.025unois",
+  blockTime: 250, // ms
+  faucet: {
+    mnemonic: "camera rice drop advance success club primary wonder diary inside raw tool",
+    // TODO: update pubkey
+    pubkey0: {
+      type: "tendermint/PubKeySecp256k1",
+      value: "A9cXhWb8ZpqCzkA8dQCPV29KdeRLV3rUYxrkHudLbQtS",
+    },
+    address0: "nois1hqg5nqnka82cwm3v02xj6ufns9tmss7rlpvucx",
+  },
+  ics20Port: "transfer",
+  estimatedBlockTime: 400,
+  estimatedIndexerTime: 80,
+};
 
 export const NoisProtocolIbcVersion = "nois-v5";
 
@@ -19,11 +41,11 @@ export async function setupWasmClient(): Promise<CosmWasmSigner> {
 }
 
 // This creates a client for the CosmWasm chain, that can interact with contracts
-export async function setupOsmosisClient(): Promise<CosmWasmSigner> {
+export async function setupNoisClient(): Promise<CosmWasmSigner> {
   // create apps and fund an account
   const mnemonic = generateMnemonic();
-  const cosmwasm = await signingCosmWasmClient(osmosis, mnemonic);
-  await fundAccount(osmosis, cosmwasm.senderAddress, "4000000");
+  const cosmwasm = await signingCosmWasmClient(nois, mnemonic);
+  await fundAccount(nois, cosmwasm.senderAddress, "4000000");
   return cosmwasm;
 }
 
