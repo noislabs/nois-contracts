@@ -19,7 +19,6 @@ export interface DrandExecuteMsg {
   readonly add_round?: {
     readonly round: number;
     readonly signature: string;
-    readonly previous_signature: string;
   };
   readonly register_bot?: {
     readonly moniker: string;
