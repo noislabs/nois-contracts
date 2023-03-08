@@ -13,7 +13,7 @@ export const nois: ChainDefinition = {
   prefix: "nois",
   denomStaking: "unois",
   denomFee: "unois",
-  minFee: "0.025unois",
+  minFee: "0.05unois",
   blockTime: 250, // ms
   faucet: {
     mnemonic: "camera rice drop advance success club primary wonder diary inside raw tool",
