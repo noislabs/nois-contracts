@@ -49,7 +49,7 @@ test.before(async (t) => {
   t.pass();
 });
 
-test.serial.only("set up channel", async (t) => {
+test.serial("set up channel", async (t) => {
   // Instantiate proxy on appchain
   const wasmClient = await setupWasmClient();
   const proxyMsg: ProxyInstantiateMsg = {
