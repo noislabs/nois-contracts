@@ -3,7 +3,7 @@ import { logs } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 
 import { DrandExecuteMsg, GatewayExecuteMsg } from "./contracts";
-import { setupOsmosisClient } from "./utils";
+import { setupNoisClient } from "./utils";
 
 interface Beacon {
   readonly round: number;
@@ -72,7 +72,7 @@ const localDataSource: Map<number, Beacon> = new Map(
 
 export class Bot {
   public static async connect(drandAddress: string): Promise<Bot> {
-    const signer = await setupOsmosisClient();
+    const signer = await setupNoisClient();
     return new Bot(signer.senderAddress, signer.sign, drandAddress);
   }
 
@@ -121,7 +121,7 @@ export class Bot {
 // Like Bot but submits pre-verified beacons
 export class MockBot {
   public static async connect(): Promise<MockBot> {
-    const signer = await setupOsmosisClient();
+    const signer = await setupNoisClient();
     return new MockBot(signer.senderAddress, signer.sign);
   }
 

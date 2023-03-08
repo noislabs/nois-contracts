@@ -11,8 +11,8 @@ import { ibcPacketsSent, MockBot } from "./bot";
 import {
   GatewayExecuteMsg,
   GatewayInstantiateMsg,
-  OsmosisContractPaths,
-  osmosisContracts,
+  NoisContractPaths,
+  noisContracts,
   ProxyInstantiateMsg,
   uploadContracts,
   wasmContracts,
@@ -21,29 +21,29 @@ import {
 import {
   assertPacketsFromA,
   assertPacketsFromB,
+  nois,
   NoisProtocolIbcVersion,
-  setupOsmosisClient,
+  setupNoisClient,
   setupWasmClient,
 } from "./utils";
 
-const { osmosis: oldOsmo, setup, wasmd, fundAccount } = testutils;
-const osmosis = { ...oldOsmo, minFee: "0.025uosmo" };
+const { setup, wasmd, fundAccount } = testutils;
 
 interface TestContext {
   wasmCodeIds: Record<keyof WasmdContractPaths, number>;
-  osmosisCodeIds: Record<keyof OsmosisContractPaths, number>;
+  noisCodeIds: Record<keyof NoisContractPaths, number>;
 }
 
 test.before(async (t) => {
-  const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
+  const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
   t.log("Upload contracts ...");
-  const [wasmCodeIds, osmosisCodeIds] = await Promise.all([
+  const [wasmCodeIds, noisCodeIds] = await Promise.all([
     uploadContracts(t, wasmClient, wasmContracts),
-    uploadContracts(t, osmoClient, osmosisContracts),
+    uploadContracts(t, noisClient, noisContracts),
   ]);
   const context: TestContext = {
     wasmCodeIds,
-    osmosisCodeIds,
+    noisCodeIds,
   };
   t.context = context;
   t.pass();
@@ -70,28 +70,28 @@ test.serial("set up channel", async (t) => {
   t.log(`Proxy port: ${proxyPort}`);
   assert(proxyPort);
 
-  const osmoClient = await setupOsmosisClient();
+  const noisClient = await setupNoisClient();
   const msg: GatewayInstantiateMsg = {};
-  const { contractAddress: gatewayAddress } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    (t.context as TestContext).osmosisCodeIds.gateway,
+  const { contractAddress: gatewayAddress } = await noisClient.sign.instantiate(
+    noisClient.senderAddress,
+    (t.context as TestContext).noisCodeIds.gateway,
     msg,
     "Gateway instance",
     "auto"
   );
   t.truthy(gatewayAddress);
-  const { ibcPortId: gatewayPort } = await osmoClient.sign.getContract(gatewayAddress);
+  const { ibcPortId: gatewayPort } = await noisClient.sign.getContract(gatewayAddress);
   t.log(`Gateway port: ${gatewayPort}`);
   assert(gatewayPort);
 
-  const [src, dest] = await setup(wasmd, osmosis);
+  const [src, dest] = await setup(wasmd, nois);
   const link = await Link.createWithNewConnections(src, dest);
   await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
 });
 
 interface SetupInfo {
   wasmClient: CosmWasmSigner;
-  osmoClient: CosmWasmSigner;
+  noisClient: CosmWasmSigner;
   /// Address on app chain (wasmd)
   noisProxyAddress: string;
   /// Address on app chain (wasmd)
@@ -119,7 +119,7 @@ async function instantiateAndConnectIbc(
   t: ExecutionContext,
   options: InstantiateAndConnectOptions
 ): Promise<SetupInfo> {
-  const [wasmClient, osmoClient] = await Promise.all([setupWasmClient(), setupOsmosisClient()]);
+  const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
 
   // Instantiate proxy on appchain
   const proxyMsg: ProxyInstantiateMsg = {
@@ -138,20 +138,20 @@ async function instantiateAndConnectIbc(
 
   // Instantiate Gateway on Osmosis
   const instantiateMsg: GatewayInstantiateMsg = {};
-  const { contractAddress: noisGatewayAddress } = await osmoClient.sign.instantiate(
-    osmoClient.senderAddress,
-    (t.context as TestContext).osmosisCodeIds.gateway,
+  const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
+    noisClient.senderAddress,
+    (t.context as TestContext).noisCodeIds.gateway,
     instantiateMsg,
     "Gateway instance",
     "auto"
   );
 
   const setDrandMsg: GatewayExecuteMsg = { set_drand_addr: { addr: options.mockDrandAddr } };
-  await osmoClient.sign.execute(osmoClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
+  await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
 
   const [noisProxyInfo, noisGatewayInfo] = await Promise.all([
     wasmClient.sign.getContract(noisProxyAddress),
-    osmoClient.sign.getContract(noisGatewayAddress),
+    noisClient.sign.getContract(noisGatewayAddress),
   ]);
   const { ibcPortId: proxyPort } = noisProxyInfo;
   assert(proxyPort);
@@ -159,7 +159,7 @@ async function instantiateAndConnectIbc(
   assert(gatewayPort);
 
   // Create a connection between the chains
-  const [src, dest] = await setup(wasmd, osmosis);
+  const [src, dest] = await setup(wasmd, nois);
   const link = await Link.createWithNewConnections(src, dest);
 
   // Create a channel for the Nois protocol
@@ -170,7 +170,7 @@ async function instantiateAndConnectIbc(
   };
 
   // Also create a ics20 channel
-  const ics20Info = await link.createChannel("A", wasmd.ics20Port, osmosis.ics20Port, Order.ORDER_UNORDERED, "ics20-1");
+  const ics20Info = await link.createChannel("A", wasmd.ics20Port, nois.ics20Port, Order.ORDER_UNORDERED, "ics20-1");
   const ics20Channel = {
     wasmChannelId: ics20Info.src.channelId,
     osmoChannelId: ics20Info.dest.channelId,
@@ -187,7 +187,7 @@ async function instantiateAndConnectIbc(
 
   return {
     wasmClient,
-    osmoClient,
+    noisClient,
     noisProxyAddress,
     noisDemoAddress,
     noisGatewayAddress,

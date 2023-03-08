@@ -1,0 +1,4 @@
+REPOSITORY="noislabs/noisd-ci"
+# This should be pinned to the newest version we support
+VERSION="0.0.0-lfg.0"
+CONTAINER_NAME="noisd-ci"
