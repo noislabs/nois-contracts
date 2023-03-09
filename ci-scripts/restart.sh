@@ -4,7 +4,7 @@ command -v shellcheck >/dev/null && shellcheck "$0"
 
 SCRIPT_DIR="$(realpath "$(dirname "$0")")"
 
-docker kill noisd-ci || true
+docker kill nois || true
 docker kill osmosis || true
 docker kill wasmd || true
 

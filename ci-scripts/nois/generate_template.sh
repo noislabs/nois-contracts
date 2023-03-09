@@ -17,7 +17,7 @@ docker run --rm \
   -e CHAIN_ID \
   --mount type=bind,source="$SCRIPT_DIR/template",target=/root \
   "$REPOSITORY:$VERSION" \
-  /opt/setup.sh \
+  setup_ci.sh \
   nois1hqg5nqnka82cwm3v02xj6ufns9tmss7rlpvucx
 
 # chmod -R g+rwx template/.noisd/
