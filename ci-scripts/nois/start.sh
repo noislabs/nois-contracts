@@ -29,5 +29,5 @@ docker run --rm \
   --mount type=bind,source="$SCRIPT_DIR/template",target=/template \
   --mount type=volume,source=noisd-data,target=/root \
   "$REPOSITORY:$VERSION" \
-  /opt/run.sh \
+  run_ci.sh \
   2>&1 | tee debug-noisd.log | grep 'executed block'
