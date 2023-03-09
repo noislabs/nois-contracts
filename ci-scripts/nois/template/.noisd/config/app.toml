@@ -8,7 +8,7 @@
 # The minimum gas prices a validator is willing to accept for processing a
 # transaction. A transaction's fees must meet the minimum of any denomination
 # specified in this config (e.g. 0.25token1;0.0001token2).
-minimum-gas-prices = "0.025unois"
+minimum-gas-prices = "0.05unois"
 
 # default: the last 100 states are kept in addition to every 500th state; pruning at 10 block intervals
 # nothing: all historic states will be saved, nothing will be deleted (i.e. archiving node)
@@ -109,7 +109,7 @@ global-labels = [
 [api]
 
 # Enable defines if the API server should be enabled.
-enable = true
+enable = false
 
 # Swagger defines if swagger documentation should automatically be registered.
 swagger = false
@@ -130,7 +130,7 @@ rpc-write-timeout = 0
 rpc-max-body-bytes = 1000000
 
 # EnableUnsafeCORS defines if CORS should be enabled (unsafe - use it at your own risk).
-enabled-unsafe-cors = true
+enabled-unsafe-cors = false
 
 ###############################################################################
 ###                           Rosetta Configuration                         ###
@@ -139,7 +139,7 @@ enabled-unsafe-cors = true
 [rosetta]
 
 # Enable defines if the Rosetta API server should be enabled.
-enable = true
+enable = false
 
 # Address defines the Rosetta API server to listen on.
 address = ":8080"
