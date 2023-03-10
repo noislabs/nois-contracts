@@ -165,7 +165,7 @@ mod tests {
     use crate::msg::{ExecuteMsg, QueriedAsh};
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, Addr, Attribute, Coin, Timestamp};
+    use cosmwasm_std::{from_binary, Addr, Attribute, Coin, Timestamp, Uint128};
 
     const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
 
@@ -317,7 +317,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {};
         let env = mock_env();
-        instantiate(deps.as_mut(), env, info, msg).unwrap();
+        instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
 
         let msg = ExecuteMsg::BurnNative {};
         let info = mock_info("creator", &[Coin::new(1_000, "unois".to_string())]);
@@ -325,10 +325,86 @@ mod tests {
         assert_eq!(err, ContractError::NonPayableMessage);
 
         let info = mock_info("creator", &[]);
-        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
         assert_eq!(err, ContractError::NoFundsToBurn);
+        let contract = env.contract.address;
 
-        // Need to send some coins  to the contract and check that burn works. Then check the Ash querying
+        deps.querier.update_balance(
+            contract.to_owned(),
+            vec![Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(100_000_000),
+            }],
+        );
+
+        let info = mock_info("burner-1", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap();
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Burn {
+                amount: vec![Coin {
+                    denom: "unois".to_string(),
+                    amount: Uint128::new(100_000_000)
+                }]
+            })
+        );
+        // Send 3 burn messages
+        for a in [1, 2] {
+            let msg = ExecuteMsg::Burn {};
+            let info = mock_info("joe", &[Coin::new(a, "unois")]);
+            execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        }
+        let info = mock_info("burner-4", &[]);
+        deps.querier.update_balance(
+            contract,
+            vec![Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(5_000),
+            }],
+        );
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let AshesResponse { ashes } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::AshesAsc {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ashes,
+            [
+                QueriedAsh {
+                    id: 1,
+                    burner: None,
+                    amount: Coin::new(100_000_000, "unois"),
+                    time: DEFAULT_TIME
+                },
+                QueriedAsh {
+                    id: 2,
+                    burner: Some(Addr::unchecked("joe")),
+                    amount: Coin::new(1, "unois"),
+                    time: DEFAULT_TIME
+                },
+                QueriedAsh {
+                    id: 3,
+                    burner: Some(Addr::unchecked("joe")),
+                    amount: Coin::new(2, "unois"),
+                    time: DEFAULT_TIME
+                },
+                QueriedAsh {
+                    id: 4,
+                    burner: None,
+                    amount: Coin::new(5000, "unois"),
+                    time: DEFAULT_TIME
+                },
+            ]
+        );
     }
 
     #[test]
