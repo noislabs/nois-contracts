@@ -464,7 +464,7 @@ mod tests {
     use crate::msg::ExecuteMsg;
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, Addr, Timestamp, Uint128};
+    use cosmwasm_std::{coins, from_binary, Addr, Timestamp, Uint128};
 
     const TESTING_MANAGER: &str = "mnrg";
     const TESTING_MIN_ROUND: u64 = 72785;
@@ -984,31 +984,73 @@ mod tests {
         let info = mock_info(bot1, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "registered_bot_761826381".to_string(),
+                amount: coins(1000000, "unois"), // verification + fast
+            })
+        );
 
         // 2nd
         let info = mock_info(bot2, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "registered_bot_98787233".to_string(),
+                amount: coins(1000000, "unois"), // verification + fast
+            })
+        );
 
         // 3rd
         let info = mock_info(bot3, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "registered_bot_12618926371".to_string(),
+                amount: coins(1000000, "unois"), // verification + fast
+            })
+        );
 
         // 4th
         let info = mock_info(bot4, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "registered_bot_21739812".to_string(),
+                amount: coins(300_000, "unois"), // verification + fast
+            })
+        );
 
         // 5th
         let info = mock_info(bot5, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "registered_bot_26737162".to_string(),
+                amount: coins(300_000, "unois"), // verification + fast
+            })
+        );
 
         // 6th
         let info = mock_info(bot6, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "registered_bot_34216397".to_string(),
+                amount: coins(300_000, "unois"), // verification + fast
+            })
+        );
 
         // 7th, here no message is emitted
         let info = mock_info(bot7, &[]);
