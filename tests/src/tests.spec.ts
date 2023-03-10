@@ -409,7 +409,6 @@ test.serial("demo contract can be used", async (t) => {
     const infoB2A = await link.relayAll();
     assertPacketsFromB(infoB2A, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
-    t.log(stdAckDeliver);
     t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
     const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
@@ -463,7 +462,6 @@ test.serial("demo contract can be used", async (t) => {
     const infoB2A2 = await link.relayAll();
     assertPacketsFromB(infoB2A2, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
-    t.log(stdAckDeliver);
     t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
     const myResult2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
