@@ -276,7 +276,10 @@ export class Bot {
   }
 }
 
-// Like Bot but submits pre-verified beacons
+/**
+ * Like Bot but submits pre-verified beacons to nois-gateway instead of
+ * unverified beacons to nois-drand.
+ */
 export class MockBot {
   public static async connect(): Promise<MockBot> {
     const signer = await setupNoisClient();
@@ -286,7 +289,7 @@ export class MockBot {
   public readonly address: string;
   private readonly client: SigningCosmWasmClient;
   private gatewayAddress: string | undefined;
-  private nextRound = 2183660;
+  private nextRound = 800;
 
   private constructor(address: string, client: SigningCosmWasmClient) {
     this.address = address;
@@ -299,7 +302,7 @@ export class MockBot {
 
   public async submitNext(): Promise<ExecuteResult> {
     const round = this.nextRound;
-    this.nextRound += 1;
+    this.nextRound += 10;
     return this.submitRound(round);
   }
 

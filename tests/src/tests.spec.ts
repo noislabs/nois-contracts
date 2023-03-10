@@ -229,7 +229,7 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info1, 1, true);
     const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(ack1.result), {
-      processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+      processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
 
     t.log("Relaying DeliverBeacon");
@@ -255,7 +255,7 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+      queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
   }
 
@@ -264,7 +264,9 @@ test.serial("proxy works", async (t) => {
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_randomness_after: { after: "1663357574000000000", job_id: "drei" } },
+      // Wednesday, 5. April 2023 06:07:08
+      // 1680674828
+      { get_randomness_after: { after: "1680674828000000000", job_id: "drei" } },
       "auto",
       undefined,
       [payment]
@@ -275,7 +277,8 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2264219" },
+      // Expected round: (1680674828-1677685200) / 3 = 996542.6666666666
+      queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:996550" },
     });
   }
 });
@@ -297,7 +300,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_randomness_after: { after: "1660940884222222222", job_id: "first job" } },
+      { get_randomness_after: { after: "1677687666000000000", job_id: "first job" } },
       "auto",
       undefined,
       [payment]
@@ -308,10 +311,8 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     assertPacketsFromA(info, 1, true);
     assertPacketsFromB(info, 0, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, {
-      result: toBinary({
-        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183663" },
-      }),
+    t.deepEqual(fromBinary(stdAck.result), {
+      queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:830" },
     });
   }
 
@@ -320,7 +321,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     await wasmClient.sign.execute(
       wasmClient.senderAddress,
       noisProxyAddress,
-      { get_randomness_after: { after: "1660940820000000000", job_id: "second job" } },
+      { get_randomness_after: { after: "1677687603000000000", job_id: "second job" } },
       "auto",
       undefined,
       [payment]
@@ -331,10 +332,8 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     assertPacketsFromA(info, 1, true);
     assertPacketsFromB(info, 0, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, {
-      result: toBinary({
-        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
-      }),
+    t.deepEqual(fromBinary(stdAck.result), {
+      queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
   }
 
@@ -402,7 +401,7 @@ test.serial("demo contract can be used", async (t) => {
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+      processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
 
     // DeliverBeacon packet
@@ -439,7 +438,7 @@ test.serial("demo contract can be used", async (t) => {
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(stdAck, {
       result: toBinary({
-        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+        queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
       }),
     });
 
@@ -509,7 +508,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     assertPacketsFromA(infoA2B, 1, true);
     const stdAckRequest = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAckRequest.result), {
-      processed: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183660" },
+      processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
 
     // DeliverBeacon packet (check ack and transaction of the ack)
@@ -555,7 +554,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(stdAck, {
       result: toBinary({
-        queued: { source_id: "drand:8990e7a9aaed2ffed73dbd7092123d6f289930540d7651336225dc172e51b2ce:2183661" },
+        queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
       }),
     });
 
@@ -606,21 +605,19 @@ test.serial("submit randomness for various job counts", async (t) => {
 
   await fundAccount(wasmd, wasmClient.senderAddress, "40000000");
 
-  function before(num: string): string {
-    return (BigInt(num) - BigInt(1)).toString();
+  function before(beaconReleaseTimestamp: string): string {
+    return (BigInt(beaconReleaseTimestamp) - BigInt(1)).toString();
   }
 
   const afterValues = [
-    before("1660940820000000000"),
-    before("1660940850000000000"),
-    before("1660940880000000000"),
-    before("1660940910000000000"),
-    before("1660940940000000000"),
-    before("1660940970000000000"),
-    before("1660941000000000000"),
-    before("1660941030000000000"),
-    before("1660941060000000000"),
-    before("1660941090000000000"),
+    before("1677687597000000000"), // round 800
+    before("1677687627000000000"), // round 810
+    before("1677687657000000000"), // round 820
+    before("1677687687000000000"), // round 830
+    before("1677687717000000000"), // round 840
+    before("1677687747000000000"), // round 850
+    before("1677687777000000000"), // round 860
+    before("1677687807000000000"), // round 870
   ];
 
   for (const [i, jobs] of [0, 1, 2, 3, 4].entries()) {
