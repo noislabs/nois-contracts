@@ -10,6 +10,7 @@ pub struct InstantiateMsg {}
 pub enum ExecuteMsg {
     /// Burns the tokens that are sent as `funds` with this message
     Burn {},
+    BurnNative {},
 }
 
 #[cw_serde]
@@ -39,7 +40,7 @@ pub enum QueryMsg {
 #[cw_serde]
 pub struct QueriedAsh {
     pub id: u32,
-    pub burner: Addr,
+    pub burner: Option<Addr>,
     pub amount: Coin,
     /// Point in time (block time) when the Ash was created
     pub time: Timestamp,

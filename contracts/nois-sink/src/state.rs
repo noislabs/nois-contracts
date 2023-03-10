@@ -10,7 +10,7 @@ pub const ASHES_LAST_ID: Item<u32> = Item::new("ashes_id");
 
 #[cw_serde]
 pub struct Ash {
-    pub burner: Addr,
+    pub burner: Option<Addr>,
     pub amount: Coin,
     /// Point in time (block time) when the Ash was created
     pub time: Timestamp,
