@@ -1024,7 +1024,7 @@ mod tests {
             response.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: "registered_bot_21739812".to_string(),
-                amount: coins(300_000, "unois"), // verification + fast
+                amount: coins(300_000, "unois"), // fast, no verification
             })
         );
 
@@ -1036,7 +1036,7 @@ mod tests {
             response.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: "registered_bot_26737162".to_string(),
-                amount: coins(300_000, "unois"), // verification + fast
+                amount: coins(300_000, "unois"), // fast, no verification
             })
         );
 
@@ -1048,7 +1048,7 @@ mod tests {
             response.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
                 to_address: "registered_bot_34216397".to_string(),
-                amount: coins(300_000, "unois"), // verification + fast
+                amount: coins(300_000, "unois"), // fast, no verification
             })
         );
 
