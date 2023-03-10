@@ -317,7 +317,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {};
         let env = mock_env();
-        instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
+        instantiate(deps.as_mut(), env, info, msg).unwrap();
 
         let msg = ExecuteMsg::BurnNative {};
         let info = mock_info("creator", &[Coin::new(1_000, "unois".to_string())]);
@@ -325,7 +325,7 @@ mod tests {
         assert_eq!(err, ContractError::NonPayableMessage);
 
         let info = mock_info("creator", &[]);
-        let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(err, ContractError::NoFundsToBurn);
 
         // Need to send some coins  to the contract and check that burn works. Then check the Ash querying
