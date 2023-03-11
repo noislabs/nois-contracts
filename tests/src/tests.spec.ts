@@ -96,7 +96,7 @@ interface SetupInfo {
   noisProxyAddress: string;
   /// Address on app chain (wasmd)
   noisDemoAddress: string;
-  /// Address on randomness chain (osmosis)
+  /// Address on Nois
   noisGatewayAddress: string;
   link: Link;
   noisChannel: {
@@ -136,7 +136,7 @@ async function instantiateAndConnectIbc(
     "auto"
   );
 
-  // Instantiate Gateway on Osmosis
+  // Instantiate Gateway on Nois
   const instantiateMsg: GatewayInstantiateMsg = {};
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
