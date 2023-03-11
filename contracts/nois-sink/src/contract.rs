@@ -30,6 +30,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Burn {} => execute_burn(deps, info, env),
+        ExecuteMsg::BurnBalance {} => execute_burn_balance(deps, info, env),
     }
 }
 
@@ -70,7 +71,7 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
         deps.storage,
         new_id,
         &Ash {
-            burner: burner.clone(),
+            burner: Some(burner.clone()),
             amount: amount.clone(),
             time,
         },
@@ -84,6 +85,48 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
         .add_message(msg)
         .add_attribute("burnt_amount", amount.to_string())
         .add_attribute("burner", burner)
+        .add_attribute("time", time.to_string()))
+}
+
+fn execute_burn_balance(
+    deps: DepsMut,
+    info: MessageInfo,
+    env: Env,
+) -> Result<Response, ContractError> {
+    if !info.funds.is_empty() {
+        return Err(ContractError::NonPayableMessage);
+    }
+    let contract_balance = deps
+        .querier
+        .query_balance(&env.contract.address, BURN_DENOM)?;
+
+    if contract_balance.amount.is_zero() {
+        return Err(ContractError::NoFundsToBurn);
+    }
+
+    let new_id = ASHES_LAST_ID.may_load(deps.storage)?.unwrap_or_default() + 1;
+    ASHES_LAST_ID.save(deps.storage, &new_id)?;
+
+    let time = env.block.time;
+
+    //store the burner Ash
+    ASHES.save(
+        deps.storage,
+        new_id,
+        &Ash {
+            burner: None,
+            amount: contract_balance.clone(),
+            time,
+        },
+    )?;
+
+    let msg = CosmosMsg::Bank(BankMsg::Burn {
+        amount: vec![contract_balance.clone()],
+    });
+
+    Ok(Response::new()
+        .add_message(msg)
+        .add_attribute("burnt_amount", contract_balance.to_string())
         .add_attribute("time", time.to_string()))
 }
 
@@ -122,7 +165,7 @@ mod tests {
     use crate::msg::{ExecuteMsg, QueriedAsh};
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, Addr, Attribute, Coin, Timestamp};
+    use cosmwasm_std::{from_binary, Addr, Attribute, Coin, Timestamp, Uint128};
 
     const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
 
@@ -198,25 +241,25 @@ mod tests {
             [
                 QueriedAsh {
                     id: 1,
-                    burner: Addr::unchecked("burner-1"),
+                    burner: Some(Addr::unchecked("burner-1")),
                     amount: Coin::new(1_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 2,
-                    burner: Addr::unchecked("burner-2"),
+                    burner: Some(Addr::unchecked("burner-2")),
                     amount: Coin::new(2_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Addr::unchecked("burner-3"),
+                    burner: Some(Addr::unchecked("burner-3")),
                     amount: Coin::new(3_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 4,
-                    burner: Addr::unchecked("burner-4"),
+                    burner: Some(Addr::unchecked("burner-4")),
                     amount: Coin::new(4_000, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -241,26 +284,123 @@ mod tests {
             [
                 QueriedAsh {
                     id: 4,
-                    burner: Addr::unchecked("burner-4"),
+                    burner: Some(Addr::unchecked("burner-4")),
                     amount: Coin::new(4_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Addr::unchecked("burner-3"),
+                    burner: Some(Addr::unchecked("burner-3")),
                     amount: Coin::new(3_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 2,
-                    burner: Addr::unchecked("burner-2"),
+                    burner: Some(Addr::unchecked("burner-2")),
                     amount: Coin::new(2_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 1,
-                    burner: Addr::unchecked("burner-1"),
+                    burner: Some(Addr::unchecked("burner-1")),
                     amount: Coin::new(1_000, "unois"),
+                    time: DEFAULT_TIME
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn burn_native_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {};
+        let env = mock_env();
+        instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
+
+        let msg = ExecuteMsg::BurnBalance {};
+        let info = mock_info("creator", &[Coin::new(1_000, "unois".to_string())]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+        assert_eq!(err, ContractError::NonPayableMessage);
+
+        let info = mock_info("creator", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
+        assert_eq!(err, ContractError::NoFundsToBurn);
+        let contract = env.contract.address;
+
+        deps.querier.update_balance(
+            contract.to_owned(),
+            vec![Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(100_000_000),
+            }],
+        );
+
+        let info = mock_info("burner-1", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap();
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Burn {
+                amount: vec![Coin {
+                    denom: "unois".to_string(),
+                    amount: Uint128::new(100_000_000)
+                }]
+            })
+        );
+        // Send 3 burn messages
+        for a in [1, 2] {
+            let msg = ExecuteMsg::Burn {};
+            let info = mock_info("joe", &[Coin::new(a, "unois")]);
+            execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        }
+        let info = mock_info("burner-4", &[]);
+        deps.querier.update_balance(
+            contract,
+            vec![Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(5_000),
+            }],
+        );
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let AshesResponse { ashes } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::AshesAsc {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            ashes,
+            [
+                QueriedAsh {
+                    id: 1,
+                    burner: None,
+                    amount: Coin::new(100_000_000, "unois"),
+                    time: DEFAULT_TIME
+                },
+                QueriedAsh {
+                    id: 2,
+                    burner: Some(Addr::unchecked("joe")),
+                    amount: Coin::new(1, "unois"),
+                    time: DEFAULT_TIME
+                },
+                QueriedAsh {
+                    id: 3,
+                    burner: Some(Addr::unchecked("joe")),
+                    amount: Coin::new(2, "unois"),
+                    time: DEFAULT_TIME
+                },
+                QueriedAsh {
+                    id: 4,
+                    burner: None,
+                    amount: Coin::new(5000, "unois"),
                     time: DEFAULT_TIME
                 },
             ]
@@ -301,19 +441,19 @@ mod tests {
             [
                 QueriedAsh {
                     id: 1,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(1, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 2,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(2, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(3, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -338,19 +478,19 @@ mod tests {
             [
                 QueriedAsh {
                     id: 3,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(3, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 4,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(4, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 5,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(5, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -375,73 +515,73 @@ mod tests {
             [
                 QueriedAsh {
                     id: 1,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(1, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 2,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(2, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(3, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 4,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(4, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 5,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(5, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 6,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(6, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 7,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(7, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 8,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(8, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 9,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(9, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 10,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(10, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 11,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(11, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 12,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(12, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -466,19 +606,19 @@ mod tests {
             [
                 QueriedAsh {
                     id: 5,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(5, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 4,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(4, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(3, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -503,13 +643,13 @@ mod tests {
             [
                 QueriedAsh {
                     id: 2,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(2, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 1,
-                    burner: Addr::unchecked("joe"),
+                    burner: Some(Addr::unchecked("joe")),
                     amount: Coin::new(1, "unois"),
                     time: DEFAULT_TIME
                 },

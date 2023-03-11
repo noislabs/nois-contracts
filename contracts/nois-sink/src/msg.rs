@@ -10,6 +10,9 @@ pub struct InstantiateMsg {}
 pub enum ExecuteMsg {
     /// Burns the tokens that are sent as `funds` with this message
     Burn {},
+    /// Burns all unois owned by the contract. This can be used
+    /// if tokens were sent here using bank sends.
+    BurnBalance {},
 }
 
 #[cw_serde]
@@ -39,7 +42,7 @@ pub enum QueryMsg {
 #[cw_serde]
 pub struct QueriedAsh {
     pub id: u32,
-    pub burner: Addr,
+    pub burner: Option<Addr>,
     pub amount: Coin,
     /// Point in time (block time) when the Ash was created
     pub time: Timestamp,
