@@ -5,14 +5,14 @@ import { DrandInstantiateMsg, NoisContractPaths, noisContracts, uploadContracts 
 import { setupNoisClient } from "./utils";
 
 interface TestContext {
-  osmosisCodeIds: Record<keyof NoisContractPaths, number>;
+  noisCodeIds: Record<keyof NoisContractPaths, number>;
 }
 
 test.before(async (t) => {
   const noisClient = await setupNoisClient();
   t.log("Upload contracts ...");
-  const osmosisCodeIds = await uploadContracts(t, noisClient, noisContracts);
-  const context: TestContext = { osmosisCodeIds };
+  const noisCodeIds = await uploadContracts(t, noisClient, noisContracts);
+  const context: TestContext = { noisCodeIds };
   t.context = context;
   t.pass();
 });
@@ -29,7 +29,7 @@ test.serial("drand: bot can submit", async (t) => {
   };
   const { contractAddress: drandAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
-    (t.context as TestContext).osmosisCodeIds.drand,
+    (t.context as TestContext).noisCodeIds.drand,
     msg,
     "Drand instance",
     "auto"

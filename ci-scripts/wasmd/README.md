@@ -1,4 +1,4 @@
-# Local Osmosisd development network
+# Local development network
 
 Configuration is in the `env` file, that is the most likely place you want to adjust
 
