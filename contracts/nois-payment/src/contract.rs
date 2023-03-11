@@ -228,5 +228,30 @@ mod tests {
 
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(response.messages.len(), 3); // 3 because we send funds to 3 different addresses (relayer + com_pool + sink)
+
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "sink".to_string(),
+                msg: cosmwasm_std::Binary {
+                    0: vec![123, 34, 98, 117, 114, 110, 34, 58, 123, 125, 125]
+                },
+                funds: vec![Coin::new(500_000, "unois")],
+            })
+        );
+        assert_eq!(
+            response.messages[1].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "some-relayer".to_string(),
+                amount: coins(50_000, "unois"),
+            })
+        );
+        assert_eq!(
+            response.messages[2].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: "community_pool".to_string(),
+                amount: coins(450_000, "unois"),
+            })
+        );
     }
 }
