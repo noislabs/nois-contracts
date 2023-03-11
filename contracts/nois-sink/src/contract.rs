@@ -121,7 +121,7 @@ fn execute_burn_native(
     )?;
 
     let msg = CosmosMsg::Bank(BankMsg::Burn {
-        amount: vec![contract_balance.to_owned()],
+        amount: vec![contract_balance.clone()],
     });
 
     Ok(Response::new()
