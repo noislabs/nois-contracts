@@ -61,7 +61,7 @@ Terminal 1:
 Terminal 2:
 
 ```
-./ci-scripts/osmosis/start.sh
+./ci-scripts/nois/start.sh
 ```
 
 If those start properly, you should see a series of `executed block` messages. If they fail, check `debug.log` in that directory for full log messages.
@@ -78,5 +78,5 @@ You may run and re-run tests many times. When you are done with it and want to f
 
 ```
 ./scripts/wasmd/stop.sh
-./scripts/osmosisd/stop.sh
+./scripts/nois/stop.sh
 ```

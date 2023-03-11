@@ -8,8 +8,7 @@ that allows testing contract to contract IBC communication.
 There are two CosmWasm-enabled blockchains running locally.
 
 1. **The randomness chain:** This is where randomness is verified and distributed from.
-   Currently implemented using an instance of osmosisd but this could be swapped for any
-   other ComsWasm chain.
+   Uses noisd.
 2. **The app chain:** This is where the users deploy their contracts and request the
    randomness from. Currently this uses wasmd. An example for app chains in production would
    be Juno, Terra or Tgrade.
@@ -81,10 +80,10 @@ The production grade Wasm builds are compiled with:
 In terminal 1 run:
 
 ```
-./ci-scripts/osmosis/start.sh
+./ci-scripts/nois/start.sh
 ```
 
-which will log in `debug-osmosis.log`.
+which will log in `debug-nois.log`.
 
 In terminal 2 run:
 
@@ -94,7 +93,7 @@ In terminal 2 run:
 
 which will log in `debug-wasmd.log`.
 
-In terminal 3 with `docker ps` you can see the running chains. `docker kill osmosis` and `docker kill wasmd` allows you to stop them.
+In terminal 3 with `docker ps` you can see the running chains. `docker kill nois` and `docker kill wasmd` allows you to stop them.
 
 ### Run tests
 
