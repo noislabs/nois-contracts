@@ -10,6 +10,8 @@ pub struct InstantiateMsg {}
 pub enum ExecuteMsg {
     /// Burns the tokens that are sent as `funds` with this message
     Burn {},
+    /// Burns all unois owned by the contract. This can be used
+    /// if tokens were sent here using bank sends.
     BurnBalance {},
 }
 
