@@ -30,7 +30,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Burn {} => execute_burn(deps, info, env),
-        ExecuteMsg::BurnNative {} => execute_burn_native(deps, info, env),
+        ExecuteMsg::BurnBalance {} => execute_burn_balance(deps, info, env),
     }
 }
 
@@ -88,7 +88,7 @@ fn execute_burn(deps: DepsMut, info: MessageInfo, env: Env) -> Result<Response, 
         .add_attribute("time", time.to_string()))
 }
 
-fn execute_burn_native(
+fn execute_burn_balance(
     deps: DepsMut,
     info: MessageInfo,
     env: Env,
@@ -319,7 +319,7 @@ mod tests {
         let env = mock_env();
         instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
 
-        let msg = ExecuteMsg::BurnNative {};
+        let msg = ExecuteMsg::BurnBalance {};
         let info = mock_info("creator", &[Coin::new(1_000, "unois".to_string())]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::NonPayableMessage);

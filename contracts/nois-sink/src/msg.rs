@@ -10,7 +10,7 @@ pub struct InstantiateMsg {}
 pub enum ExecuteMsg {
     /// Burns the tokens that are sent as `funds` with this message
     Burn {},
-    BurnNative {},
+    BurnBalance {},
 }
 
 #[cw_serde]
