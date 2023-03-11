@@ -115,7 +115,7 @@ fn execute_burn_native(
         new_id,
         &Ash {
             burner: None,
-            amount: contract_balance.to_owned(),
+            amount: contract_balance.clone(),
             time,
         },
     )?;
