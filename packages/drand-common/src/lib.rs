@@ -1,7 +1,7 @@
 mod rounds;
 pub mod testing;
 
-pub use rounds::{time_of_round, valid_round_after};
+pub use rounds::{is_valid, time_of_round, valid_round_after};
 
 use cosmwasm_std::Timestamp;
 
