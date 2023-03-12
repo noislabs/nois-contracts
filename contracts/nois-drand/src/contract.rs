@@ -4,6 +4,7 @@ use cosmwasm_std::{
     Uint128, WasmMsg,
 };
 use cw_storage_plus::Bound;
+use drand_common::is_valid;
 use drand_verify::{derive_randomness, G2Pubkey, Pubkey};
 
 use crate::attributes::{
@@ -249,6 +250,10 @@ fn execute_add_round(
     // TODO: Not covered by testing
     if !info.funds.is_empty() {
         return Err(StdError::generic_err("Do not send funds").into());
+    }
+
+    if !is_valid(round) {
+        return Err(ContractError::RoundInvalid { round });
     }
 
     let config = CONFIG.load(deps.storage)?;
@@ -564,21 +569,36 @@ mod tests {
         let info = mock_info("anyone", &[]);
         register_bot(deps.as_mut(), info.to_owned());
 
-        let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-            round: 72785,
-            signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
-        };
+        let msg = make_add_round_msg(72780);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let response: BeaconResponse = from_binary(
-            &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72785 }).unwrap(),
+        let BeaconResponse { beacon } = from_binary(
+            &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72780 }).unwrap(),
         )
         .unwrap();
         assert_eq!(
-            response.beacon.unwrap().randomness.to_hex(),
-            "650be14f6ffd7dcb67df9138c3b7d7d6bca455d0438fc81d3fbb24a4ee038f36"
+            beacon.unwrap().randomness.to_hex(),
+            "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
         );
+    }
+
+    #[test]
+    fn add_round_fails_when_round_invalid() {
+        let mut deps = mock_dependencies();
+
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_point_price: Uint128::new(20_000),
+            incentive_denom: "unois".to_string(),
+        };
+        let info = mock_info("creator", &[]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let msg = make_add_round_msg(8);
+        let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::RoundInvalid { round: 8 }));
     }
 
     #[test]
@@ -599,12 +619,12 @@ mod tests {
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(min_round, TESTING_MIN_ROUND);
 
-        let msg = make_add_round_msg(9);
+        let msg = make_add_round_msg(10);
         let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
         assert!(matches!(
             err,
             ContractError::RoundTooLow {
-                round: 9,
+                round: 10,
                 min_round: TESTING_MIN_ROUND,
             }
         ));
@@ -635,18 +655,14 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-            round: 72785,
-            signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
-        };
+        let msg = make_add_round_msg(72780);
         let info = mock_info("unregistered_bot", &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let attrs = response.attributes;
         let randomness = first_attr(&attrs, "randomness").unwrap();
         assert_eq!(
             randomness,
-            "650be14f6ffd7dcb67df9138c3b7d7d6bca455d0438fc81d3fbb24a4ee038f36"
+            "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
         );
         assert_eq!(response.messages.len(), 0);
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
@@ -1018,13 +1034,13 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = make_add_round_msg(72785);
+        let msg = make_add_round_msg(72780);
         let info = mock_info("unregistered_bot", &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
             randomness,
-            "650be14f6ffd7dcb67df9138c3b7d7d6bca455d0438fc81d3fbb24a4ee038f36"
+            "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
         );
     }
 
@@ -1044,8 +1060,7 @@ mod tests {
         let info = mock_info("anyone", &[]);
         register_bot(deps.as_mut(), info.to_owned());
         let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-            round: 72785,
+            round: 72780,
             signature: hex::decode("3cc6f6cdf59e95526d5a5d82aaa84fa6f181e4")
                 .unwrap()
                 .into(), // broken signature
@@ -1071,9 +1086,8 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-            round: 79999, // wrong round
-            signature: hex::decode("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap().into(),
+            round: 72790, // wrong round
+            signature: testing_signature(72780).unwrap(),
         };
         let result = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg);
         match result.unwrap_err() {
@@ -1082,10 +1096,10 @@ mod tests {
         };
 
         let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-            round: 72785,
-            // wrong signature
-            signature: hex::decode("38f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap().into(),
+            // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+            round: 72780,
+            // wrong signature (first two bytes swapped)
+            signature: hex::decode("ac86005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap().into(),
         };
         let result = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg);
         match result.unwrap_err() {
@@ -1108,7 +1122,7 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = make_add_round_msg(72785);
+        let msg = make_add_round_msg(72780);
 
         // Execute 1
         let info = mock_info("anyone", &[]);
@@ -1117,7 +1131,7 @@ mod tests {
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
             randomness,
-            "650be14f6ffd7dcb67df9138c3b7d7d6bca455d0438fc81d3fbb24a4ee038f36"
+            "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
         );
 
         // Execute 2
@@ -1127,7 +1141,7 @@ mod tests {
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
             randomness,
-            "650be14f6ffd7dcb67df9138c3b7d7d6bca455d0438fc81d3fbb24a4ee038f36"
+            "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
         );
     }
 
@@ -1145,7 +1159,7 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = make_add_round_msg(72785);
+        let msg = make_add_round_msg(72780);
 
         // Execute A1
         let info = mock_info("bot_alice", &[]);
