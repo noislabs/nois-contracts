@@ -4,14 +4,13 @@ use cosmwasm_std::{
     Uint128, WasmMsg,
 };
 use cw_storage_plus::Bound;
-use drand_common::is_valid;
+use drand_common::{is_valid, DRAND_MAINNET2_PUBKEY};
 use drand_verify::{derive_randomness, G2Pubkey, Pubkey};
 
 use crate::attributes::{
     ATTR_BOT, ATTR_RANDOMNESS, ATTR_REWARD_PAYOUT, ATTR_REWARD_POINTS, ATTR_ROUND,
 };
 use crate::bots::{eligible_group, group, validate_moniker};
-use crate::drand::DRAND_MAINNET2_PUBKEY;
 use crate::error::ContractError;
 use crate::msg::{
     AllowListResponse, BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse,
