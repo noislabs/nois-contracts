@@ -30,7 +30,7 @@ pub fn instantiate(
         &Config {
             community_pool: nois_com_pool_addr,
             sink: nois_sink_addr,
-            gateway: info.sender.to_owned(),
+            gateway: info.sender.clone(),
         },
     )?;
     Ok(Response::new()
