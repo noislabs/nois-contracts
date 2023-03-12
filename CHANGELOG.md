@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New payment contract
 
+### Changes
+
+- Migrade to new drand mainnet (chain hash `dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493`) ([#177]).
+
+[#177]: https://github.com/noislabs/nois-contracts/pull/177
+
 ## [0.9.0] - 2023-02-20
 
 [v0.9.0 article](https://scripta.network/@desmos1mvwy0d9kerz6yp9gj0u3alge9jjyjdu5m0hkpe/fd070691-1d67-4131-b0c7-034476c088e2)
