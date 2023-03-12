@@ -3,7 +3,7 @@
 use cosmwasm_std::{
     to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
 };
-use drand_common::{round_after_divisor, DRAND_CHAIN_HASH};
+use drand_common::{valid_round_after, DRAND_CHAIN_HASH};
 use nois_protocol::{
     DeliverBeaconPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME,
 };
@@ -152,7 +152,7 @@ fn create_deliver_beacon_ibc_message(
 
 /// Calculates the next round in the future, i.e. publish time > base time.
 fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
-    let round = round_after_divisor(after, 10);
+    let round = valid_round_after(after);
     let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
     (round, source_id)
 }
