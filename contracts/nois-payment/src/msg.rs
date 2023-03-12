@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::Coin;
 
 use crate::state::Config;
 
@@ -13,9 +13,9 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     /// Pays by distributing the funds according to what has been instructed by the gateway
     Pay {
-        burn: Uint128,
-        community_pool: Uint128,
-        relayer: (String, Uint128),
+        burn: Coin,
+        community_pool: Coin,
+        relayer: (String, Coin),
     },
 }
 

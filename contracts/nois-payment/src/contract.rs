@@ -1,14 +1,11 @@
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    QueryResponse, Response, StdResult, Uint128, WasmMsg,
+    QueryResponse, Response, StdResult, WasmMsg,
 };
 
 use crate::error::ContractError;
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, NoisSinkExecuteMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
-
-/// Constant defining the denom of the Coin to be used for payment
-const PAYMENT_DENOM: &str = "unois";
 
 #[entry_point]
 pub fn instantiate(
@@ -73,15 +70,15 @@ fn execute_pay(
     deps: DepsMut,
     info: MessageInfo,
     _env: Env,
-    burn: Uint128,
-    community_pool: Uint128,
-    relayer: (String, Uint128),
+    burn: Coin,
+    community_pool: Coin,
+    relayer: (String, Coin),
 ) -> Result<Response, ContractError> {
     let funds = info.funds;
+    let config = CONFIG.load(deps.storage).unwrap();
 
     // Make sure the caller is gateway to make sure malicious people can't drain someone else's payment balance
-    let gateway = CONFIG.load(deps.storage).unwrap().gateway;
-    ensure_eq!(info.sender, gateway, ContractError::Unauthorized);
+    ensure_eq!(info.sender, config.gateway, ContractError::Unauthorized);
 
     // Check there are no funds. Not a payable Msg
     if !funds.is_empty() {
@@ -94,9 +91,9 @@ fn execute_pay(
 
     // Burn
     let mut out_msgs: Vec<CosmosMsg> = vec![WasmMsg::Execute {
-        contract_addr: CONFIG.load(deps.storage).unwrap().sink.to_string(),
+        contract_addr: config.sink.to_string(),
         msg: to_binary(&NoisSinkExecuteMsg::Burn {})?,
-        funds: vec![Coin::new(burn.into(), PAYMENT_DENOM)],
+        funds: vec![burn.clone()],
     }
     .into()];
 
@@ -104,7 +101,7 @@ fn execute_pay(
     out_msgs.push(
         BankMsg::Send {
             to_address: relayer.0.to_owned(),
-            amount: vec![Coin::new(relayer.1.into(), PAYMENT_DENOM)],
+            amount: vec![relayer.1.clone()],
         }
         .into(),
     );
@@ -112,22 +109,18 @@ fn execute_pay(
     // Send to community pool
     out_msgs.push(
         BankMsg::Send {
-            to_address: CONFIG
-                .load(deps.storage)
-                .unwrap()
-                .community_pool
-                .to_string(),
-            amount: vec![Coin::new(community_pool.into(), PAYMENT_DENOM)],
+            to_address: config.community_pool.to_string(),
+            amount: vec![community_pool.clone()],
         }
         .into(),
     );
 
     Ok(Response::new()
         .add_messages(out_msgs)
-        .add_attribute("burnt_amount", burn)
-        .add_attribute("relayer_incentive", relayer.1)
+        .add_attribute("burnt_amount", burn.to_string())
+        .add_attribute("relayer_incentive", relayer.1.to_string())
         .add_attribute("relayer_address", relayer.0)
-        .add_attribute("sent_to_community_pool", community_pool))
+        .add_attribute("sent_to_community_pool", community_pool.to_string()))
 }
 
 #[cfg(test)]
@@ -180,9 +173,21 @@ mod tests {
 
         let info = mock_info(NOIS_GATEWAY, &coins(12345, "unoisx"));
         let msg = ExecuteMsg::Pay {
-            burn: Uint128::new(500_000),
-            community_pool: Uint128::new(450_000),
-            relayer: ("some-relayer".to_string(), Uint128::new(50_000)),
+            burn: Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(500_000),
+            },
+            community_pool: Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(450_000),
+            },
+            relayer: (
+                "some-relayer".to_string(),
+                Coin {
+                    denom: "unois".to_string(),
+                    amount: Uint128::new(50_000),
+                },
+            ),
         };
 
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
@@ -200,9 +205,21 @@ mod tests {
 
         let info = mock_info("a-malicious-person", &[]);
         let msg = ExecuteMsg::Pay {
-            burn: Uint128::new(500_000),
-            community_pool: Uint128::new(450_000),
-            relayer: ("some-relayer".to_string(), Uint128::new(50_000)),
+            burn: Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(500_000),
+            },
+            community_pool: Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(450_000),
+            },
+            relayer: (
+                "some-relayer".to_string(),
+                Coin {
+                    denom: "unois".to_string(),
+                    amount: Uint128::new(50_000),
+                },
+            ),
         };
 
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
@@ -221,16 +238,27 @@ mod tests {
 
         let info = mock_info(NOIS_GATEWAY, &[]);
         let msg = ExecuteMsg::Pay {
-            burn: Uint128::new(500_000),
-            community_pool: Uint128::new(450_000),
-            relayer: ("some-relayer".to_string(), Uint128::new(50_000)),
+            burn: Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(500_000),
+            },
+            community_pool: Coin {
+                denom: "unois".to_string(),
+                amount: Uint128::new(450_000),
+            },
+            relayer: (
+                "some-relayer".to_string(),
+                Coin {
+                    denom: "unois".to_string(),
+                    amount: Uint128::new(50_000),
+                },
+            ),
         };
 
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(response.messages.len(), 3); // 3 because we send funds to 3 different addresses (relayer + com_pool + sink)
 
         // clippy linting  doesnt like this
-
         //  assert_eq!(
         //      response.messages[0].msg,
         //      CosmosMsg::Wasm(WasmMsg::Execute {
