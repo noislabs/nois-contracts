@@ -461,6 +461,7 @@ mod tests {
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
     use cosmwasm_std::{coins, from_binary, Addr, Timestamp, Uint128};
+    use drand_common::testing::testing_signature;
 
     const TESTING_MANAGER: &str = "mnrg";
     const TESTING_MIN_ROUND: u64 = 72760;
@@ -470,68 +471,10 @@ mod tests {
     const DEFAULT_TX_INDEX: Option<u32> = Some(3);
 
     fn make_add_round_msg(round: u64) -> ExecuteMsg {
-        match round {
-            9 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/9
-                round: 9,
-                signature: HexBinary::from_hex("b598635395730033daab872d08c0ca31045b216fd062d911fa72f8320edad3d838f0a7b3b0013296c7bbd0f8dec01e9a").unwrap(),
-            },
-            72760 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72760
-                round: 72760,
-                signature: HexBinary::from_hex("8b67bfda5e871ad79179fb8b7476852487904241c720e2434b68c51c5b9356623d242cf30d1869c9e0a642d608050c17").unwrap(),
-            },
-            72770 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72770
-                round: 72770,
-                signature: HexBinary::from_hex("85b380ce250af1e2aa9226f0f77e5ef88dafb30158bf240d745df689d002bba24db45af259bb941bfe27dd20ddc11b32").unwrap(),
-            },
-            72780 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
-                round: 72780,
-                signature: HexBinary::from_hex("86ac005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap(),
-            },
-            72785 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
-                round: 72785,
-                signature: HexBinary::from_hex("83f2bcb12b772602f27a1ad130a33781014ac73e82098580e934a5b5e4ad57ceff27ad22fd6344b33af9675e0d0b5e27").unwrap(),
-            },
-            72786 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72786
-                round: 72786,
-                signature: HexBinary::from_hex("845fa920aa818c5417e1f7be321f428d363f21acdede449bec2af7be7fdd0c26203829e4063703101a19770a3767d31c").unwrap(),
-            },
-            72787 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72787
-                round: 72787,
-                signature: HexBinary::from_hex("a989c38f3a9e9b871059f2dab78ea5db546196d00fc94db2893de609f3408f73adadc345e21df15d9e351bda365ebe0f").unwrap(),
-            },
-            72790 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72790
-                round: 72790,
-                signature: HexBinary::from_hex("b366eaf8ad13fbd36b76751ded49726f8cc47506af50c4e12d9fd1c3244418e0ac4c36d5cdcc342fa71e5bdb599564c9").unwrap(),
-            },
-            13668 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/13668
-                round: 13668,
-                signature: HexBinary::from_hex("b77570005e683214406722e0fab75bd0b45067f6fb17325ed679f3427593292fb36e9ea0912e27d13fe6cf0e8f94890c").unwrap(),
-            },
-            13669 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/13669
-                round: 13669,
-                signature: HexBinary::from_hex("afe5d94a917c52532f5ffdbea48e1735913157f26af6bb139c0cf86ce2d4751319ae289b7d2075a90e7b41be48366dc3").unwrap(),
-            },
-            13670 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/13670
-                round: 13670,
-                signature: HexBinary::from_hex("ab9bbbe847d5c0654399fdc68f04dd31f2399a5ededfb732e4d548fce226d9db78295592b34e16a9800d0bc2efa56408").unwrap(),
-            },
-            13671 => ExecuteMsg::AddRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/13671
-                round: 13671,
-                signature: HexBinary::from_hex("b449f94098616029baea233fa8b64851cf9de2b230a7c5a2181c3abdc9e92806ae9020a5d9dcdbb707b6f1754480954b00a80b594cb35b51944167d2b20cc3b3cac6da7023c6a6bf867c6c3844768794edcaae292394316603797d669f62691a").unwrap(),
-            },
-            _ => panic!("Test round {round} not set"),
+        if let Some(signature) = testing_signature(round) {
+            ExecuteMsg::AddRound { round, signature }
+        } else {
+            panic!("Test round {round} not set");
         }
     }
 

@@ -1,3 +1,5 @@
+pub mod testing;
+
 use cosmwasm_std::Timestamp;
 
 /// The chain hash serves as a drand network identifier.
