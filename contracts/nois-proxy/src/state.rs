@@ -20,34 +20,114 @@ pub const CONFIG: Item<Config> = Item::new("config");
 pub const GATEWAY_CHANNEL: Item<String> = Item::new("gateway_channel");
 
 /// We use this value to get publish times that are independent of the current clock
-/// in test mode. We want the following rounds to be the result. To get there er use
-/// a starting time of 1660940820000000000 - 1 nanoseconds and then increment by 30 seconds.
+/// in test mode. We want the following rounds to be the result. To get there we use
+/// a starting time of 1677687597000000000 - 1 nanoseconds and then increment by 30 seconds.
 ///
 /// ```plain
-/// Publish times (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=65eea6af54e85243595743ba41f96f18)
-/// Publish time of #2183660: 1660940820000000000
-/// Publish time of #2183661: 1660940850000000000
-/// Publish time of #2183662: 1660940880000000000
-/// Publish time of #2183663: 1660940910000000000
-/// Publish time of #2183664: 1660940940000000000
-/// Publish time of #2183665: 1660940970000000000
-/// Publish time of #2183666: 1660941000000000000
-/// Publish time of #2183667: 1660941030000000000
-/// Publish time of #2183668: 1660941060000000000
-/// Publish time of #2183669: 1660941090000000000
-/// Publish time of #2183670: 1660941120000000000
-/// Publish time of #2183671: 1660941150000000000
-/// Publish time of #2183672: 1660941180000000000
-/// Publish time of #2183673: 1660941210000000000
-/// Publish time of #2183674: 1660941240000000000
-/// Publish time of #2183675: 1660941270000000000
-/// Publish time of #2183676: 1660941300000000000
-/// Publish time of #2183677: 1660941330000000000
-/// Publish time of #2183678: 1660941360000000000
-/// Publish time of #2183679: 1660941390000000000
-/// Publish time of #2183680: 1660941420000000000
+/// Publish times (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=4d0d6d84cdb9b48260594e3b74aa86ae)
+/// Publish time of #800: 1677687597000000000
+/// Publish time of #801: 1677687600000000000
+/// Publish time of #802: 1677687603000000000
+/// Publish time of #803: 1677687606000000000
+/// Publish time of #804: 1677687609000000000
+/// Publish time of #805: 1677687612000000000
+/// Publish time of #806: 1677687615000000000
+/// Publish time of #807: 1677687618000000000
+/// Publish time of #808: 1677687621000000000
+/// Publish time of #809: 1677687624000000000
+/// Publish time of #810: 1677687627000000000
+/// Publish time of #811: 1677687630000000000
+/// Publish time of #812: 1677687633000000000
+/// Publish time of #813: 1677687636000000000
+/// Publish time of #814: 1677687639000000000
+/// Publish time of #815: 1677687642000000000
+/// Publish time of #816: 1677687645000000000
+/// Publish time of #817: 1677687648000000000
+/// Publish time of #818: 1677687651000000000
+/// Publish time of #819: 1677687654000000000
+/// Publish time of #820: 1677687657000000000
+/// Publish time of #821: 1677687660000000000
+/// Publish time of #822: 1677687663000000000
+/// Publish time of #823: 1677687666000000000
+/// Publish time of #824: 1677687669000000000
+/// Publish time of #825: 1677687672000000000
+/// Publish time of #826: 1677687675000000000
+/// Publish time of #827: 1677687678000000000
+/// Publish time of #828: 1677687681000000000
+/// Publish time of #829: 1677687684000000000
+/// Publish time of #830: 1677687687000000000
+/// Publish time of #831: 1677687690000000000
+/// Publish time of #832: 1677687693000000000
+/// Publish time of #833: 1677687696000000000
+/// Publish time of #834: 1677687699000000000
+/// Publish time of #835: 1677687702000000000
+/// Publish time of #836: 1677687705000000000
+/// Publish time of #837: 1677687708000000000
+/// Publish time of #838: 1677687711000000000
+/// Publish time of #839: 1677687714000000000
+/// Publish time of #840: 1677687717000000000
+/// Publish time of #841: 1677687720000000000
+/// Publish time of #842: 1677687723000000000
+/// Publish time of #843: 1677687726000000000
+/// Publish time of #844: 1677687729000000000
+/// Publish time of #845: 1677687732000000000
+/// Publish time of #846: 1677687735000000000
+/// Publish time of #847: 1677687738000000000
+/// Publish time of #848: 1677687741000000000
+/// Publish time of #849: 1677687744000000000
+/// Publish time of #850: 1677687747000000000
+/// Publish time of #851: 1677687750000000000
+/// Publish time of #852: 1677687753000000000
+/// Publish time of #853: 1677687756000000000
+/// Publish time of #854: 1677687759000000000
+/// Publish time of #855: 1677687762000000000
+/// Publish time of #856: 1677687765000000000
+/// Publish time of #857: 1677687768000000000
+/// Publish time of #858: 1677687771000000000
+/// Publish time of #859: 1677687774000000000
+/// Publish time of #860: 1677687777000000000
+/// Publish time of #861: 1677687780000000000
+/// Publish time of #862: 1677687783000000000
+/// Publish time of #863: 1677687786000000000
+/// Publish time of #864: 1677687789000000000
+/// Publish time of #865: 1677687792000000000
+/// Publish time of #866: 1677687795000000000
+/// Publish time of #867: 1677687798000000000
+/// Publish time of #868: 1677687801000000000
+/// Publish time of #869: 1677687804000000000
+/// Publish time of #870: 1677687807000000000
+/// Publish time of #871: 1677687810000000000
+/// Publish time of #872: 1677687813000000000
+/// Publish time of #873: 1677687816000000000
+/// Publish time of #874: 1677687819000000000
+/// Publish time of #875: 1677687822000000000
+/// Publish time of #876: 1677687825000000000
+/// Publish time of #877: 1677687828000000000
+/// Publish time of #878: 1677687831000000000
+/// Publish time of #879: 1677687834000000000
+/// Publish time of #880: 1677687837000000000
+/// Publish time of #881: 1677687840000000000
+/// Publish time of #882: 1677687843000000000
+/// Publish time of #883: 1677687846000000000
+/// Publish time of #884: 1677687849000000000
+/// Publish time of #885: 1677687852000000000
+/// Publish time of #886: 1677687855000000000
+/// Publish time of #887: 1677687858000000000
+/// Publish time of #888: 1677687861000000000
+/// Publish time of #889: 1677687864000000000
+/// Publish time of #890: 1677687867000000000
+/// Publish time of #891: 1677687870000000000
+/// Publish time of #892: 1677687873000000000
+/// Publish time of #893: 1677687876000000000
+/// Publish time of #894: 1677687879000000000
+/// Publish time of #895: 1677687882000000000
+/// Publish time of #896: 1677687885000000000
+/// Publish time of #897: 1677687888000000000
+/// Publish time of #898: 1677687891000000000
+/// Publish time of #899: 1677687894000000000
+/// Publish time of #900: 1677687897000000000
 /// ```
 pub const TEST_MODE_NEXT_AFTER: Item<Timestamp> = Item::new("test_mode_next_after");
 
-pub const TEST_MODE_NEXT_AFTER_INIT: Timestamp = Timestamp::from_nanos(1660940820000000000 - 1);
+pub const TEST_MODE_NEXT_AFTER_INIT: Timestamp = Timestamp::from_nanos(1677687597000000000 - 1);
 pub const TEST_MODE_NEXT_AFTER_INCREMENT_SECONDS: u64 = 30;

@@ -23,7 +23,6 @@ pub enum ExecuteMsg {
     /// Add drand beacon
     AddRound {
         round: u64,
-        previous_signature: HexBinary,
         signature: HexBinary,
     },
     /// Registers a bot using on the sender address of the message.

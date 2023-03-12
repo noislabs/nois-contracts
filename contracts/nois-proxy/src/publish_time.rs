@@ -68,26 +68,30 @@ mod tests {
 
     #[test]
     fn calculate_after_works_for_test_mode() {
+        const TEST_VAL1: u64 = 1677687596999999999;
+        const TEST_VAL2: u64 = 1677687626999999999;
+        const TEST_VAL3: u64 = 1677687656999999999;
+
         let mut deps = mock_dependencies();
         let s = deps.as_mut().storage;
 
         let after = calculate_after(s, AfterMode::Test).unwrap();
-        assert_eq!(after, Timestamp::from_nanos(1660940819999999999));
+        assert_eq!(after, Timestamp::from_nanos(TEST_VAL1));
         let after = calculate_after(s, AfterMode::Test).unwrap();
-        assert_eq!(after, Timestamp::from_nanos(1660940849999999999));
+        assert_eq!(after, Timestamp::from_nanos(TEST_VAL2));
         let after = calculate_after(s, AfterMode::Test).unwrap();
-        assert_eq!(after, Timestamp::from_nanos(1660940879999999999));
+        assert_eq!(after, Timestamp::from_nanos(TEST_VAL3));
 
         // Resets for new storage
         let mut deps = mock_dependencies();
         let s = deps.as_mut().storage;
 
         let after = calculate_after(s, AfterMode::Test).unwrap();
-        assert_eq!(after, Timestamp::from_nanos(1660940819999999999));
+        assert_eq!(after, Timestamp::from_nanos(TEST_VAL1));
         let after = calculate_after(s, AfterMode::Test).unwrap();
-        assert_eq!(after, Timestamp::from_nanos(1660940849999999999));
+        assert_eq!(after, Timestamp::from_nanos(TEST_VAL2));
         let after = calculate_after(s, AfterMode::Test).unwrap();
-        assert_eq!(after, Timestamp::from_nanos(1660940879999999999));
+        assert_eq!(after, Timestamp::from_nanos(TEST_VAL3));
 
         // Can be mixed with block height mode for no reason
         let mut deps = mock_dependencies();
@@ -96,11 +100,11 @@ mod tests {
         let after = calculate_after(s, AfterMode::BlockTime(Timestamp::from_nanos(0))).unwrap();
         assert_eq!(after, Timestamp::from_nanos(SAFETY_MARGIN));
         let after = calculate_after(s, AfterMode::Test).unwrap();
-        assert_eq!(after, Timestamp::from_nanos(1660940819999999999));
+        assert_eq!(after, Timestamp::from_nanos(TEST_VAL1));
         let after = calculate_after(s, AfterMode::BlockTime(Timestamp::from_nanos(7))).unwrap();
         assert_eq!(after, Timestamp::from_nanos(7 + SAFETY_MARGIN));
         let after = calculate_after(s, AfterMode::Test).unwrap();
-        assert_eq!(after, Timestamp::from_nanos(1660940849999999999));
+        assert_eq!(after, Timestamp::from_nanos(TEST_VAL2));
         let after = calculate_after(
             s,
             AfterMode::BlockTime(Timestamp::from_nanos(4984338431241435)),
@@ -111,6 +115,6 @@ mod tests {
             Timestamp::from_nanos(4984338431241435 + SAFETY_MARGIN)
         );
         let after = calculate_after(s, AfterMode::Test).unwrap();
-        assert_eq!(after, Timestamp::from_nanos(1660940879999999999));
+        assert_eq!(after, Timestamp::from_nanos(TEST_VAL3));
     }
 }

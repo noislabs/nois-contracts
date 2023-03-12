@@ -24,6 +24,9 @@ pub enum ContractError {
     #[error("Invalid public key")]
     InvalidPubkey,
 
+    #[error("Round {round} not valid")]
+    RoundInvalid { round: u64 },
+
     #[error("Round {round} lower than min round {min_round}")]
     RoundTooLow { round: u64, min_round: u64 },
 

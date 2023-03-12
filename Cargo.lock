@@ -321,10 +321,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "drand-common"
+version = "0.9.0"
+dependencies = [
+ "cosmwasm-std",
+]
+
+[[package]]
 name = "drand-verify"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a883556599eb2804f7f3ae2014fcd4b1c65f3a5b52bac1252a5cec499b1aa6ea"
+checksum = "98fc994ac25074c3f78e40083358117b0b6847e6d6e35fa8a07d0ccbd73f1f27"
 dependencies = [
  "bls12_381",
  "pairing",
@@ -537,6 +544,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
+ "drand-common",
  "drand-verify",
  "hex",
  "nois",
@@ -552,6 +560,7 @@ dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
+ "drand-common",
  "nois",
  "nois-protocol",
  "serde",

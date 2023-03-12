@@ -18,6 +18,7 @@ backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
 nois.workspace = true
+drand-common = { path = "../../packages/drand-common" }
 cosmwasm-std = { version = "1.2.1", features = ["iterator", "ibc3"] }
 cosmwasm-schema = { version = "1.2.1" }
 cw-storage-plus = { version = "1.0.0" }
@@ -27,4 +28,4 @@ sha2 = "0.10.6"
 
 # Drand dependencies
 hex = { version = "0.4" }
-drand-verify = "0.4.0"
+drand-verify = "0.5.0"
