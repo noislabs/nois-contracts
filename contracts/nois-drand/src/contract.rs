@@ -1,7 +1,7 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut,
-    Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
-    Uint128, WasmMsg,
+    ensure_eq, entry_point, to_binary, Attribute, BankMsg, CanonicalAddr, Coin, CosmosMsg, Deps,
+    DepsMut, Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError,
+    StdResult, Uint128, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drand_common::{is_valid, DRAND_MAINNET2_PUBKEY};
@@ -23,8 +23,8 @@ use crate::state::{
 };
 
 /// Constant defining how many submissions per round will be rewarded
-const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
-const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u32 = 3;
+const NUMBER_OF_INCENTIVES_PER_ROUND: u16 = 6;
+const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u16 = 3;
 /// Point system for rewarding submisisons.
 ///
 /// We use small integers here which are later multiplied with a constant to
@@ -135,13 +135,14 @@ fn query_beacons(
 fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
     let prefix = SUBMISSIONS_ORDER.prefix(round);
 
-    let submission_addresses: Vec<Addr> = prefix
+    let submission_addresses: Vec<CanonicalAddr> = prefix
         .range(deps.storage, None, None, Order::Ascending)
         .map(|item| -> StdResult<_> { Ok(item?.1) })
         .collect::<Result<_, _>>()?;
     let mut submissions: Vec<QueriedSubmission> = Vec::with_capacity(submission_addresses.len());
     for addr in submission_addresses {
         let stored = SUBMISSIONS.load(deps.storage, (round, &addr))?;
+        let addr = deps.api.addr_humanize(&addr)?;
         submissions.push(QueriedSubmission::make(stored, addr));
     }
     Ok(SubmissionsResponse { round, submissions })
@@ -313,7 +314,8 @@ fn execute_add_round(
         randomness: randomness.clone(),
     };
 
-    let submissions_key = (round, &info.sender);
+    let canonicalized = deps.api.addr_canonicalize(info.sender.as_str())?;
+    let submissions_key = (round, canonicalized.as_slice());
 
     if SUBMISSIONS.has(deps.storage, submissions_key) {
         return Err(ContractError::SubmissionExists);
@@ -336,7 +338,7 @@ fn execute_add_round(
         },
     )?;
 
-    SUBMISSIONS_ORDER.save(deps.storage, (round, submissions_count), &info.sender)?;
+    SUBMISSIONS_ORDER.save(deps.storage, (round, submissions_count), &canonicalized)?;
 
     let mut attributes = vec![
         Attribute::new(ATTR_ROUND, round.to_string()),

@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
+use cosmwasm_std::{Addr, CanonicalAddr, HexBinary, Timestamp, Uint128};
 use cw_storage_plus::{Item, Map};
 
 use drand_common::time_of_round;
@@ -67,7 +67,7 @@ pub struct StoredSubmission {
 
 /// Stores the submission for an efficient (round, address) lookup
 /// An entry of this map looks like (round, drand_bot_addr) =>  time
-pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissions");
+pub const SUBMISSIONS: Map<(u64, &[u8]), StoredSubmission> = Map::new("s");
 
 /// A map from (round, index) to bot address. This is used when
 /// sorted submissions are needed.
@@ -75,7 +75,7 @@ pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissio
 /// The `index` values are 0-based. So the `n`th submission has index
 /// n-1 here as well as in the response array in `SubmissionsResponse`.
 /// An entry of this map looks like (round, 1) =>  drand_bot_addr ; Second fastest bot
-pub const SUBMISSIONS_ORDER: Map<(u64, u32), Addr> = Map::new("submissions_order");
+pub const SUBMISSIONS_ORDER: Map<(u64, u16), CanonicalAddr> = Map::new("so");
 
 /// The bot type for the state. We don't need the address here
 /// since this is stored in the storage key.
