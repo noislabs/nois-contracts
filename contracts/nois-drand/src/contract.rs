@@ -19,12 +19,12 @@ use crate::msg::{
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
-    BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    BOTS, CONFIG, ORDERS, SUBMISSIONS,
 };
 
 /// Constant defining how many submissions per round will be rewarded
-const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
-const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u32 = 3;
+const NUMBER_OF_INCENTIVES_PER_ROUND: u16 = 6;
+const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u16 = 3;
 /// Point system for rewarding submisisons.
 ///
 /// We use small integers here which are later multiplied with a constant to
@@ -133,7 +133,7 @@ fn query_beacons(
 
 // Query submissions by round
 fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
-    let prefix = SUBMISSIONS_ORDER.prefix(round);
+    let prefix = ORDERS.prefix(round);
 
     let submission_addresses: Vec<Addr> = prefix
         .range(deps.storage, None, None, Order::Ascending)
@@ -267,7 +267,7 @@ fn execute_add_round(
     // Get the number of submission before this one.
     // The submissions are indexed 0-based, i.e. the number of elements is
     // the last index + 1 or 0 if no last index exists.
-    let submissions_count = match SUBMISSIONS_ORDER
+    let submissions_count = match ORDERS
         .prefix(round)
         .keys(deps.storage, None, None, Order::Descending)
         .next()
@@ -336,7 +336,7 @@ fn execute_add_round(
         },
     )?;
 
-    SUBMISSIONS_ORDER.save(deps.storage, (round, submissions_count), &info.sender)?;
+    ORDERS.save(deps.storage, (round, submissions_count), &info.sender)?;
 
     let mut attributes = vec![
         Attribute::new(ATTR_ROUND, round.to_string()),
