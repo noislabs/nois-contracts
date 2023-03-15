@@ -1,12 +1,24 @@
 {
   "app_hash": "",
   "app_state": {
+    "allocation": {
+      "params": {
+        "distribution_proportions": {
+          "developer_rewards": "0.200000000000000000",
+          "randomness_rewards": "0.040000000000000000",
+          "validator_rewards": "0.060000000000000000"
+        },
+        "randomness_rewards_receiver": "",
+        "weighted_developer_rewards_receivers": []
+      },
+      "validator_rewards": []
+    },
     "auth": {
       "accounts": [
         {
           "@type": "/cosmos.auth.v1beta1.BaseAccount",
           "account_number": "0",
-          "address": "nois15eazsmzjeqegp8q7ut5ysuglthzdczslf4qye7",
+          "address": "nois1ynyml8tclmgycythwft2p05l5s30k7w8l8t4ux",
           "pub_key": null,
           "sequence": "0"
         },
@@ -32,7 +44,7 @@
     "bank": {
       "balances": [
         {
-          "address": "nois15eazsmzjeqegp8q7ut5ysuglthzdczslf4qye7",
+          "address": "nois1ynyml8tclmgycythwft2p05l5s30k7w8l8t4ux",
           "coins": [
             {
               "amount": "1000000000",
@@ -116,7 +128,7 @@
                 },
                 "public_key": {
                   "@type": "/cosmos.crypto.secp256k1.PubKey",
-                  "key": "A0Do/y0/3exMbGrjavoHXpb2oUdOXHedeDK0igXmpiyp"
+                  "key": "A864NMsVXibPlKzyVlGFncWkfDRdT5MoKUFX8cHzfU8G"
                 },
                 "sequence": "0"
               }
@@ -124,7 +136,7 @@
           },
           "body": {
             "extension_options": [],
-            "memo": "1cc4751abead2c4c96984db6e7c892dd21b22df7@172.17.0.2:26656",
+            "memo": "24e282381355da4d6438feb908e448441ee55165@172.17.0.5:26656",
             "messages": [
               {
                 "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
@@ -133,7 +145,7 @@
                   "max_rate": "0.200000000000000000",
                   "rate": "0.100000000000000000"
                 },
-                "delegator_address": "nois15eazsmzjeqegp8q7ut5ysuglthzdczslf4qye7",
+                "delegator_address": "nois1ynyml8tclmgycythwft2p05l5s30k7w8l8t4ux",
                 "description": {
                   "details": "",
                   "identity": "",
@@ -144,9 +156,9 @@
                 "min_self_delegation": "1",
                 "pubkey": {
                   "@type": "/cosmos.crypto.ed25519.PubKey",
-                  "key": "r2T5lWZ0Tc3PRibhcUIVeseDgF8xKThCA5GKvAHRx9w="
+                  "key": "tPcMj0Mrdd6U3rCDCTGpqwt73GQDW7shodjwBBUyADc="
                 },
-                "validator_address": "noisvaloper15eazsmzjeqegp8q7ut5ysuglthzdczslg4j9q2",
+                "validator_address": "noisvaloper1ynyml8tclmgycythwft2p05l5s30k7w878e59j",
                 "value": {
                   "amount": "3000000",
                   "denom": "unois"
@@ -157,7 +169,7 @@
             "timeout_height": "0"
           },
           "signatures": [
-            "iLBuooYXVI06Yvgm6cZXT1nNOho8Oo4Fr4QFI1vK8SsY2FMy5b5M+f8VwuXtmzq0C8C6Lsc6TsVhdGt9f+tfXQ=="
+            "OHJ9oC0aZraZutWxfimrUGk6K+YLpN3b1M0YoJAo1+VqFNOuLktaeNIJqA9xlw92v3PJ5XaI1fWxIjJqrIWTgQ=="
           ]
         }
       ]
@@ -288,7 +300,7 @@
   "consensus_params": {
     "block": {
       "max_bytes": "22020096",
-      "max_gas": "-1",
+      "max_gas": "4500000",
       "time_iota_ms": "10"
     },
     "evidence": {
@@ -303,6 +315,6 @@
     },
     "version": {}
   },
-  "genesis_time": "2023-03-09T21:06:40.230462555Z",
+  "genesis_time": "2023-03-15T22:46:55.826595669Z",
   "initial_height": "1"
 }
