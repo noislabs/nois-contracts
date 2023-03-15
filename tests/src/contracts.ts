@@ -77,7 +77,8 @@ export async function uploadContracts(
   for (const [name, path] of Object.entries(contracts)) {
     t.log(`Storing ${name} from ${path}...`);
     const wasm = readFileSync(path);
-    const receipt = await cosmwasm.sign.upload(cosmwasm.senderAddress, wasm, "auto", `Upload ${name}`);
+    const multiplier = 1.1; // see https://github.com/cosmos/cosmjs/issues/1360
+    const receipt = await cosmwasm.sign.upload(cosmwasm.senderAddress, wasm, multiplier, `Upload ${name}`);
     t.log(`Uploaded ${name} with code ID: ${receipt.codeId}; Gas used: ${receipt.gasUsed}/${receipt.gasWanted}`);
     results[name] = receipt.codeId;
   }
