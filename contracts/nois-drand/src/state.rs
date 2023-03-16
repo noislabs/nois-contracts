@@ -57,6 +57,9 @@ pub const ALLOWLIST: Map<&Addr, ()> = Map::new("allowlist");
 
 #[cw_serde]
 pub struct StoredSubmission {
+    /// The position which this submission was made within one round.
+    /// This is used for sorting in `query_submissions`.
+    pub pos: u16,
     /// Submission time (block time)
     pub time: Timestamp,
     /// Submission block height
@@ -69,13 +72,8 @@ pub struct StoredSubmission {
 /// An entry of this map looks like (round, drand_bot_addr) =>  time
 pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissions");
 
-/// A map from (round, index) to bot address. This is used when
-/// sorted submissions are needed.
-///
-/// The `index` values are 0-based. So the `n`th submission has index
-/// n-1 here as well as in the response array in `SubmissionsResponse`.
-/// An entry of this map looks like (round, 1) =>  drand_bot_addr ; Second fastest bot
-pub const SUBMISSIONS_ORDER: Map<(u64, u32), Addr> = Map::new("submissions_order");
+/// The number of submissions done for each round
+pub const SUBMISSIONS_COUNT: Map<u64, u16> = Map::new("counts");
 
 /// The bot type for the state. We don't need the address here
 /// since this is stored in the storage key.

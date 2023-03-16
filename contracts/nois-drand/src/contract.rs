@@ -1,7 +1,7 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut,
-    Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
-    Uint128, WasmMsg,
+    ensure_eq, entry_point, to_binary, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty,
+    Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128,
+    WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drand_common::{is_valid, DRAND_MAINNET2_PUBKEY};
@@ -19,12 +19,12 @@ use crate::msg::{
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
-    BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_ORDER,
+    BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_COUNT,
 };
 
 /// Constant defining how many submissions per round will be rewarded
-const NUMBER_OF_INCENTIVES_PER_ROUND: u32 = 6;
-const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u32 = 3;
+const NUMBER_OF_INCENTIVES_PER_ROUND: u16 = 6;
+const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u16 = 3;
 /// Point system for rewarding submisisons.
 ///
 /// We use small integers here which are later multiplied with a constant to
@@ -134,19 +134,20 @@ fn query_beacons(
     Ok(BeaconsResponse { beacons })
 }
 
-// Query submissions by round
+/// Query submissions by round.
 fn query_submissions(deps: Deps, round: u64) -> StdResult<SubmissionsResponse> {
-    let prefix = SUBMISSIONS_ORDER.prefix(round);
+    let prefix = SUBMISSIONS.prefix(round);
 
-    let submission_addresses: Vec<Addr> = prefix
+    let mut submissions: Vec<_> = prefix
         .range(deps.storage, None, None, Order::Ascending)
-        .map(|item| -> StdResult<_> { Ok(item?.1) })
         .collect::<Result<_, _>>()?;
-    let mut submissions: Vec<QueriedSubmission> = Vec::with_capacity(submission_addresses.len());
-    for addr in submission_addresses {
-        let stored = SUBMISSIONS.load(deps.storage, (round, &addr))?;
-        submissions.push(QueriedSubmission::make(stored, addr));
-    }
+    submissions.sort_by(|a, b| a.1.pos.cmp(&b.1.pos));
+
+    let submissions = submissions
+        .into_iter()
+        .map(|(addr, stored)| QueriedSubmission::make(stored, addr))
+        .collect();
+
     Ok(SubmissionsResponse { round, submissions })
 }
 
@@ -268,16 +269,9 @@ fn execute_add_round(
     let mut reward_points = 0u64;
 
     // Get the number of submission before this one.
-    // The submissions are indexed 0-based, i.e. the number of elements is
-    // the last index + 1 or 0 if no last index exists.
-    let submissions_count = match SUBMISSIONS_ORDER
-        .prefix(round)
-        .keys(deps.storage, None, None, Order::Descending)
-        .next()
-    {
-        Some(last_item) => last_item? + 1, // The ? handles the decoding to u32
-        None => 0,
-    };
+    let submissions_count = SUBMISSIONS_COUNT
+        .may_load(deps.storage, round)?
+        .unwrap_or_default();
 
     let randomness: HexBinary = derive_randomness(signature.as_slice()).into();
     // Check if we need to verify the submission  or we just compare it to the registered randomness from the first submission of this round
@@ -329,17 +323,20 @@ fn execute_add_round(
 
     let is_allowlisted = ALLOWLIST.has(deps.storage, &info.sender);
 
+    let new_count = submissions_count + 1;
+
     SUBMISSIONS.save(
         deps.storage,
         submissions_key,
         &StoredSubmission {
+            pos: new_count,
             time: env.block.time,
             height: env.block.height,
             tx_index: env.transaction.map(|ti| ti.index),
         },
     )?;
 
-    SUBMISSIONS_ORDER.save(deps.storage, (round, submissions_count), &info.sender)?;
+    SUBMISSIONS_COUNT.save(deps.storage, round, &new_count)?;
 
     let mut attributes = vec![
         Attribute::new(ATTR_ROUND, round.to_string()),
