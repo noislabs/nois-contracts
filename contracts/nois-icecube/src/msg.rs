@@ -36,6 +36,9 @@ pub enum ExecuteMsg {
     SendFundsToDrand {
         funds: Coin,
     },
+    SetManagerAddr {
+        manager: String,
+    },
 }
 
 #[cw_serde]

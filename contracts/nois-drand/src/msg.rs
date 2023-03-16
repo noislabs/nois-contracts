@@ -37,6 +37,9 @@ pub enum ExecuteMsg {
     SetGatewayAddr {
         addr: String,
     },
+    SetManagerAddr {
+        manager: String,
+    },
 }
 
 #[cw_serde]

@@ -44,6 +44,9 @@ pub fn execute(
         } => execute_redelegate(deps, info, src_addr, dest_addr, amount),
         ExecuteMsg::ClaimRewards { addr } => execute_claim_rewards(addr),
         ExecuteMsg::SetDrandAddr { addr } => execute_set_drand_addr(deps, env, addr),
+        ExecuteMsg::SetManagerAddr { manager } => {
+            execute_set_manager_addr(deps, info, env, manager)
+        }
     }
 }
 
@@ -179,6 +182,28 @@ fn execute_set_drand_addr(
 
     Ok(Response::new().add_attribute("nois-drand-address", nois_drand_address))
 }
+fn execute_set_manager_addr(
+    deps: DepsMut,
+    info: MessageInfo,
+    _env: Env,
+    manager: String,
+) -> Result<Response, ContractError> {
+    let mut config: Config = CONFIG.load(deps.storage)?;
+
+    // check the calling address is the authorised multisig
+    ensure_eq!(
+        info.sender,
+        CONFIG.load(deps.storage)?.manager,
+        ContractError::Unauthorized
+    );
+
+    let manager_addr = deps.api.addr_validate(&manager)?;
+    config.manager = manager_addr.clone();
+
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(Response::new().add_attribute("manager", manager_addr))
+}
 
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
     let config = CONFIG.load(deps.storage)?;
@@ -217,7 +242,6 @@ mod tests {
             }
         );
     }
-
     #[test]
     fn only_manager_can_delegate_undelegate_redelegate() {
         let mut deps = mock_dependencies();
@@ -313,5 +337,47 @@ mod tests {
         };
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
+    }
+
+    #[test]
+    fn only_manager_can_set_manager() {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+        };
+        let info = mock_info(CREATOR, &[]);
+        let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
+
+        // A random addr cannot set a new manager
+        let info = mock_info("some_random_person", &[]);
+        let msg = ExecuteMsg::SetManagerAddr {
+            manager: "new_manager".to_string(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+
+        // Creator cannot set a new manager
+        let info = mock_info(CREATOR, &[]);
+        let msg = ExecuteMsg::SetManagerAddr {
+            manager: "new_manager".to_string(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+
+        // Manager can set a new manager
+        let info = mock_info(MANAGER, &[]);
+        let msg = ExecuteMsg::SetManagerAddr {
+            manager: "new_manager".to_string(),
+        };
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let config: ConfigResponse =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(
+            config,
+            ConfigResponse {
+                manager: Addr::unchecked("new_manager"),
+                drand: None,
+            }
+        );
     }
 }
