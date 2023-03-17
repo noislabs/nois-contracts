@@ -182,6 +182,7 @@ fn execute_set_drand_addr(
 
     Ok(Response::new().add_attribute("nois-drand-address", nois_drand_address))
 }
+
 fn execute_set_manager_addr(
     deps: DepsMut,
     info: MessageInfo,
