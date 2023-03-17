@@ -76,6 +76,9 @@ pub fn execute(
             execute_update_allowlist_bots(deps, info, add, remove)
         }
         ExecuteMsg::SetGatewayAddr { addr } => execute_set_gateway_addr(deps, env, addr),
+        ExecuteMsg::SetManagerAddr { manager } => {
+            execute_set_manager_addr(deps, info, env, manager)
+        }
     }
 }
 
@@ -458,6 +461,29 @@ fn execute_set_gateway_addr(
     Ok(Response::new().add_attribute("nois-gateway-address", nois_gateway))
 }
 
+fn execute_set_manager_addr(
+    deps: DepsMut,
+    info: MessageInfo,
+    _env: Env,
+    manager: String,
+) -> Result<Response, ContractError> {
+    let mut config: Config = CONFIG.load(deps.storage)?;
+
+    // check the calling address is the authorised multisig
+    ensure_eq!(
+        info.sender,
+        CONFIG.load(deps.storage)?.manager,
+        ContractError::Unauthorized
+    );
+
+    let manager_addr = deps.api.addr_validate(&manager)?;
+    config.manager = manager_addr.clone();
+
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(Response::new().add_attribute("manager", manager_addr))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -467,7 +493,7 @@ mod tests {
     use cosmwasm_std::{coins, from_binary, Addr, Timestamp, Uint128};
     use drand_common::testing::testing_signature;
 
-    const TESTING_MANAGER: &str = "mnrg";
+    const TESTING_MANAGER: &str = "mngr";
     const TESTING_MIN_ROUND: u64 = 72760;
 
     const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
@@ -1818,5 +1844,55 @@ mod tests {
         )
         .unwrap();
         assert!(!listed);
+    }
+
+    #[test]
+    fn only_manager_can_set_manager() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        register_bot(deps.as_mut(), info.to_owned());
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_point_price: Uint128::new(20_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // A random addr cannot set a new manager
+        let info = mock_info("some_random_person", &[]);
+        let msg = ExecuteMsg::SetManagerAddr {
+            manager: "new_manager".to_string(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+
+        // Creator cannot set a new manager
+        let info = mock_info("CREATOR", &[]);
+        let msg = ExecuteMsg::SetManagerAddr {
+            manager: "new_manager".to_string(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+
+        // Manager can set a new manager
+        let info = mock_info(TESTING_MANAGER, &[]);
+        let msg = ExecuteMsg::SetManagerAddr {
+            manager: "new_manager".to_string(),
+        };
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let config: ConfigResponse =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(
+            config,
+            ConfigResponse {
+                manager: Addr::unchecked("new_manager"),
+                gateway: None,
+                min_round: TESTING_MIN_ROUND,
+                incentive_point_price: Uint128::new(20_000),
+                incentive_denom: "unois".to_string(),
+            }
+        );
     }
 }
