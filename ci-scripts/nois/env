@@ -1,4 +1,4 @@
 REPOSITORY="noislabs/noisd"
 # This should be pinned to the newest version we support
-VERSION="0.3.0-7-g5d1a817"
+VERSION="0.4.1"
 CONTAINER_NAME="nois"
