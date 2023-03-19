@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changes
 
 - Migrade to new drand mainnet (chain hash `dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493`) ([#177]).
+- Store submission more efficiently in the database
 
 [#177]: https://github.com/noislabs/nois-contracts/pull/177
 
