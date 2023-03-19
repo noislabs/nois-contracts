@@ -138,6 +138,7 @@ pub struct QueriedSubmission {
 impl QueriedSubmission {
     pub fn make(stored: StoredSubmission, bot_address: Addr) -> Self {
         let StoredSubmission {
+            pos: _, // not needed since we sort in `query_submissions`
             time,
             height,
             tx_index,
