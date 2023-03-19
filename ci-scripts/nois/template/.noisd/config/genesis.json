@@ -18,7 +18,7 @@
         {
           "@type": "/cosmos.auth.v1beta1.BaseAccount",
           "account_number": "0",
-          "address": "nois1ynyml8tclmgycythwft2p05l5s30k7w8l8t4ux",
+          "address": "nois1muhhzqqjvk5eg5l9esw36c7a4m97rq5anxs6ms",
           "pub_key": null,
           "sequence": "0"
         },
@@ -44,7 +44,7 @@
     "bank": {
       "balances": [
         {
-          "address": "nois1ynyml8tclmgycythwft2p05l5s30k7w8l8t4ux",
+          "address": "nois1hqg5nqnka82cwm3v02xj6ufns9tmss7rlpvucx",
           "coins": [
             {
               "amount": "1000000000",
@@ -53,7 +53,7 @@
           ]
         },
         {
-          "address": "nois1hqg5nqnka82cwm3v02xj6ufns9tmss7rlpvucx",
+          "address": "nois1muhhzqqjvk5eg5l9esw36c7a4m97rq5anxs6ms",
           "coins": [
             {
               "amount": "1000000000",
@@ -62,7 +62,27 @@
           ]
         }
       ],
-      "denom_metadata": [],
+      "denom_metadata": [
+        {
+          "base": "unois",
+          "denom_units": [
+            {
+              "aliases": [],
+              "denom": "unois",
+              "exponent": 0
+            },
+            {
+              "aliases": [],
+              "denom": "nois",
+              "exponent": 6
+            }
+          ],
+          "description": "The native token of Nois",
+          "display": "nois",
+          "name": "NOIS",
+          "symbol": "NOIS"
+        }
+      ],
       "params": {
         "default_send_enabled": true,
         "send_enabled": []
@@ -80,7 +100,7 @@
     },
     "crisis": {
       "constant_fee": {
-        "amount": "1000",
+        "amount": "100000000000",
         "denom": "unois"
       }
     },
@@ -94,7 +114,7 @@
       "params": {
         "base_proposer_reward": "0.010000000000000000",
         "bonus_proposer_reward": "0.040000000000000000",
-        "community_tax": "0.020000000000000000",
+        "community_tax": "0.000000000000000000",
         "withdraw_addr_enabled": true
       },
       "previous_proposer": "",
@@ -128,7 +148,7 @@
                 },
                 "public_key": {
                   "@type": "/cosmos.crypto.secp256k1.PubKey",
-                  "key": "A864NMsVXibPlKzyVlGFncWkfDRdT5MoKUFX8cHzfU8G"
+                  "key": "A9KreTI6OcNaXfTeEbxUyDWOyP2sfa92X4VfNOfPEt1o"
                 },
                 "sequence": "0"
               }
@@ -136,7 +156,7 @@
           },
           "body": {
             "extension_options": [],
-            "memo": "24e282381355da4d6438feb908e448441ee55165@172.17.0.5:26656",
+            "memo": "e4ed4074be15271890710f254fd47388e8d042fa@172.17.0.3:26656",
             "messages": [
               {
                 "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
@@ -145,7 +165,7 @@
                   "max_rate": "0.200000000000000000",
                   "rate": "0.100000000000000000"
                 },
-                "delegator_address": "nois1ynyml8tclmgycythwft2p05l5s30k7w8l8t4ux",
+                "delegator_address": "nois1muhhzqqjvk5eg5l9esw36c7a4m97rq5anxs6ms",
                 "description": {
                   "details": "",
                   "identity": "",
@@ -156,9 +176,9 @@
                 "min_self_delegation": "1",
                 "pubkey": {
                   "@type": "/cosmos.crypto.ed25519.PubKey",
-                  "key": "tPcMj0Mrdd6U3rCDCTGpqwt73GQDW7shodjwBBUyADc="
+                  "key": "3lLITzDkAIFtCBTWxtf7/4E1yHH8JS9vZMwmHLfIQbo="
                 },
-                "validator_address": "noisvaloper1ynyml8tclmgycythwft2p05l5s30k7w878e59j",
+                "validator_address": "noisvaloper1muhhzqqjvk5eg5l9esw36c7a4m97rq5ajxzmzy",
                 "value": {
                   "amount": "3000000",
                   "denom": "unois"
@@ -169,17 +189,17 @@
             "timeout_height": "0"
           },
           "signatures": [
-            "OHJ9oC0aZraZutWxfimrUGk6K+YLpN3b1M0YoJAo1+VqFNOuLktaeNIJqA9xlw92v3PJ5XaI1fWxIjJqrIWTgQ=="
+            "BjgmDnzc5zwukLxJfzTQSMO2rOEVfwIbEaIbqgTPeck4/HUcw0mUBPdWOuvHddOMUUMMIc1IrJdgZKjFPa52yw=="
           ]
         }
       ]
     },
     "gov": {
       "deposit_params": {
-        "max_deposit_period": "172800s",
+        "max_deposit_period": "1209600s",
         "min_deposit": [
           {
-            "amount": "10000000",
+            "amount": "1000000000",
             "denom": "unois"
           }
         ]
@@ -188,13 +208,13 @@
       "proposals": [],
       "starting_proposal_id": "1",
       "tally_params": {
-        "quorum": "0.334000000000000000",
+        "quorum": "0.200000000000000000",
         "threshold": "0.500000000000000000",
         "veto_threshold": "0.334000000000000000"
       },
       "votes": [],
       "voting_params": {
-        "voting_period": "172800s"
+        "voting_period": "345600s"
       }
     },
     "ibc": {
@@ -236,10 +256,10 @@
         "inflation": "0.130000000000000000"
       },
       "params": {
-        "blocks_per_year": "6311520",
+        "blocks_per_year": "12623040",
         "goal_bonded": "0.670000000000000000",
         "inflation_max": "0.200000000000000000",
-        "inflation_min": "0.070000000000000000",
+        "inflation_min": "0.200000000000000000",
         "inflation_rate_change": "0.130000000000000000",
         "mint_denom": "unois"
       }
@@ -248,11 +268,11 @@
     "slashing": {
       "missed_blocks": [],
       "params": {
-        "downtime_jail_duration": "600s",
-        "min_signed_per_window": "0.500000000000000000",
-        "signed_blocks_window": "100",
+        "downtime_jail_duration": "3600s",
+        "min_signed_per_window": "0.050000000000000000",
+        "signed_blocks_window": "40000",
         "slash_fraction_double_sign": "0.050000000000000000",
-        "slash_fraction_downtime": "0.010000000000000000"
+        "slash_fraction_downtime": "0.000100000000000000"
       },
       "signing_infos": []
     },
@@ -265,7 +285,7 @@
         "bond_denom": "unois",
         "historical_entries": 10000,
         "max_entries": 7,
-        "max_validators": 100,
+        "max_validators": 45,
         "unbonding_time": "1814400s"
       },
       "redelegations": [],
@@ -304,8 +324,8 @@
       "time_iota_ms": "10"
     },
     "evidence": {
-      "max_age_duration": "172800000000000",
-      "max_age_num_blocks": "100000",
+      "max_age_duration": "1814400000000000",
+      "max_age_num_blocks": "604800",
       "max_bytes": "1048576"
     },
     "validator": {
@@ -315,6 +335,6 @@
     },
     "version": {}
   },
-  "genesis_time": "2023-03-15T22:46:55.826595669Z",
+  "genesis_time": "2023-03-19T08:31:53.414761596Z",
   "initial_height": "1"
 }
