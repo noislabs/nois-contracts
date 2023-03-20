@@ -52,6 +52,7 @@ unnecessary disruption for the dapp builders. The following table shows compatib
 
 | nois-contracts version | nois version |
 | ---------------------- | ------------ |
+| 0.10.x                 | ^0.6.0       |
 | 0.9.x                  | ^0.6.0       |
 | 0.8.x                  | ^0.6.0       |
 | 0.7.x                  | ^0.5.1       |
