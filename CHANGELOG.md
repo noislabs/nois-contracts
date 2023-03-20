@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2023-03-20
+
 ### Added
 
 - New payment contract
@@ -53,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.9.0...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/noislabs/nois-contracts/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/noislabs/nois-contracts/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/noislabs/nois-contracts/tree/v0.8.0

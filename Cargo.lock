@@ -322,7 +322,7 @@ dependencies = [
 
 [[package]]
 name = "drand-common"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-std",
 ]
@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "nois-demo"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -539,7 +539,7 @@ dependencies = [
 
 [[package]]
 name = "nois-drand"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -555,7 +555,7 @@ dependencies = [
 
 [[package]]
 name = "nois-gateway"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -569,7 +569,7 @@ dependencies = [
 
 [[package]]
 name = "nois-icecube"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -580,7 +580,7 @@ dependencies = [
 
 [[package]]
 name = "nois-monitoring"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -592,7 +592,7 @@ dependencies = [
 
 [[package]]
 name = "nois-multitest"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-std",
  "cw-multi-test",
@@ -604,7 +604,7 @@ dependencies = [
 
 [[package]]
 name = "nois-payment"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -616,7 +616,7 @@ dependencies = [
 
 [[package]]
 name = "nois-protocol"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -627,7 +627,7 @@ dependencies = [
 
 [[package]]
 name = "nois-proxy"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -640,7 +640,7 @@ dependencies = [
 
 [[package]]
 name = "nois-sink"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
