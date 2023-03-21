@@ -8,6 +8,23 @@ export interface IcecubeInstantiateMsg {
   readonly manager: string;
 }
 
+export interface IcecubeExecuteMsg {
+  readonly delegate?: {
+    readonly addr: string;
+    readonly amount: string;
+  };
+  readonly undelegate?: {
+    readonly addr: string;
+    readonly amount: string;
+  };
+  readonly redelegate?: {
+    readonly src_addr: string;
+    readonly dest_addr: string;
+    readonly amount: string;
+  };
+  // ... some more options, see contract
+}
+
 export interface DrandInstantiateMsg {
   readonly manager: string;
   readonly min_round: number;
