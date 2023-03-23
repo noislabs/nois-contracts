@@ -87,7 +87,10 @@ fn integration_test() {
         .instantiate_contract(
             code_id_nois_gateway,
             Addr::unchecked("owner"),
-            &nois_gateway::msg::InstantiateMsg {},
+            &nois_gateway::msg::InstantiateMsg {
+                manager: "manager".to_string(),
+                prices: vec![Coin::new(1, "unois")],
+            },
             &[],
             "Nois-Gateway",
             None,
@@ -99,7 +102,14 @@ fn integration_test() {
         .unwrap();
     //Checking that the contract has been well instantiated with the expected config
 
-    assert_eq!(resp, nois_gateway::msg::ConfigResponse { drand: None });
+    assert_eq!(
+        resp,
+        nois_gateway::msg::ConfigResponse {
+            drand: None,
+            manager: Addr::unchecked("manager"),
+            prices: vec![Coin::new(1, "unois")],
+        }
+    );
 
     // Set gateway address to drand
     app.execute_contract(
@@ -132,10 +142,12 @@ fn integration_test() {
 
     // Set drand address to gateway
     app.execute_contract(
-        Addr::unchecked("guest"),
+        Addr::unchecked("manager"),
         addr_nois_gateway.to_owned(),
-        &nois_gateway::msg::ExecuteMsg::SetDrandAddr {
-            addr: addr_nois_drand.to_string(),
+        &nois_gateway::msg::ExecuteMsg::SetConfig {
+            manager: None,
+            prices: None,
+            drand_addr: Some(addr_nois_drand.to_string()),
         },
         &[],
     )
@@ -148,6 +160,8 @@ fn integration_test() {
         resp,
         nois_gateway::msg::ConfigResponse {
             drand: Some(addr_nois_drand.clone()),
+            manager: Addr::unchecked("manager"),
+            prices: vec![Coin::new(1, "unois")],
         }
     );
 

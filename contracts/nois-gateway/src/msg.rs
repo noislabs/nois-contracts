@@ -1,10 +1,15 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::HexBinary;
+use cosmwasm_std::{Coin, HexBinary};
 
 use crate::state::Config;
 
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    /// The prices of a randomness. List is to be interpreted as oneof,
+    /// i.e. payment must be paid in one of those denominations.
+    pub prices: Vec<Coin>,
+    pub manager: String,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {
@@ -14,8 +19,12 @@ pub enum ExecuteMsg {
         randomness: HexBinary,
         is_verifying_tx: bool,
     },
-    /// Set the address of the drand beackend contract
-    SetDrandAddr { addr: String },
+    /// Set the config
+    SetConfig {
+        manager: Option<String>,
+        prices: Option<Vec<Coin>>,
+        drand_addr: Option<String>,
+    },
 }
 
 #[cw_serde]
