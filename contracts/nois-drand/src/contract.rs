@@ -461,11 +461,15 @@ fn execute_set_config(
         CONFIG.load(deps.storage)?.manager,
         ContractError::Unauthorized
     );
+
     let gateway = match gateway {
         Some(gateway) => Some(deps.api.addr_validate(&gateway)?),
         None => config.gateway,
     };
-    let manager = manager.map_or(Ok(config.manager), |ma| deps.api.addr_validate(&ma))?;
+    let manager = match manager {
+        Some(ma) => deps.api.addr_validate(&ma)?,
+        None => config.manager,
+    };
     let min_round = min_round.unwrap_or(config.min_round);
     let incentive_point_price = incentive_point_price.unwrap_or(config.incentive_point_price);
     let incentive_denom = incentive_denom.unwrap_or(config.incentive_denom);
