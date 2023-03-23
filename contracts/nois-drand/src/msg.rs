@@ -21,24 +21,20 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Add drand beacon
-    AddRound {
-        round: u64,
-        signature: HexBinary,
-    },
+    AddRound { round: u64, signature: HexBinary },
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
-    RegisterBot {
-        moniker: String,
-    },
+    RegisterBot { moniker: String },
     UpdateAllowlistBots {
         add: Vec<String>,
         remove: Vec<String>,
     },
-    SetGatewayAddr {
-        addr: String,
-    },
-    SetManagerAddr {
-        manager: String,
+    SetConfig {
+        manager: Option<String>,
+        gateway: Option<String>,
+        min_round: Option<u64>,
+        incentive_point_price: Option<Uint128>,
+        incentive_denom: Option<String>,
     },
 }
 

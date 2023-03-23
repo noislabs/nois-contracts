@@ -103,10 +103,14 @@ fn integration_test() {
 
     // Set gateway address to drand
     app.execute_contract(
-        Addr::unchecked("guest"),
+        Addr::unchecked("bossman"),
         addr_nois_drand.to_owned(),
-        &nois_drand::msg::ExecuteMsg::SetGatewayAddr {
-            addr: addr_nois_gateway.to_string(),
+        &nois_drand::msg::ExecuteMsg::SetConfig {
+            manager: None,
+            gateway: Some(addr_nois_gateway.to_string()),
+            min_round: None,
+            incentive_point_price: None,
+            incentive_denom: None,
         },
         &[],
     )
