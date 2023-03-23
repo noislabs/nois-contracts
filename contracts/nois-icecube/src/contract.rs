@@ -43,7 +43,7 @@ pub fn execute(
             amount,
         } => execute_redelegate(deps, info, src_addr, dest_addr, amount),
         ExecuteMsg::ClaimRewards { addr } => execute_claim_rewards(addr),
-        ExecuteMsg::SetDrandAddr { addr } => execute_set_drand_addr(deps, env, addr),
+        ExecuteMsg::SetDrandAddr { addr } => execute_set_drand_addr(deps, info, env, addr),
         ExecuteMsg::SetManagerAddr { manager } => {
             execute_set_manager_addr(deps, info, env, manager)
         }
@@ -165,10 +165,18 @@ fn execute_claim_rewards(addr: String) -> Result<Response, ContractError> {
 /// instantation and make sure it is immutable once set
 fn execute_set_drand_addr(
     deps: DepsMut,
+    info: MessageInfo,
     _env: Env,
     addr: String,
 ) -> Result<Response, ContractError> {
     let mut config: Config = CONFIG.load(deps.storage)?;
+
+    // check the calling address is the authorised multisig
+    ensure_eq!(
+        info.sender,
+        CONFIG.load(deps.storage)?.manager,
+        ContractError::Unauthorized
+    );
 
     // ensure immutability
     if config.drand.is_some() {
