@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2023-03-23
+
+### Changed
+
+- Allow manager of nois-drand to set configugation
+
 ## [0.10.0] - 2023-03-20
 
 ### Added
@@ -14,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New payment contract
 - An icecube or drand manager can set another manager (multisig rekey)
 
-### Changes
+### Changed
 
 - Migrade to new drand mainnet (chain hash `dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493`) ([#177]).
 - Store submission more efficiently in the database
@@ -31,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 [#151]: https://github.com/noislabs/nois-contracts/pull/151
 
-### Changes
+### Changed
 
 - Bump drand-verify to 0.4, using pairing for the BLS verification.
 - Reduce the number of verification executions per round from 6 to 3 to increase the number of processable jobs.
