@@ -75,10 +75,21 @@ pub fn execute(
         ExecuteMsg::UpdateAllowlistBots { add, remove } => {
             execute_update_allowlist_bots(deps, info, add, remove)
         }
-        ExecuteMsg::SetGatewayAddr { addr } => execute_set_gateway_addr(deps, env, addr),
-        ExecuteMsg::SetManagerAddr { manager } => {
-            execute_set_manager_addr(deps, info, env, manager)
-        }
+        ExecuteMsg::SetConfig {
+            manager,
+            gateway,
+            min_round,
+            incentive_point_price,
+            incentive_denom,
+        } => execute_set_config(
+            deps,
+            info,
+            manager,
+            gateway,
+            min_round,
+            incentive_point_price,
+            incentive_denom,
+        ),
     }
 }
 
@@ -433,38 +444,16 @@ fn execute_add_round(
         .add_attributes(attributes))
 }
 
-/// In order not to fall in the chicken egg problem where you need
-/// to instantiate two or more contracts that need to be aware of each other
-/// in a context where the contract addresses generration is not known
-/// in advance, we set the contract address at a later stage after the
-/// instantation and make sure it is immutable once set
-fn execute_set_gateway_addr(
-    deps: DepsMut,
-    _env: Env,
-    addr: String,
-) -> Result<Response, ContractError> {
-    let mut config = CONFIG.load(deps.storage)?;
-
-    // ensure immutability
-    if config.gateway.is_some() {
-        return Err(ContractError::ContractAlreadySet {});
-    }
-
-    let nois_gateway = deps.api.addr_validate(&addr)?;
-    config.gateway = Some(nois_gateway.clone());
-
-    CONFIG.save(deps.storage, &config)?;
-
-    Ok(Response::new().add_attribute("nois-gateway-address", nois_gateway))
-}
-
-fn execute_set_manager_addr(
+fn execute_set_config(
     deps: DepsMut,
     info: MessageInfo,
-    _env: Env,
-    manager: String,
+    manager: Option<String>,
+    gateway: Option<String>,
+    min_round: Option<u64>,
+    incentive_point_price: Option<Uint128>,
+    incentive_denom: Option<String>,
 ) -> Result<Response, ContractError> {
-    let mut config: Config = CONFIG.load(deps.storage)?;
+    let config: Config = CONFIG.load(deps.storage)?;
 
     // check the calling address is the authorised multisig
     ensure_eq!(
@@ -472,13 +461,26 @@ fn execute_set_manager_addr(
         CONFIG.load(deps.storage)?.manager,
         ContractError::Unauthorized
     );
+    let gateway = match gateway {
+        Some(gateway) => Some(deps.api.addr_validate(&gateway)?),
+        None => config.gateway,
+    };
+    let manager = manager.map_or_else(|| Ok(config.manager), |ma| deps.api.addr_validate(&ma))?;
+    let min_round = min_round.unwrap_or(config.min_round);
+    let incentive_point_price = incentive_point_price.unwrap_or(config.incentive_point_price);
+    let incentive_denom = incentive_denom.unwrap_or(config.incentive_denom);
 
-    let manager_addr = deps.api.addr_validate(&manager)?;
-    config.manager = manager_addr.clone();
+    let new_config = Config {
+        manager,
+        gateway,
+        min_round,
+        incentive_point_price,
+        incentive_denom,
+    };
 
-    CONFIG.save(deps.storage, &config)?;
+    CONFIG.save(deps.storage, &new_config)?;
 
-    Ok(Response::new().add_attribute("manager", manager_addr))
+    Ok(Response::default())
 }
 
 #[cfg(test)]
@@ -1859,24 +1861,37 @@ mod tests {
 
         // A random addr cannot set a new manager
         let info = mock_info("some_random_person", &[]);
-        let msg = ExecuteMsg::SetManagerAddr {
-            manager: "new_manager".to_string(),
+        let msg = ExecuteMsg::SetConfig {
+            manager: Some("new_manager".to_string()),
+            gateway: None,
+            incentive_denom: None,
+            incentive_point_price: None,
+            min_round: None,
         };
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
         // Creator cannot set a new manager
         let info = mock_info("CREATOR", &[]);
-        let msg = ExecuteMsg::SetManagerAddr {
-            manager: "new_manager".to_string(),
+        let msg = ExecuteMsg::SetConfig {
+            manager: Some("new_manager".to_string()),
+            gateway: None,
+            incentive_denom: None,
+            incentive_point_price: None,
+            min_round: None,
         };
+
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
         // Manager can set a new manager
         let info = mock_info(TESTING_MANAGER, &[]);
-        let msg = ExecuteMsg::SetManagerAddr {
-            manager: "new_manager".to_string(),
+        let msg = ExecuteMsg::SetConfig {
+            manager: Some("new_manager".to_string()),
+            gateway: None,
+            incentive_denom: None,
+            incentive_point_price: None,
+            min_round: None,
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let config: ConfigResponse =
