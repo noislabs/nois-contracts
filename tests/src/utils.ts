@@ -29,6 +29,11 @@ export const nois: ChainDefinition = {
   estimatedIndexerTime: 80,
 };
 
+export const noisValidator = {
+  // from ci-scripts/nois/template/.noisd/config/genesis.json
+  address: "noisvaloper1muhhzqqjvk5eg5l9esw36c7a4m97rq5ajxzmzy",
+};
+
 export const NoisProtocolIbcVersion = "nois-v5";
 
 // This creates a client for the CosmWasm chain, that can interact with contracts

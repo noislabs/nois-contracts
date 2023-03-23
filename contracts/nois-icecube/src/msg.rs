@@ -14,19 +14,27 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     Delegate {
+        /// The validator address
         addr: String,
+        /// The amount in unois
         amount: Uint128,
     },
     Undelegate {
+        /// The validator address
         addr: String,
+        /// The amount in unois
         amount: Uint128,
     },
     Redelegate {
+        /// The validator address to redelegate from
         src_addr: String,
+        /// The validator address to redelegate to
         dest_addr: String,
+        /// The amount in unois
         amount: Uint128,
     },
     ClaimRewards {
+        /// The validator address
         addr: String,
     },
     SetDrandAddr {

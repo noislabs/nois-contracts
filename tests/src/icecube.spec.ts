@@ -1,7 +1,15 @@
+import { testutils } from "@confio/relayer";
 import test from "ava";
 
-import { IcecubeInstantiateMsg, NoisContractPaths, noisContracts, uploadContracts } from "./contracts";
-import { setupNoisClient } from "./utils";
+import {
+  IcecubeExecuteMsg,
+  IcecubeInstantiateMsg,
+  NoisContractPaths,
+  noisContracts,
+  uploadContracts,
+} from "./contracts";
+import { nois, noisValidator, setupNoisClient } from "./utils";
+const { fundAccount } = testutils;
 
 interface TestContext {
   noisCodeIds: Record<keyof NoisContractPaths, number>;
@@ -22,15 +30,46 @@ test.serial("icecube works", async (t) => {
   const msg: IcecubeInstantiateMsg = {
     manager: noisClient.senderAddress,
   };
-  await noisClient.sign.instantiate(
+  const { contractAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
     (t.context as TestContext).noisCodeIds.icecube,
     msg,
     "Icecube instance",
     "auto"
   );
+  await fundAccount(nois, contractAddress, "4000000");
 
-  // TODO: do something cool with the icecube contract
+  const delegateMsg: IcecubeExecuteMsg = {
+    delegate: {
+      addr: noisValidator.address,
+      amount: "1000",
+    },
+  };
+  const { events: delegateEvents } = await noisClient.sign.execute(
+    noisClient.senderAddress,
+    contractAddress,
+    delegateMsg,
+    "auto"
+  );
+  // t.log(JSON.stringify(delegateEvents, null, 2));
+  const delegate = delegateEvents.find((event) => event.type == "delegate");
+  t.truthy(delegate);
 
-  t.pass();
+  const undelegateMsg: IcecubeExecuteMsg = {
+    undelegate: {
+      addr: noisValidator.address,
+      amount: "200",
+    },
+  };
+  const { events: undelegateEvents } = await noisClient.sign.execute(
+    noisClient.senderAddress,
+    contractAddress,
+    undelegateMsg,
+    "auto"
+  );
+  // t.log(JSON.stringify(undelegateEvents, null, 2));
+  const withdrawRewards = undelegateEvents.find((event) => event.type == "withdraw_rewards");
+  t.truthy(withdrawRewards);
+  const unbond = undelegateEvents.find((event) => event.type == "unbond");
+  t.truthy(unbond);
 });
