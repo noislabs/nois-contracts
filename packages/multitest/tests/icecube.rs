@@ -74,7 +74,7 @@ fn integration_test() {
             code_id_nois_icecube,
             Addr::unchecked("owner"),
             &nois_icecube::msg::InstantiateMsg {
-                manager: "owner".to_string(),
+                manager: "boss".to_string(),
             },
             &[Coin::new(1_000_000, "unois")],
             "Nois-Icecube",
@@ -90,7 +90,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_icecube::msg::ConfigResponse {
-            manager: Addr::unchecked("owner"),
+            manager: Addr::unchecked("boss"),
             drand: None,
         }
     );
@@ -100,9 +100,24 @@ fn integration_test() {
     let msg = nois_icecube::msg::ExecuteMsg::SetDrandAddr {
         addr: addr_nois_drand.to_string(),
     };
-    let resp = app
+
+    let err = app
         .execute_contract(
             Addr::unchecked("a_random_person"),
+            addr_nois_icecube.to_owned(),
+            &msg,
+            &[],
+        )
+        .unwrap_err();
+    // Make sure the the tx fails when it's not the manager
+    assert!(matches!(
+        err.downcast().unwrap(),
+        nois_icecube::error::ContractError::Unauthorized
+    ));
+
+    let resp = app
+        .execute_contract(
+            Addr::unchecked("boss"),
             addr_nois_icecube.to_owned(),
             &msg,
             &[],
@@ -123,7 +138,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_icecube::msg::ConfigResponse {
-            manager: Addr::unchecked("owner"),
+            manager: Addr::unchecked("boss"),
             drand: Option::Some(Addr::unchecked("contract0"))
         }
     );
@@ -157,7 +172,7 @@ fn integration_test() {
         amount: Uint128::new(500_000),
     };
     app.execute_contract(
-        Addr::unchecked("owner"),
+        Addr::unchecked("boss"),
         addr_nois_icecube.to_owned(),
         &msg,
         &[],
