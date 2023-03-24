@@ -1,43 +1,59 @@
 # Nois Contracts
 
-This is the development repo for the Nois contracts, including a fully featured test environment
-that allows testing contract to contract IBC communication.
+This is the development repo for the Nois contracts, including a fully featured
+test environment that allows testing contract to contract IBC communication.
 
 ## The chains
 
 There are two CosmWasm-enabled blockchains running locally.
 
-1. **The randomness chain:** This is where randomness is verified and distributed from.
-   Uses noisd.
-2. **The app chain:** This is where the users deploy their contracts and request the
-   randomness from. Currently this uses wasmd. An example for app chains in production would
-   be Juno, Terra or Tgrade.
+1. **The randomness chain:** This is where randomness is verified and
+   distributed from. Uses noisd.
+2. **The app chain:** This is where the users deploy their contracts and request
+   the randomness from. Currently this uses wasmd. An example for app chains in
+   production would be Juno, Terra or Tgrade.
 
 ## The contracts
 
 - nois-gateway (runs on the randomness chain; one instance globally)
-  - it gets the requests for randomness via IBC and redirects them to the randomness source (ex drand)
-- nois-payment (runs on the randomness chain; one instance per randomness consumer proxy/outpost)
-  - This contract gets created during IBC channel creation between a proxy and nois-gateway.
-  - It holds the funds for a specific customer. It plays the role of the randomness credit/balance.
-  - If this contract holds enough funds the randomness request is processed else it is rejected.
-  - The used funds are then partly burnt/ sent to the community pool or used to incentivise the relayer.
-- nois-drand is the entrypoint to the randomness beacon coming from drand through the drand bots. (runs on the randomness chain; one instance globally)
+  - it gets the requests for randomness via IBC and redirects them to the
+    randomness source (ex drand)
+- nois-payment (runs on the randomness chain; one instance per randomness
+  consumer proxy/outpost)
+  - This contract gets created during IBC channel creation between a proxy and
+    nois-gateway.
+  - It holds the funds for a specific customer. It plays the role of the
+    randomness credit/balance.
+  - If this contract holds enough funds the randomness request is processed else
+    it is rejected.
+  - The used funds are then partly burnt/ sent to the community pool or used to
+    incentivise the relayer.
+- nois-drand is the entrypoint to the randomness beacon coming from drand
+  through the drand bots. (runs on the randomness chain; one instance globally)
   - it verifies the randomness before it is stored on chain.
-  - it initiates the callback messages to consumer DAPPS on randomness consumer chains (juno, stargaze ...) whenever the randomness is available. this callback is sent to the nois-proxy which is deployed on the consumer chain.
-- nois-icecube holds an initial coin supply that helps incentivise certain agents. The supply of this contract is designed to fade away throughout the time like an icecube(runs on the randomness chain; one instance globally)
-  - nois-icecube gets called by nois-drand to request somefunds to incentivise drand bots upon submission of the randomness.
-  - it has an initial nois coin supply that an admin multisig can delegate, unbond or redelegate but can never withdraw.
+  - it initiates the callback messages to consumer DAPPS on randomness consumer
+    chains (juno, stargaze ...) whenever the randomness is available. this
+    callback is sent to the nois-proxy which is deployed on the consumer chain.
+- nois-icecube holds an initial coin supply that helps incentivise certain
+  agents. The supply of this contract is designed to fade away throughout the
+  time like an icecube(runs on the randomness chain; one instance globally)
+  - nois-icecube gets called by nois-drand to request somefunds to incentivise
+    drand bots upon submission of the randomness.
+  - it has an initial nois coin supply that an admin multisig can delegate,
+    unbond or redelegate but can never withdraw.
 - nois-proxy (runs on the app chain; one instance per app chain)
-  - nois-proxy receives randomness requests from the consumer DAPPs and submits those requests to the nois chain via IBC.
-  - Once the randomness is available, the nois-proxy receives a callback and forwards it to the DAPP
+  - nois-proxy receives randomness requests from the consumer DAPPs and submits
+    those requests to the nois chain via IBC.
+  - Once the randomness is available, the nois-proxy receives a callback and
+    forwards it to the DAPP
 - nois-demo (runs on the app chain; a demo app)
-  - nois-demo is a demo/example consumer app used as a test to estimate the value of pi.
+  - nois-demo is a demo/example consumer app used as a test to estimate the
+    value of pi.
   - it submits a request to the proxy to get randomness.
   - The randomness is then received to the nois-demo as a callback.
 
-The IBC interaction is only between nois-gateway and nois-proxy, such that
-the user (nois-demo) does not need to worry about that part.
+The IBC interaction is only between nois-gateway and nois-proxy, such that the
+user (nois-demo) does not need to worry about that part.
 
 ## Packages
 
@@ -47,8 +63,9 @@ the user (nois-demo) does not need to worry about that part.
 
 ## Compatibility
 
-The nois standard library and the nois-contracts are versioned independently to avoid
-unnecessary disruption for the dapp builders. The following table shows compatibility.
+The nois standard library and the nois-contracts are versioned independently to
+avoid unnecessary disruption for the dapp builders. The following table shows
+compatibility.
 
 | nois-contracts version | nois version |
 | ---------------------- | ------------ |
@@ -65,8 +82,8 @@ Follow all those steps to test things.
 
 ### Build the contracts
 
-The repo root is a Rust workspace containing all the contracts.
-Basic tests can be run like this:
+The repo root is a Rust workspace containing all the contracts. Basic tests can
+be run like this:
 
 ```
 cargo build --all-targets
@@ -99,7 +116,8 @@ In terminal 2 run:
 
 which will log in `debug-wasmd.log`.
 
-In terminal 3 with `docker ps` you can see the running chains. `docker kill nois` and `docker kill wasmd` allows you to stop them.
+In terminal 3 with `docker ps` you can see the running chains.
+`docker kill nois` and `docker kill wasmd` allows you to stop them.
 
 ### Run tests
 
@@ -117,8 +135,8 @@ That's it 🎉
 
 ## Production build
 
-This is a regular CosmWasm workspace. Use the latest version of [workspace-optimizer](https://github.com/CosmWasm/rust-optimizer)
-to build it.
+This is a regular CosmWasm workspace. Use the latest version of
+[workspace-optimizer](https://github.com/CosmWasm/rust-optimizer) to build it.
 
 ```
 docker run --rm -v "$(pwd)":/code \

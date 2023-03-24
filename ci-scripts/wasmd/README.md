@@ -1,6 +1,7 @@
 # Local development network
 
-Configuration is in the `env` file, that is the most likely place you want to adjust
+Configuration is in the `env` file, that is the most likely place you want to
+adjust
 
 ## Initializing new data
 
@@ -8,7 +9,8 @@ Configuration is in the `env` file, that is the most likely place you want to ad
 scripts/wasmd/generate_template.sh
 ```
 
-Note that the addresses receiving tokens in genesis are set here, you can customize by editting this file
+Note that the addresses receiving tokens in genesis are set here, you can
+customize by editting this file
 
 ## Starting the blockchain
 
@@ -18,7 +20,8 @@ Run the following:
 scripts/wasmd/start.sh
 ```
 
-You get filtered output on the console. If it crashes and you want the full logs, look at `debug-wasmd.log`.
+You get filtered output on the console. If it crashes and you want the full
+logs, look at `debug-wasmd.log`.
 
 ## Stopping the blockchain
 

@@ -3,7 +3,8 @@
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project adheres to
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
@@ -27,7 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Migrade to new drand mainnet (chain hash `dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493`) ([#177]).
+- Migrade to new drand mainnet (chain hash
+  `dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493`) ([#177]).
 - Store submission more efficiently in the database
 
 [#177]: https://github.com/noislabs/nois-contracts/pull/177
@@ -45,14 +47,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bump drand-verify to 0.4, using pairing for the BLS verification.
-- Reduce the number of verification executions per round from 6 to 3 to increase the number of processable jobs.
+- Reduce the number of verification executions per round from 6 to 3 to increase
+  the number of processable jobs.
 - Introduce reward point system for drand submissions.
 - Upgrade CosmWasm to 1.2.
 - icecube: Rename `admin` to `manager`.
 - drand: Only pay out rewards for bots in the right group ([#147]).
-- drand: Store height and tx_index of submission to allow finding transaction for a submission ([#153]).
+- drand: Store height and tx_index of submission to allow finding transaction
+  for a submission ([#153]).
 - proxy: Make callback gas limit configurable and reduce value to 500k in tests.
-- Pull out `RequestBeaconOrigin` struct which belongs to the proxy-dapp communication.
+- Pull out `RequestBeaconOrigin` struct which belongs to the proxy-dapp
+  communication.
 - Bump IBC protocol version to "nois-v5".
 - protocol: Remove unused job_id from `DeliverBeaconPacketAck`
 - drand: Add `reward_points` to bot stats

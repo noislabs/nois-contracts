@@ -1,6 +1,7 @@
 # ibc-tests-ics20
 
-Simple repo showing how to use ts-relayer as a library to test cw20-ics20 contract
+Simple repo showing how to use ts-relayer as a library to test cw20-ics20
+contract
 
 ## Setup
 
@@ -50,7 +51,11 @@ NOTE: you need to run this each time your contract changes.
 
 ### Run two chains in docker
 
-This actually runs the test codes on contracts. To do so, we need to start two blockchains in the background and then run the process. This requires that you have docker installed and running on your local machine. If you don't, please do that first before running the scripts. (Also, they only work on Linux and MacOS... sorry Windows folks, you are welcome to PR an equivalent).
+This actually runs the test codes on contracts. To do so, we need to start two
+blockchains in the background and then run the process. This requires that you
+have docker installed and running on your local machine. If you don't, please do
+that first before running the scripts. (Also, they only work on Linux and
+MacOS... sorry Windows folks, you are welcome to PR an equivalent).
 
 Terminal 1:
 
@@ -64,7 +69,8 @@ Terminal 2:
 ./ci-scripts/nois/start.sh
 ```
 
-If those start properly, you should see a series of `executed block` messages. If they fail, check `debug.log` in that directory for full log messages.
+If those start properly, you should see a series of `executed block` messages.
+If they fail, check `debug.log` in that directory for full log messages.
 
 ### Run tests
 
@@ -74,7 +80,9 @@ Terminal 3:
 npm run test
 ```
 
-You may run and re-run tests many times. When you are done with it and want to free up some system resources (stop running two blockchains in the background), you need to run these commands to stop them properly:
+You may run and re-run tests many times. When you are done with it and want to
+free up some system resources (stop running two blockchains in the background),
+you need to run these commands to stop them properly:
 
 ```
 ./scripts/wasmd/stop.sh
