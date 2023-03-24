@@ -453,14 +453,10 @@ fn execute_set_config(
     incentive_point_price: Option<Uint128>,
     incentive_denom: Option<String>,
 ) -> Result<Response, ContractError> {
-    let config: Config = CONFIG.load(deps.storage)?;
+    let config = CONFIG.load(deps.storage)?;
 
     // check the calling address is the authorised multisig
-    ensure_eq!(
-        info.sender,
-        CONFIG.load(deps.storage)?.manager,
-        ContractError::Unauthorized
-    );
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     let gateway = match gateway {
         Some(gateway) => Some(deps.api.addr_validate(&gateway)?),

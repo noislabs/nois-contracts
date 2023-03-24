@@ -87,12 +87,10 @@ fn execute_delegate(
     addr: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
     // check the calling address is the authorised multisig
-    ensure_eq!(
-        info.sender,
-        CONFIG.load(deps.storage)?.manager,
-        ContractError::Unauthorized
-    );
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     Ok(Response::new().add_message(StakingMsg::Delegate {
         validator: addr,
@@ -110,12 +108,10 @@ fn execute_undelegate(
     addr: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
     // check the calling address is the authorised multisig
-    ensure_eq!(
-        info.sender,
-        CONFIG.load(deps.storage)?.manager,
-        ContractError::Unauthorized
-    );
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     Ok(Response::new().add_message(StakingMsg::Undelegate {
         validator: addr,
@@ -134,12 +130,10 @@ fn execute_redelegate(
     dest_addr: String,
     amount: Uint128,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
     // check the calling address is the authorised multisig
-    ensure_eq!(
-        info.sender,
-        CONFIG.load(deps.storage)?.manager,
-        ContractError::Unauthorized
-    );
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     Ok(Response::new().add_message(StakingMsg::Redelegate {
         src_validator: src_addr,
@@ -169,7 +163,7 @@ fn execute_set_drand_addr(
     _env: Env,
     addr: String,
 ) -> Result<Response, ContractError> {
-    let mut config: Config = CONFIG.load(deps.storage)?;
+    let mut config = CONFIG.load(deps.storage)?;
 
     // check the calling address is the authorised multisig
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
@@ -193,14 +187,10 @@ fn execute_set_manager_addr(
     _env: Env,
     manager: String,
 ) -> Result<Response, ContractError> {
-    let mut config: Config = CONFIG.load(deps.storage)?;
+    let mut config = CONFIG.load(deps.storage)?;
 
     // check the calling address is the authorised multisig
-    ensure_eq!(
-        info.sender,
-        CONFIG.load(deps.storage)?.manager,
-        ContractError::Unauthorized
-    );
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     let manager_addr = deps.api.addr_validate(&manager)?;
     config.manager = manager_addr.clone();
