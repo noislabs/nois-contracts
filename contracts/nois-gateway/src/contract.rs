@@ -262,7 +262,7 @@ fn execute_set_config(
     info: MessageInfo,
     _env: Env,
     manager: Option<String>,
-    prices: Option<Vec<Coin>>,
+    prices: Option<Coin>,
     drand: Option<String>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
@@ -327,7 +327,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: vec![Coin::new(1, "unois")],
+            prices: Coin::new(1, "unois"),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -497,7 +497,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: vec![Coin::new(1, "unois")],
+            prices: Coin::new(1, "unois"),
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
@@ -511,7 +511,7 @@ mod tests {
             ConfigResponse {
                 drand: None,
                 manager: Addr::unchecked(MANAGER),
-                prices: vec![Coin::new(1, "unois")]
+                prices: Coin::new(1, "unois")
             }
         );
     }
@@ -527,7 +527,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: vec![Coin::new(1, "unois")],
+            prices: Coin::new(1, "unois"),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -567,7 +567,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: vec![Coin::new(1, "unois")],
+            prices: Coin::new(1, "unois"),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -727,7 +727,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: vec![Coin::new(1, "unois")],
+            prices: Coin::new(1, "unois"),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 

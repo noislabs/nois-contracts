@@ -10,7 +10,7 @@ pub struct Config {
     /// Manager to set the price and drand address
     pub manager: Addr,
     /// The price to pay in order to register the randomness job
-    pub prices: Vec<Coin>,
+    pub prices: Coin,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
