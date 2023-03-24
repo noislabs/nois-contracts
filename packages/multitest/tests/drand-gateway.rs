@@ -89,7 +89,7 @@ fn integration_test() {
             Addr::unchecked("owner"),
             &nois_gateway::msg::InstantiateMsg {
                 manager: "manager".to_string(),
-                prices: Coin::new(1, "unois"),
+                price: Coin::new(1, "unois"),
             },
             &[],
             "Nois-Gateway",
@@ -107,7 +107,7 @@ fn integration_test() {
         nois_gateway::msg::ConfigResponse {
             drand: None,
             manager: Addr::unchecked("manager"),
-            prices: Coin::new(1, "unois"),
+            price: Coin::new(1, "unois"),
         }
     );
 
@@ -146,7 +146,7 @@ fn integration_test() {
         addr_nois_gateway.to_owned(),
         &nois_gateway::msg::ExecuteMsg::SetConfig {
             manager: None,
-            prices: None,
+            price: None,
             drand_addr: Some(addr_nois_drand.to_string()),
         },
         &[],
@@ -161,7 +161,7 @@ fn integration_test() {
         nois_gateway::msg::ConfigResponse {
             drand: Some(addr_nois_drand.clone()),
             manager: Addr::unchecked("manager"),
-            prices: Coin::new(1, "unois"),
+            price: Coin::new(1, "unois"),
         }
     );
 

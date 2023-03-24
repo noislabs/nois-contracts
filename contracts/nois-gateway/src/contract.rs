@@ -27,7 +27,7 @@ pub fn instantiate(
     let config = Config {
         drand: None,
         manager,
-        prices: msg.prices,
+        price: msg.price,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -55,9 +55,9 @@ pub fn execute(
         } => execute_add_verified_round(deps, env, info, round, randomness, is_verifying_tx),
         ExecuteMsg::SetConfig {
             manager,
-            prices,
+            price,
             drand_addr,
-        } => execute_set_config(deps, info, env, manager, prices, drand_addr),
+        } => execute_set_config(deps, info, env, manager, price, drand_addr),
     }
 }
 
@@ -262,7 +262,7 @@ fn execute_set_config(
     info: MessageInfo,
     _env: Env,
     manager: Option<String>,
-    prices: Option<Coin>,
+    price: Option<Coin>,
     drand: Option<String>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
@@ -278,14 +278,14 @@ fn execute_set_config(
         Some(dr) => Some(deps.api.addr_validate(&dr)?),
         None => config.drand,
     };
-    let prices = match prices {
+    let price = match price {
         Some(pr) => pr,
-        None => config.prices,
+        None => config.price,
     };
     let new_config = Config {
         manager,
         drand,
-        prices,
+        price,
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -327,7 +327,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: Coin::new(1, "unois"),
+            price: Coin::new(1, "unois"),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -497,7 +497,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: Coin::new(1, "unois"),
+            price: Coin::new(1, "unois"),
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
@@ -511,7 +511,7 @@ mod tests {
             ConfigResponse {
                 drand: None,
                 manager: Addr::unchecked(MANAGER),
-                prices: Coin::new(1, "unois")
+                price: Coin::new(1, "unois")
             }
         );
     }
@@ -527,7 +527,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: Coin::new(1, "unois"),
+            price: Coin::new(1, "unois"),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -545,7 +545,7 @@ mod tests {
         // Set drand contract
         let msg = ExecuteMsg::SetConfig {
             manager: None,
-            prices: None,
+            price: None,
             drand_addr: Some(DRAND.to_string()),
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
@@ -567,7 +567,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: Coin::new(1, "unois"),
+            price: Coin::new(1, "unois"),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -576,7 +576,7 @@ mod tests {
         // Set drand contract
         let msg = ExecuteMsg::SetConfig {
             manager: None,
-            prices: None,
+            price: None,
             drand_addr: Some(DRAND.to_string()),
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
@@ -727,7 +727,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            prices: Coin::new(1, "unois"),
+            price: Coin::new(1, "unois"),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -736,7 +736,7 @@ mod tests {
         // Set drand contract
         let msg = ExecuteMsg::SetConfig {
             manager: None,
-            prices: None,
+            price: None,
             drand_addr: Some(DRAND.to_string()),
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();

@@ -5,9 +5,8 @@ use crate::state::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    /// The prices of a randomness. List is to be interpreted as oneof,
-    /// i.e. payment must be paid in one of those denominations.
-    pub prices: Coin,
+    /// The price of a randomness.
+    pub price: Coin,
     pub manager: String,
 }
 
@@ -22,7 +21,7 @@ pub enum ExecuteMsg {
     /// Set the config
     SetConfig {
         manager: Option<String>,
-        prices: Option<Coin>,
+        price: Option<Coin>,
         drand_addr: Option<String>,
     },
 }
