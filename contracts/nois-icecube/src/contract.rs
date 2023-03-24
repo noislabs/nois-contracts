@@ -172,11 +172,7 @@ fn execute_set_drand_addr(
     let mut config: Config = CONFIG.load(deps.storage)?;
 
     // check the calling address is the authorised multisig
-    ensure_eq!(
-        info.sender,
-        CONFIG.load(deps.storage)?.manager,
-        ContractError::Unauthorized
-    );
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     // ensure immutability
     if config.drand.is_some() {
