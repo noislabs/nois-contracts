@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.10.2] - 2023-03-24
+
 ### Changed
 
 - Icecube: Ensure only manager can set drand address. This way an attacker
