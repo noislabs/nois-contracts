@@ -84,9 +84,8 @@ npm run test
 
 You may get prettier issues. Tofix that you can install prettier and run it
 
-```shell
-npm install --save-dev prettier
-npx prettier --write "src/**/*.{js,ts}"
+```sh
+npm run fix:prettier
 ```
 
 You may run and re-run tests many times. When you are done with it and want to
