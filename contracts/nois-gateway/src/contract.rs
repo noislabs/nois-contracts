@@ -1,9 +1,9 @@
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, from_binary, from_slice, to_binary, Attribute, Deps, DepsMut,
-    Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never,
-    QueryResponse, Response, StdResult,
+    attr, ensure_eq, entry_point, from_binary, from_slice, to_binary, Attribute, Coin, Deps,
+    DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse,
+    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
+    Never, QueryResponse, Response, StdResult,
 };
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacketAck, RequestBeaconPacket, StdAck,
@@ -21,9 +21,14 @@ pub fn instantiate(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let config = Config { drand: None };
+    let manager = deps.api.addr_validate(&msg.manager)?;
+    let config = Config {
+        drand: None,
+        manager,
+        price: msg.price,
+    };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
 }
@@ -48,7 +53,11 @@ pub fn execute(
             randomness,
             is_verifying_tx,
         } => execute_add_verified_round(deps, env, info, round, randomness, is_verifying_tx),
-        ExecuteMsg::SetDrandAddr { addr } => execute_set_drand_addr(deps, env, addr),
+        ExecuteMsg::SetConfig {
+            manager,
+            price,
+            drand_addr,
+        } => execute_set_config(deps, info, env, manager, price, drand_addr),
     }
 }
 
@@ -248,24 +257,40 @@ fn execute_add_verified_round(
 /// in a context where the contract addresses generration is not known
 /// in advance, we set the contract address at a later stage after the
 /// instantation and make sure it is immutable once set
-fn execute_set_drand_addr(
+fn execute_set_config(
     deps: DepsMut,
+    info: MessageInfo,
     _env: Env,
-    addr: String,
+    manager: Option<String>,
+    price: Option<Coin>,
+    drand: Option<String>,
 ) -> Result<Response, ContractError> {
-    let mut config = CONFIG.load(deps.storage)?;
+    let config = CONFIG.load(deps.storage)?;
 
-    // ensure immutability
-    if config.drand.is_some() {
-        return Err(ContractError::ContractAlreadySet {});
-    }
+    // check the calling address is the authorised multisig
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
-    let nois_drand = deps.api.addr_validate(&addr)?;
-    config.drand = Some(nois_drand.clone());
+    let manager = match manager {
+        Some(ma) => deps.api.addr_validate(&ma)?,
+        None => config.manager,
+    };
+    let drand = match drand {
+        Some(dr) => Some(deps.api.addr_validate(&dr)?),
+        None => config.drand,
+    };
+    let price = match price {
+        Some(pr) => pr,
+        None => config.price,
+    };
+    let new_config = Config {
+        manager,
+        drand,
+        price,
+    };
 
-    CONFIG.save(deps.storage, &config)?;
+    CONFIG.save(deps.storage, &new_config)?;
 
-    Ok(Response::new().add_attribute("nois-drand-address", nois_drand))
+    Ok(Response::default())
 }
 
 #[cfg(test)]
@@ -280,11 +305,13 @@ mod tests {
         mock_ibc_packet_recv, mock_info, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
-        coin, from_binary, Binary, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps, Timestamp,
+        coin, from_binary, Addr, Binary, Coin, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps,
+        Timestamp,
     };
     use nois_protocol::{DeliverBeaconPacket, APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
+    const MANAGER: &str = "boss";
 
     // Consecutive timestamps for the rounds 810, 820, 830, 840
     const AFTER1: Timestamp = Timestamp::from_seconds(1677687627 - 1);
@@ -298,7 +325,10 @@ mod tests {
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+        };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -465,7 +495,10 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+        };
         let info = mock_info("creator", &[]);
         let env = mock_env();
         let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
@@ -473,7 +506,14 @@ mod tests {
 
         let config: ConfigResponse =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
-        assert_eq!(config, ConfigResponse { drand: None });
+        assert_eq!(
+            config,
+            ConfigResponse {
+                drand: None,
+                manager: Addr::unchecked(MANAGER),
+                price: Coin::new(1, "unois")
+            }
+        );
     }
 
     //
@@ -485,7 +525,10 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         const ANON: &str = "anon";
@@ -500,10 +543,12 @@ mod tests {
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
         // Set drand contract
-        let msg = ExecuteMsg::SetDrandAddr {
-            addr: DRAND.to_string(),
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            price: None,
+            drand_addr: Some(DRAND.to_string()),
         };
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
         // Anon still cannot add round
         let msg = make_add_verified_round_msg(2183668, true);
@@ -520,17 +565,21 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        const ANON: &str = "anon";
         const DRAND: &str = "drand_verifier_7";
 
         // Set drand contract
-        let msg = ExecuteMsg::SetDrandAddr {
-            addr: DRAND.to_string(),
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            price: None,
+            drand_addr: Some(DRAND.to_string()),
         };
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
         // Create one job
         let msg = mock_ibc_packet_recv(
@@ -676,17 +725,21 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+        };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        const ANON: &str = "anon";
         const DRAND: &str = "drand_verifier_7";
 
         // Set drand contract
-        let msg = ExecuteMsg::SetDrandAddr {
-            addr: DRAND.to_string(),
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            price: None,
+            drand_addr: Some(DRAND.to_string()),
         };
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
         fn job_stats(deps: Deps, round: u64) -> DrandJobStatsResponse {
             from_binary(&query(deps, mock_env(), QueryMsg::DrandJobStats { round }).unwrap())

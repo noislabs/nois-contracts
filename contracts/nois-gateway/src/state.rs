@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Binary, StdResult, Storage};
+use cosmwasm_std::{Addr, Binary, Coin, StdResult, Storage};
 use cw_storage_plus::{Deque, Item, Map};
 
 #[cw_serde]
@@ -7,6 +7,10 @@ pub struct Config {
     /// The address of the drand contract.
     /// As long as this is unset, noone can submit randomness.
     pub drand: Option<Addr>,
+    /// Manager to set the price and drand address
+    pub manager: Addr,
+    /// The price to pay in order to register the randomness job
+    pub price: Coin,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

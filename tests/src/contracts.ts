@@ -43,8 +43,10 @@ export interface DrandExecuteMsg {
   readonly set_gateway_addr?: { addr: string };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface GatewayInstantiateMsg {}
+export interface GatewayInstantiateMsg {
+  readonly manager: string;
+  readonly price: Coin;
+}
 
 export interface GatewayExecuteMsg {
   readonly add_verified_round?: {
@@ -52,7 +54,7 @@ export interface GatewayExecuteMsg {
     readonly randomness: string;
     readonly is_verifying_tx: boolean;
   };
-  readonly set_drand_addr?: { addr: string };
+  readonly set_config?: { drand_addr: string };
 }
 
 export interface ProxyInstantiateMsg {

@@ -46,7 +46,10 @@ fn integration_test() {
         .instantiate_contract(
             code_id_nois_gateway,
             Addr::unchecked("owner"),
-            &nois_gateway::msg::InstantiateMsg {},
+            &nois_gateway::msg::InstantiateMsg {
+                manager: "manager".to_string(),
+                price: Coin::new(1, "unois"),
+            },
             &[],
             "Nois-Gateway",
             None,
@@ -58,17 +61,26 @@ fn integration_test() {
         .wrap()
         .query_wasm_smart(&addr_nois_gateway, &nois_gateway::msg::QueryMsg::Config {})
         .unwrap();
-    assert_eq!(resp, nois_gateway::msg::ConfigResponse { drand: None });
+    assert_eq!(
+        resp,
+        nois_gateway::msg::ConfigResponse {
+            drand: None,
+            manager: Addr::unchecked("manager"),
+            price: Coin::new(1, "unois"),
+        }
+    );
 
     const DRAND: &str = "drand_verifier_7";
 
     // Set drand
-    let msg = nois_gateway::msg::ExecuteMsg::SetDrandAddr {
-        addr: DRAND.to_string(),
+    let msg = nois_gateway::msg::ExecuteMsg::SetConfig {
+        manager: None,
+        price: None,
+        drand_addr: Some(DRAND.to_string()),
     };
     let _resp = app
         .execute_contract(
-            Addr::unchecked("whoever"),
+            Addr::unchecked("manager"),
             addr_nois_gateway.clone(),
             &msg,
             &[],
@@ -83,7 +95,9 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_gateway::msg::ConfigResponse {
-            drand: Some(Addr::unchecked(DRAND))
+            drand: Some(Addr::unchecked(DRAND)),
+            manager: Addr::unchecked("manager"),
+            price: Coin::new(1, "unois"),
         }
     );
 

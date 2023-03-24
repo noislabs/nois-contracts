@@ -71,7 +71,10 @@ test.serial("set up channel", async (t) => {
   assert(proxyPort);
 
   const noisClient = await setupNoisClient();
-  const msg: GatewayInstantiateMsg = {};
+  const msg: GatewayInstantiateMsg = {
+    manager: noisClient.senderAddress,
+    price: coins(1_000_000, "unois")[0],
+  };
   const { contractAddress: gatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
     (t.context as TestContext).noisCodeIds.gateway,
@@ -137,7 +140,10 @@ async function instantiateAndConnectIbc(
   );
 
   // Instantiate Gateway on Nois
-  const instantiateMsg: GatewayInstantiateMsg = {};
+  const instantiateMsg: GatewayInstantiateMsg = {
+    manager: noisClient.senderAddress,
+    price: coins(1_000_000, "unois")[0],
+  };
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
     (t.context as TestContext).noisCodeIds.gateway,
@@ -146,7 +152,7 @@ async function instantiateAndConnectIbc(
     "auto"
   );
 
-  const setDrandMsg: GatewayExecuteMsg = { set_drand_addr: { addr: options.mockDrandAddr } };
+  const setDrandMsg: GatewayExecuteMsg = { set_config: { drand_addr: options.mockDrandAddr } };
   await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
 
   const [noisProxyInfo, noisGatewayInfo] = await Promise.all([

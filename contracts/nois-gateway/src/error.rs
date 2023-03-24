@@ -9,8 +9,8 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("Unauthorized. Contract is already set")]
-    ContractAlreadySet,
+    #[error("Unauthorized")]
+    Unauthorized,
 
     // Jobs
     #[error("Origin data exceeds length limit.")]
