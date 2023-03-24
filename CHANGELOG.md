@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Icecube: Ensure only manager can set drand address. This way an attacker
+  cannot set a wrong address during the deployment process. (#192)
+
 ## [0.10.1] - 2023-03-23
 
 ### Changed
