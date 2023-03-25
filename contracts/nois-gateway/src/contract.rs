@@ -3,7 +3,8 @@ use cosmwasm_std::{
     DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    Never, QueryResponse, Response, StdResult,
+    Never, QueryRequest, QueryResponse, Response, StdError, StdResult, SystemError, SystemResult,
+    WasmQuery,
 };
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacketAck, RequestBeaconPacket, StdAck,
@@ -23,12 +24,20 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let manager = deps.api.addr_validate(&msg.manager)?;
+    let InstantiateMsg {
+        price,
+        manager,
+        payment_code_id,
+    } = msg;
+
+    let manager = deps.api.addr_validate(&manager)?;
+    ensure_code_id_exists(deps.as_ref(), payment_code_id)?;
+
     let config = Config {
         drand: None,
         manager,
-        price: msg.price,
-        payment_code_id: msg.payment_code_id,
+        price,
+        payment_code_id,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -285,7 +294,14 @@ fn execute_set_config(
         Some(pr) => pr,
         None => config.price,
     };
-    let payment_code_id = payment_code_id.unwrap_or(config.payment_code_id);
+
+    let payment_code_id = match payment_code_id {
+        Some(new_code_id) => {
+            ensure_code_id_exists(deps.as_ref(), new_code_id)?;
+            new_code_id
+        }
+        None => config.payment_code_id,
+    };
 
     let new_config = Config {
         manager,
@@ -299,6 +315,21 @@ fn execute_set_config(
     Ok(Response::default())
 }
 
+fn ensure_code_id_exists(deps: Deps, code_id: u64) -> Result<(), ContractError> {
+    let query = to_binary(&QueryRequest::<Empty>::Wasm(WasmQuery::CodeInfo {
+        code_id,
+    }))?;
+    match deps.querier.raw_query(&query) {
+        SystemResult::Ok(_) => Ok(()),
+        SystemResult::Err(SystemError::NoSuchCode { code_id }) => {
+            Err(ContractError::CodeIdDoesNotExist { code_id })
+        }
+        SystemResult::Err(system_err) => {
+            Err(StdError::generic_err(format!("Querier system error: {}", system_err)).into())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -306,19 +337,21 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{
-        mock_dependencies, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_ack,
+        self, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_ack,
         mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_ibc_packet_ack,
         mock_ibc_packet_recv, mock_info, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
-        coin, from_binary, Addr, Binary, Coin, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps,
-        Timestamp,
+        coin, from_binary, Addr, Binary, CodeInfoResponse, Coin, ContractResult, CosmosMsg,
+        IbcAcknowledgement, IbcMsg, OwnedDeps, QuerierResult, SystemError, SystemResult, Timestamp,
+        WasmQuery,
     };
     use nois_protocol::{DeliverBeaconPacket, APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
     const MANAGER: &str = "boss";
     const PAYMENT: u64 = 33;
+    const PAYMENT2: u64 = 37;
 
     // Consecutive timestamps for the rounds 810, 820, 830, 840
     const AFTER1: Timestamp = Timestamp::from_seconds(1677687627 - 1);
@@ -495,6 +528,55 @@ mod tests {
         );
     }
 
+    fn mock_dependencies() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
+        let mut deps = testing::mock_dependencies();
+        deps.querier
+            .update_wasm(Box::from(|request: &WasmQuery| -> QuerierResult {
+                match request {
+                    WasmQuery::Smart { contract_addr, .. } => {
+                        SystemResult::Err(SystemError::NoSuchContract {
+                            addr: contract_addr.clone(),
+                        })
+                    }
+                    WasmQuery::Raw { contract_addr, .. } => {
+                        SystemResult::Err(SystemError::NoSuchContract {
+                            addr: contract_addr.clone(),
+                        })
+                    }
+                    WasmQuery::ContractInfo { contract_addr, .. } => {
+                        SystemResult::Err(SystemError::NoSuchContract {
+                            addr: contract_addr.clone(),
+                        })
+                    }
+                    WasmQuery::CodeInfo { code_id, .. } => match *code_id {
+                        PAYMENT => {
+                            let mut resp = CodeInfoResponse::default();
+                            resp.code_id = PAYMENT;
+                            resp.creator = "whoever".to_string();
+                            resp.checksum = HexBinary::from_hex(
+                                "04b59c31429dcc5bdc58fb1ded3894797a0f0c324f5db40e1fa2c7812a300b83",
+                            )
+                            .unwrap();
+                            SystemResult::Ok(ContractResult::Ok(to_binary(&resp).unwrap()))
+                        }
+                        PAYMENT2 => {
+                            let mut resp = CodeInfoResponse::default();
+                            resp.code_id = PAYMENT2;
+                            resp.creator = "anotherone".to_string();
+                            resp.checksum = HexBinary::from_hex(
+                                "f9ed2a2e7c03937004a2079747e79e508288e721bfe63f441f3e1c397c55b88d",
+                            )
+                            .unwrap();
+                            SystemResult::Ok(ContractResult::Ok(to_binary(&resp).unwrap()))
+                        }
+                        _ => SystemResult::Err(SystemError::NoSuchCode { code_id: *code_id }),
+                    },
+                    _ => panic!("Unsupported WasmQuery case in mock handler"),
+                }
+            }));
+        deps
+    }
+
     //
     // Instantiate tests
     //
@@ -526,9 +608,63 @@ mod tests {
         );
     }
 
+    #[test]
+    fn instantiate_with_non_existing_code_id_fails() {
+        let mut deps = mock_dependencies();
+
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+            payment_code_id: 654321,
+        };
+        let info = mock_info("creator", &[]);
+        let env = mock_env();
+        let err = instantiate(deps.as_mut(), env, info, msg).unwrap_err();
+        match err {
+            ContractError::CodeIdDoesNotExist { code_id } => assert_eq!(code_id, 654321), // ok
+            err => panic!("Unexpected error: {:?}", err),
+        }
+    }
+
     //
     // Execute tests
     //
+
+    #[test]
+    fn execute_set_config_works_for_code_id() {
+        let mut deps = mock_dependencies();
+
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+        };
+        let info = mock_info("creator", &[]);
+        let env = mock_env();
+        instantiate(deps.as_mut(), env, info, msg).unwrap();
+
+        // Works
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            price: None,
+            drand_addr: None,
+            payment_code_id: Some(PAYMENT2),
+        };
+        execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+
+        // Fails for non-existing code ID
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            price: None,
+            drand_addr: None,
+            payment_code_id: Some(554466),
+        };
+        let err = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap_err();
+        match err {
+            ContractError::CodeIdDoesNotExist { code_id } => assert_eq!(code_id, 554466), // ok
+            err => panic!("Unexpected error: {:?}", err),
+        }
+    }
 
     #[test]
     fn add_round_verified_must_only_be_called_by_drand() {
