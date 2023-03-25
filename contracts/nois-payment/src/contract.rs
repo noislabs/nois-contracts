@@ -127,8 +127,8 @@ fn execute_pay(
 
     Ok(Response::new()
         .add_messages(out_msgs)
-        .add_attribute("burnt_amount", burn.to_string())
-        .add_attribute("relayer_incentive", relayer.1.to_string())
+        .add_attribute("burnt", burn.to_string())
+        .add_attribute("relayer_reward", relayer.1.to_string())
         .add_attribute("relayer_address", relayer.0)
         .add_attribute("sent_to_community_pool", community_pool.to_string()))
 }
@@ -142,12 +142,23 @@ mod tests {
     use cosmwasm_std::{
         coins, from_binary,
         testing::{mock_dependencies, mock_env, mock_info},
-        Addr, Binary, Uint128,
+        Addr, Attribute, Binary, Uint128,
     };
 
     const NOIS_SINK: &str = "sink";
     const NOIS_COMMUNITY_POOL: &str = "community_pool";
     const NOIS_GATEWAY: &str = "nois-gateway";
+
+    /// Gets the value of the first attribute with the given key
+    pub fn first_attr(data: impl AsRef<[Attribute]>, search_key: &str) -> Option<String> {
+        data.as_ref().iter().find_map(|a| {
+            if a.key == search_key {
+                Some(a.value.clone())
+            } else {
+                None
+            }
+        })
+    }
 
     #[test]
     fn instantiate_works() {
@@ -290,6 +301,18 @@ mod tests {
                 amount: coins(450_000, "unois"),
             })
         );
+        assert_eq!(
+            first_attr(&response.attributes, "burnt").unwrap(),
+            "500000unois"
+        );
+        assert_eq!(
+            first_attr(&response.attributes, "relayer_reward").unwrap(),
+            "50000unois"
+        );
+        assert_eq!(
+            first_attr(&response.attributes, "sent_to_community_pool").unwrap(),
+            "450000unois"
+        );
 
         // Zero amount is supported
         let info = mock_info(NOIS_GATEWAY, &[]);
@@ -301,5 +324,14 @@ mod tests {
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         // 0 because sink does not like empty funds array and bank send does not like zero coins
         assert_eq!(response.messages.len(), 0);
+        assert_eq!(first_attr(&response.attributes, "burnt").unwrap(), "0unois");
+        assert_eq!(
+            first_attr(&response.attributes, "relayer_reward").unwrap(),
+            "0unois"
+        );
+        assert_eq!(
+            first_attr(&response.attributes, "sent_to_community_pool").unwrap(),
+            "0unois"
+        );
     }
 }
