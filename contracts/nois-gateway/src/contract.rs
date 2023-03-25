@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, from_binary, from_slice, instantiate2_address, to_binary,
+    attr, ensure_eq, entry_point, from_binary, from_slice, instantiate2_address, to_binary, Addr,
     Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg,
@@ -199,14 +199,16 @@ pub fn ibc_packet_receive(
     env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, Never> {
-    let packet = msg.packet;
+    let IbcPacketReceiveMsg {
+        packet, relayer, ..
+    } = msg;
     // which local channel did this packet come on
-    let channel = packet.dest.channel_id;
+    let channel_id = packet.dest.channel_id;
 
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
         let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-        receive_request_beacon(deps, env, channel, msg)
+        receive_request_beacon(deps, env, channel_id, relayer, msg)
     })()
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
@@ -219,9 +221,10 @@ pub fn ibc_packet_receive(
 }
 
 fn receive_request_beacon(
-    deps: DepsMut,
+    mut deps: DepsMut,
     env: Env,
-    channel: String,
+    channel_id: String,
+    relayer: Addr,
     msg: RequestBeaconPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let RequestBeaconPacket { origin, after } = msg;
@@ -231,8 +234,29 @@ fn receive_request_beacon(
     let router = RequestRouter::new();
     let RoutingReceipt {
         acknowledgement,
-        msgs,
-    } = router.route(deps, env, channel, after, origin)?;
+        mut msgs,
+    } = router.route(deps.branch(), env, channel_id.clone(), after, origin)?;
+
+    // Pay time
+    let abc = PAYMENT_ADDRESSES.load(deps.storage, &channel_id)?;
+
+    let config = CONFIG.load(deps.storage)?;
+
+    let Coin { amount, denom } = config.price;
+    let amount_burn = amount.mul_ceil((50u128, 100)); // 50%
+    let amount_relayer = amount.mul_ceil((5u128, 100)); // 5%
+    let amount_rest = amount - amount_burn - amount_relayer; // 45%
+
+    let msg = WasmMsg::Execute {
+        contract_addr: abc.into(),
+        msg: to_binary(&nois_payment::msg::ExecuteMsg::Pay {
+            burn: Coin::new(amount_burn.u128(), &denom),
+            relayer: (relayer.into(), Coin::new(amount_relayer.u128(), &denom)),
+            community_pool: Coin::new(amount_rest.u128(), denom),
+        })?,
+        funds: vec![],
+    };
+    msgs.push(msg.into());
 
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
