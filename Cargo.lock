@@ -578,6 +578,7 @@ dependencies = [
  "cw-storage-plus",
  "drand-common",
  "nois",
+ "nois-payment",
  "nois-protocol",
  "serde",
  "thiserror",
