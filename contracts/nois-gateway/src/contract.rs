@@ -238,7 +238,7 @@ fn receive_request_beacon(
     } = router.route(deps.branch(), env, channel_id.clone(), after, origin)?;
 
     // Pay time
-    let abc = PAYMENT_ADDRESSES.load(deps.storage, &channel_id)?;
+    let payment_contract = PAYMENT_ADDRESSES.load(deps.storage, &channel_id)?;
 
     let config = CONFIG.load(deps.storage)?;
 
@@ -248,7 +248,7 @@ fn receive_request_beacon(
     let amount_rest = amount - amount_burn - amount_relayer; // 45%
 
     let msg = WasmMsg::Execute {
-        contract_addr: abc.into(),
+        contract_addr: payment_contract.into(),
         msg: to_binary(&nois_payment::msg::ExecuteMsg::Pay {
             burn: Coin::new(amount_burn.u128(), &denom),
             relayer: (relayer.into(), Coin::new(amount_relayer.u128(), &denom)),
