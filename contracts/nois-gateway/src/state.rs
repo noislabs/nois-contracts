@@ -80,3 +80,6 @@ pub fn increment_processed_drand_jobs(storage: &mut dyn Storage, round: u64) -> 
     PROCESSED_DRAND_JOBS_COUNT.save(storage, round, &(current + 1))?;
     Ok(())
 }
+
+/// A map from channel ID to address of the payment contract
+pub const PAYMENT_ADDRESSES: Map<&str, Addr> = Map::new("pa");

@@ -16,7 +16,9 @@ use crate::error::ContractError;
 use crate::job_id::validate_origin;
 use crate::msg::{ConfigResponse, DrandJobStatsResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
-use crate::state::{get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, CONFIG};
+use crate::state::{
+    get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, CONFIG, PAYMENT_ADDRESSES,
+};
 
 #[entry_point]
 pub fn instantiate(
@@ -147,11 +149,15 @@ pub fn ibc_channel_connect(
     let address = instantiate2_address(&checksum, &creator, &salt)
         .map_err(|e| StdError::generic_err(format!("Cound not generate address: {}", e)))?;
 
-    #[cfg(not(test))]
-    {
-        let _address = deps.api.addr_humanize(&address)?;
-    }
-    // TODO: store _address
+    let address = {
+        #[cfg(not(test))]
+        {
+            deps.api.addr_humanize(&address)?
+        }
+        #[cfg(test)]
+        cosmwasm_std::Addr::unchecked("some paymane address")
+    };
+    PAYMENT_ADDRESSES.save(deps.storage, chan_id, &address)?;
 
     let msg = WasmMsg::Instantiate2 {
         admin: Some(env.contract.address.into()), // Only gateway can update the contracts it created
