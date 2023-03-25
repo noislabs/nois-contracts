@@ -11,6 +11,8 @@ pub struct Config {
     pub manager: Addr,
     /// The price to pay in order to register the randomness job
     pub price: Coin,
+    /// The code ID of the payment contract to be instantatiated
+    pub payment_code_id: u64,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

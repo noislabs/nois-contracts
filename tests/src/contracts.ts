@@ -46,6 +46,7 @@ export interface DrandExecuteMsg {
 export interface GatewayInstantiateMsg {
   readonly manager: string;
   readonly price: Coin;
+  readonly payment_code_id: number;
 }
 
 export interface GatewayExecuteMsg {
@@ -54,7 +55,12 @@ export interface GatewayExecuteMsg {
     readonly randomness: string;
     readonly is_verifying_tx: boolean;
   };
-  readonly set_config?: { drand_addr: string };
+  readonly set_config?: {
+    readonly manager?: null | string;
+    readonly price?: null | Coin;
+    readonly drand_addr?: null | string;
+    readonly payment_code_id?: null | number;
+  };
 }
 
 export interface ProxyInstantiateMsg {

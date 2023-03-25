@@ -8,6 +8,7 @@ pub struct InstantiateMsg {
     /// The price of a randomness.
     pub price: Coin,
     pub manager: String,
+    pub payment_code_id: u64,
 }
 
 #[cw_serde]
@@ -23,6 +24,7 @@ pub enum ExecuteMsg {
         manager: Option<String>,
         price: Option<Coin>,
         drand_addr: Option<String>,
+        payment_code_id: Option<u64>,
     },
 }
 
