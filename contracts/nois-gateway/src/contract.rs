@@ -155,8 +155,8 @@ pub fn ibc_channel_connect(
         code_id: config.payment_code_id,
         label: format!("For {chan_id}"),
         msg: to_binary(&nois_payment::msg::InstantiateMsg {
-            nois_sink: sink_address,
-            nois_com_pool_addr: community_pool_address,
+            sink: sink_address,
+            community_pool: community_pool_address,
         })?,
         funds: vec![],
         salt,

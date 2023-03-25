@@ -16,11 +16,11 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     let nois_sink_addr = deps
         .api
-        .addr_validate(&msg.nois_sink)
+        .addr_validate(&msg.sink)
         .map_err(|_| ContractError::InvalidAddress)?;
     let nois_com_pool_addr = deps
         .api
-        .addr_validate(&msg.nois_com_pool_addr)
+        .addr_validate(&msg.community_pool)
         .map_err(|_| ContractError::InvalidAddress)?;
     CONFIG.save(
         deps.storage,
@@ -32,8 +32,8 @@ pub fn instantiate(
     )?;
     Ok(Response::new()
         .add_attribute("action", "instantiate")
-        .add_attribute("nois_sink", msg.nois_sink)
-        .add_attribute("nois_community_pool", msg.nois_com_pool_addr)
+        .add_attribute("nois_sink", msg.sink)
+        .add_attribute("nois_community_pool", msg.community_pool)
         .add_attribute("nois_gateway", info.sender))
 }
 
@@ -164,8 +164,8 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_sink: NOIS_SINK.to_string(),
-            nois_com_pool_addr: NOIS_COMMUNITY_POOL.to_string(),
+            sink: NOIS_SINK.to_string(),
+            community_pool: NOIS_COMMUNITY_POOL.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -186,8 +186,8 @@ mod tests {
     fn cannot_send_funds() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_sink: NOIS_SINK.to_string(),
-            nois_com_pool_addr: NOIS_COMMUNITY_POOL.to_string(),
+            sink: NOIS_SINK.to_string(),
+            community_pool: NOIS_COMMUNITY_POOL.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
@@ -219,8 +219,8 @@ mod tests {
     fn only_gateway_can_pay() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_sink: NOIS_SINK.to_string(),
-            nois_com_pool_addr: NOIS_COMMUNITY_POOL.to_string(),
+            sink: NOIS_SINK.to_string(),
+            community_pool: NOIS_COMMUNITY_POOL.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
@@ -252,8 +252,8 @@ mod tests {
     fn pay_fund_send_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_sink: NOIS_SINK.to_string(),
-            nois_com_pool_addr: NOIS_COMMUNITY_POOL.to_string(),
+            sink: NOIS_SINK.to_string(),
+            community_pool: NOIS_COMMUNITY_POOL.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
