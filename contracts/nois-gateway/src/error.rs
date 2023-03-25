@@ -12,6 +12,10 @@ pub enum ContractError {
     #[error("Unauthorized")]
     Unauthorized,
 
+    // Payment
+    #[error("Code ID does not exist: {code_id}")]
+    CodeIdDoesNotExist { code_id: u64 },
+
     // Jobs
     #[error("Origin data exceeds length limit.")]
     OriginTooLong,
