@@ -13,6 +13,10 @@ pub struct Config {
     pub price: Coin,
     /// The code ID of the payment contract to be instantatiated
     pub payment_code_id: u64,
+    /// Address of the Nois sink
+    pub sink: Addr,
+    /// Address of the Nois community pool
+    pub community_pool: Addr,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

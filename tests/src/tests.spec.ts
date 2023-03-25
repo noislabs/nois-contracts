@@ -77,6 +77,8 @@ test.serial("set up channel", async (t) => {
     manager: noisClient.senderAddress,
     price: coins(1_000_000, "unois")[0],
     payment_code_id: context.noisCodeIds.payment,
+    sink: "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
+    community_pool: "nois1uw8c69maprjq5ure7x80x9nauasrn7why5dfwd",
   };
   const { contractAddress: gatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
@@ -148,6 +150,8 @@ async function instantiateAndConnectIbc(
     manager: noisClient.senderAddress,
     price: coins(1_000_000, "unois")[0],
     payment_code_id: context.noisCodeIds.payment,
+    sink: "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
+    community_pool: "nois1uw8c69maprjq5ure7x80x9nauasrn7why5dfwd",
   };
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
