@@ -147,8 +147,8 @@ pub fn ibc_channel_connect(
     // TODO: store _address
 
     // FIXME: add to config
-    let sink_address = "123".to_string();
-    let community_pool_address = "123".to_string();
+    let sink_address = "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt".to_string();
+    let community_pool_address = "nois1uw8c69maprjq5ure7x80x9nauasrn7why5dfwd".to_string();
 
     let msg = WasmMsg::Instantiate2 {
         admin: Some(env.contract.address.into()), // Only gateway can update the contracts it created
