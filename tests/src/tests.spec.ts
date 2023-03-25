@@ -75,7 +75,7 @@ test.serial("set up channel", async (t) => {
   const noisClient = await setupNoisClient();
   const msg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
-    price: coins(1_000_000, "unois")[0],
+    price: coin(0, "unois"),
     payment_code_id: context.noisCodeIds.payment,
     sink: "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
     community_pool: "nois1uw8c69maprjq5ure7x80x9nauasrn7why5dfwd",
@@ -148,7 +148,7 @@ async function instantiateAndConnectIbc(
   // Instantiate Gateway on Nois
   const instantiateMsg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
-    price: coins(1_000_000, "unois")[0],
+    price: coin(0, "unois"),
     payment_code_id: context.noisCodeIds.payment,
     sink: "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
     community_pool: "nois1uw8c69maprjq5ure7x80x9nauasrn7why5dfwd",
