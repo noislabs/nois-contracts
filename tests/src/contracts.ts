@@ -47,6 +47,10 @@ export interface GatewayInstantiateMsg {
   readonly manager: string;
   readonly price: Coin;
   readonly payment_code_id: number;
+  /** Address of the Nois sink */
+  readonly sink: string;
+  /** Address of the Nois community pool */
+  readonly community_pool: string;
 }
 
 export interface GatewayExecuteMsg {
