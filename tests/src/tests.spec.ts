@@ -50,6 +50,8 @@ test.before(async (t) => {
 });
 
 test.serial("set up channel", async (t) => {
+  const context = t.context as TestContext;
+
   // Instantiate proxy on appchain
   const wasmClient = await setupWasmClient();
   const proxyMsg: ProxyInstantiateMsg = {
@@ -60,7 +62,7 @@ test.serial("set up channel", async (t) => {
   };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
-    (t.context as TestContext).wasmCodeIds.proxy,
+    context.wasmCodeIds.proxy,
     proxyMsg,
     "Proxy instance",
     "auto"
@@ -74,10 +76,11 @@ test.serial("set up channel", async (t) => {
   const msg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
     price: coins(1_000_000, "unois")[0],
+    payment_code_id: context.noisCodeIds.payment,
   };
   const { contractAddress: gatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
-    (t.context as TestContext).noisCodeIds.gateway,
+    context.noisCodeIds.gateway,
     msg,
     "Gateway instance",
     "auto"
@@ -122,6 +125,7 @@ async function instantiateAndConnectIbc(
   t: ExecutionContext,
   options: InstantiateAndConnectOptions
 ): Promise<SetupInfo> {
+  const context = t.context as TestContext;
   const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
 
   // Instantiate proxy on appchain
@@ -143,10 +147,11 @@ async function instantiateAndConnectIbc(
   const instantiateMsg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
     price: coins(1_000_000, "unois")[0],
+    payment_code_id: context.noisCodeIds.payment,
   };
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
-    (t.context as TestContext).noisCodeIds.gateway,
+    context.noisCodeIds.gateway,
     instantiateMsg,
     "Gateway instance",
     "auto"
@@ -185,7 +190,7 @@ async function instantiateAndConnectIbc(
   // Instantiate demo app
   const { contractAddress: noisDemoAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
-    (t.context as TestContext).wasmCodeIds.demo,
+    context.wasmCodeIds.demo,
     { nois_proxy: noisProxyAddress },
     "A demo contract",
     "auto"

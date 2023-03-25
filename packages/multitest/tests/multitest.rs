@@ -2,6 +2,8 @@ use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Validator}
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::mint_native;
 
+const PAYMENT: u64 = 17;
+
 #[test]
 fn integration_test() {
     // Insantiate a chain mock environment
@@ -49,6 +51,7 @@ fn integration_test() {
             &nois_gateway::msg::InstantiateMsg {
                 manager: "manager".to_string(),
                 price: Coin::new(1, "unois"),
+                payment_code_id: PAYMENT,
             },
             &[],
             "Nois-Gateway",
@@ -67,6 +70,7 @@ fn integration_test() {
             drand: None,
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT
         }
     );
 
@@ -77,6 +81,7 @@ fn integration_test() {
         manager: None,
         price: None,
         drand_addr: Some(DRAND.to_string()),
+        payment_code_id: None,
     };
     let _resp = app
         .execute_contract(
@@ -98,6 +103,7 @@ fn integration_test() {
             drand: Some(Addr::unchecked(DRAND)),
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
         }
     );
 

@@ -28,6 +28,7 @@ pub fn instantiate(
         drand: None,
         manager,
         price: msg.price,
+        payment_code_id: msg.payment_code_id,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -57,7 +58,8 @@ pub fn execute(
             manager,
             price,
             drand_addr,
-        } => execute_set_config(deps, info, env, manager, price, drand_addr),
+            payment_code_id,
+        } => execute_set_config(deps, info, env, manager, price, drand_addr, payment_code_id),
     }
 }
 
@@ -264,6 +266,7 @@ fn execute_set_config(
     manager: Option<String>,
     price: Option<Coin>,
     drand: Option<String>,
+    payment_code_id: Option<u64>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -282,10 +285,13 @@ fn execute_set_config(
         Some(pr) => pr,
         None => config.price,
     };
+    let payment_code_id = payment_code_id.unwrap_or(config.payment_code_id);
+
     let new_config = Config {
         manager,
         drand,
         price,
+        payment_code_id,
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -312,6 +318,7 @@ mod tests {
 
     const CREATOR: &str = "creator";
     const MANAGER: &str = "boss";
+    const PAYMENT: u64 = 33;
 
     // Consecutive timestamps for the rounds 810, 820, 830, 840
     const AFTER1: Timestamp = Timestamp::from_seconds(1677687627 - 1);
@@ -328,6 +335,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -498,6 +506,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
@@ -511,7 +520,8 @@ mod tests {
             ConfigResponse {
                 drand: None,
                 manager: Addr::unchecked(MANAGER),
-                price: Coin::new(1, "unois")
+                price: Coin::new(1, "unois"),
+                payment_code_id: PAYMENT,
             }
         );
     }
@@ -528,6 +538,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -547,6 +558,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            payment_code_id: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
@@ -568,6 +580,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -578,6 +591,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            payment_code_id: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
@@ -728,6 +742,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -738,6 +753,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            payment_code_id: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
