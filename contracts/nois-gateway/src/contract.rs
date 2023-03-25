@@ -10,6 +10,7 @@ use nois_protocol::{
     check_order, check_version, DeliverBeaconPacketAck, RequestBeaconPacket, StdAck,
     IBC_APP_VERSION,
 };
+use sha2::{Digest, Sha256};
 
 use crate::error::ContractError;
 use crate::job_id::validate_origin;
@@ -134,8 +135,7 @@ pub fn ibc_channel_connect(
     let creator = deps.api.addr_canonicalize(env.contract.address.as_str())?;
     let CodeInfoResponse { checksum, .. } =
         deps.querier.query_wasm_code_info(config.payment_code_id)?;
-    // FIXME: hash channel_id
-    let salt = Binary::from(b"watup");
+    let salt = hash_channel(chan_id);
     #[allow(unused)]
     let address = instantiate2_address(&checksum, &creator, &salt)
         .map_err(|e| StdError::generic_err(format!("Cound not generate address: {}", e)))?;
@@ -363,6 +363,13 @@ fn ensure_code_id_exists(deps: Deps, code_id: u64) -> Result<(), ContractError> 
             Err(StdError::generic_err(format!("Querier system error: {}", system_err)).into())
         }
     }
+}
+
+fn hash_channel(channel_id: &str) -> Binary {
+    let mut hasher = Sha256::new();
+    hasher.update(channel_id.as_bytes());
+    let salt: [u8; 32] = hasher.finalize().into();
+    Binary::from(salt)
 }
 
 #[cfg(test)]
