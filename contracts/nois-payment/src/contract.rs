@@ -89,36 +89,46 @@ fn execute_pay(
         .addr_validate(relayer.0.as_str())
         .map_err(|_| ContractError::InvalidAddress)?;
 
+    let mut out_msgs: Vec<CosmosMsg> = Vec::with_capacity(3);
+
     // Burn
-    let mut out_msgs: Vec<CosmosMsg> = vec![WasmMsg::Execute {
-        contract_addr: config.sink.to_string(),
-        msg: to_binary(&NoisSinkExecuteMsg::Burn {})?,
-        funds: vec![burn.clone()],
+    if !burn.amount.is_zero() {
+        out_msgs.push(
+            WasmMsg::Execute {
+                contract_addr: config.sink.to_string(),
+                msg: to_binary(&NoisSinkExecuteMsg::Burn {})?,
+                funds: vec![burn.clone()],
+            }
+            .into(),
+        );
     }
-    .into()];
 
     // Send to relayer
-    out_msgs.push(
-        BankMsg::Send {
-            to_address: relayer.0.to_owned(),
-            amount: vec![relayer.1.clone()],
-        }
-        .into(),
-    );
+    if !relayer.1.amount.is_zero() {
+        out_msgs.push(
+            BankMsg::Send {
+                to_address: relayer.0.to_owned(),
+                amount: vec![relayer.1.clone()],
+            }
+            .into(),
+        );
+    }
 
     // Send to community pool
-    out_msgs.push(
-        BankMsg::Send {
-            to_address: config.community_pool.to_string(),
-            amount: vec![community_pool.clone()],
-        }
-        .into(),
-    );
+    if !community_pool.amount.is_zero() {
+        out_msgs.push(
+            BankMsg::Send {
+                to_address: config.community_pool.to_string(),
+                amount: vec![community_pool.clone()],
+            }
+            .into(),
+        );
+    }
 
     Ok(Response::new()
         .add_messages(out_msgs)
-        .add_attribute("burnt_amount", burn.to_string())
-        .add_attribute("relayer_incentive", relayer.1.to_string())
+        .add_attribute("burnt", burn.to_string())
+        .add_attribute("relayer_reward", relayer.1.to_string())
         .add_attribute("relayer_address", relayer.0)
         .add_attribute("sent_to_community_pool", community_pool.to_string()))
 }
@@ -132,12 +142,23 @@ mod tests {
     use cosmwasm_std::{
         coins, from_binary,
         testing::{mock_dependencies, mock_env, mock_info},
-        Addr, Uint128,
+        Addr, Attribute, Binary, Uint128,
     };
 
     const NOIS_SINK: &str = "sink";
     const NOIS_COMMUNITY_POOL: &str = "community_pool";
     const NOIS_GATEWAY: &str = "nois-gateway";
+
+    /// Gets the value of the first attribute with the given key
+    pub fn first_attr(data: impl AsRef<[Attribute]>, search_key: &str) -> Option<String> {
+        data.as_ref().iter().find_map(|a| {
+            if a.key == search_key {
+                Some(a.value.clone())
+            } else {
+                None
+            }
+        })
+    }
 
     #[test]
     fn instantiate_works() {
@@ -193,6 +214,7 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::DontSendFunds));
     }
+
     #[test]
     fn only_gateway_can_pay() {
         let mut deps = mock_dependencies();
@@ -227,7 +249,7 @@ mod tests {
     }
 
     #[test]
-    fn fund_send_works() {
+    fn pay_fund_send_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             nois_sink: NOIS_SINK.to_string(),
@@ -256,20 +278,15 @@ mod tests {
         };
 
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(response.messages.len(), 3); // 3 because we send funds to 3 different addresses (relayer + com_pool + sink)
-
-        // clippy linting  doesnt like this
-        //  assert_eq!(
-        //      response.messages[0].msg,
-        //      CosmosMsg::Wasm(WasmMsg::Execute {
-        //          contract_addr: "sink".to_string(),
-        //          msg: cosmwasm_std::Binary {
-        //              0: vec![123, 34, 98, 117, 114, 110, 34, 58, 123, 125, 125], // {"burn":{}}
-        //          },
-        //          funds: vec![Coin::new(500_000, "unois")],
-        //      })
-        //  );
-        //
+        assert_eq!(response.messages.len(), 3); // 3 because we send funds to 3 different addresses (sink + relayer + com_pool)
+        assert_eq!(
+            response.messages[0].msg,
+            CosmosMsg::Wasm(WasmMsg::Execute {
+                contract_addr: "sink".to_string(),
+                msg: Binary::from(br#"{"burn":{}}"#),
+                funds: vec![Coin::new(500_000, "unois")],
+            })
+        );
         assert_eq!(
             response.messages[1].msg,
             CosmosMsg::Bank(BankMsg::Send {
@@ -283,6 +300,38 @@ mod tests {
                 to_address: "community_pool".to_string(),
                 amount: coins(450_000, "unois"),
             })
+        );
+        assert_eq!(
+            first_attr(&response.attributes, "burnt").unwrap(),
+            "500000unois"
+        );
+        assert_eq!(
+            first_attr(&response.attributes, "relayer_reward").unwrap(),
+            "50000unois"
+        );
+        assert_eq!(
+            first_attr(&response.attributes, "sent_to_community_pool").unwrap(),
+            "450000unois"
+        );
+
+        // Zero amount is supported
+        let info = mock_info(NOIS_GATEWAY, &[]);
+        let msg = ExecuteMsg::Pay {
+            burn: Coin::new(0, "unois"),
+            community_pool: Coin::new(0, "unois"),
+            relayer: ("some-relayer".to_string(), Coin::new(0, "unois")),
+        };
+        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        // 0 because sink does not like empty funds array and bank send does not like zero coins
+        assert_eq!(response.messages.len(), 0);
+        assert_eq!(first_attr(&response.attributes, "burnt").unwrap(), "0unois");
+        assert_eq!(
+            first_attr(&response.attributes, "relayer_reward").unwrap(),
+            "0unois"
+        );
+        assert_eq!(
+            first_attr(&response.attributes, "sent_to_community_pool").unwrap(),
+            "0unois"
         );
     }
 }
