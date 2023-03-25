@@ -1,10 +1,10 @@
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, from_binary, from_slice, to_binary, Attribute, Coin, Deps,
-    DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse,
-    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    Never, QueryRequest, QueryResponse, Response, StdError, StdResult, SystemError, SystemResult,
-    WasmQuery,
+    attr, ensure_eq, entry_point, from_binary, from_slice, instantiate2_address, to_binary,
+    Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
+    Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
+    IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryRequest, QueryResponse,
+    Response, StdError, StdResult, SystemError, SystemResult, WasmMsg, WasmQuery,
 };
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacketAck, RequestBeaconPacket, StdAck,
@@ -121,14 +121,49 @@ pub fn ibc_channel_open(
 
 #[entry_point]
 pub fn ibc_channel_connect(
-    _deps: DepsMut,
-    _env: Env,
+    deps: DepsMut,
+    env: Env,
     msg: IbcChannelConnectMsg,
 ) -> StdResult<IbcBasicResponse> {
     let channel = msg.channel();
     let chan_id = &channel.endpoint.channel_id;
 
+    let config = CONFIG.load(deps.storage)?;
+
+    // Instantiate payment contract
+    let creator = deps.api.addr_canonicalize(env.contract.address.as_str())?;
+    let CodeInfoResponse { checksum, .. } =
+        deps.querier.query_wasm_code_info(config.payment_code_id)?;
+    // FIXME: hash channel_id
+    let salt = Binary::from(b"watup");
+    #[allow(unused)]
+    let address = instantiate2_address(&checksum, &creator, &salt)
+        .map_err(|e| StdError::generic_err(format!("Cound not generate address: {}", e)))?;
+
+    #[cfg(not(test))]
+    {
+        let _address = deps.api.addr_humanize(&address)?;
+    }
+    // TODO: store _address
+
+    // FIXME: add to config
+    let sink_address = "123".to_string();
+    let community_pool_address = "123".to_string();
+
+    let msg = WasmMsg::Instantiate2 {
+        admin: Some(env.contract.address.into()), // Only gateway can update the contracts it created
+        code_id: config.payment_code_id,
+        label: format!("For {chan_id}"),
+        msg: to_binary(&nois_payment::msg::InstantiateMsg {
+            nois_sink: sink_address,
+            nois_com_pool_addr: community_pool_address,
+        })?,
+        funds: vec![],
+        salt,
+    };
+
     Ok(IbcBasicResponse::new()
+        .add_message(msg)
         .add_attribute("action", "ibc_connect")
         .add_attribute("channel_id", chan_id)
         .add_event(Event::new("ibc").add_attribute("channel", "connect")))
@@ -520,7 +555,7 @@ mod tests {
         let handshake_connect =
             mock_ibc_channel_connect_ack(channel_id, APP_ORDER, IBC_APP_VERSION);
         let res = ibc_channel_connect(deps.branch(), mock_env(), handshake_connect).unwrap();
-        assert_eq!(res.messages.len(), 0);
+        assert_eq!(res.messages.len(), 1);
         assert_eq!(res.events.len(), 1);
         assert_eq!(
             res.events[0],

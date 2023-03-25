@@ -17,6 +17,7 @@ crate-type = ["cdylib", "rlib"]
 backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
+nois-payment = { path = "../../contracts/nois-payment"}
 nois-protocol = { path = "../../packages/nois-protocol"}
 drand-common = { path = "../../packages/drand-common" }
 nois.workspace = true
