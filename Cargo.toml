@@ -5,10 +5,6 @@ resolver = "2"
 [workspace.dependencies]
 nois = "0.6.0"
 
-[patch.crates-io]
-# cosmwasm-std = { git = "https://github.com/CosmWasm/cosmwasm", rev = "2e215cf" }
-# cosmwasm-schema = { git = "https://github.com/CosmWasm/cosmwasm", rev = "2e215cf" }
-
 [profile.release.package.nois-protocol]
 codegen-units = 1
 incremental = false
