@@ -24,6 +24,9 @@ pub enum ContractError {
     UnauthorizedAddVerifiedRound,
 
     // IBC
+    #[error("The nois-gateway contract must be on chain B of the connection. Try swapping A and B in the channel creation.")]
+    MustBeChainB,
+
     #[error("{0}")]
     ChannelError(#[from] ChannelError),
 

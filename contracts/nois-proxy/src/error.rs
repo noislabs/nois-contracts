@@ -15,6 +15,12 @@ pub enum ContractError {
     #[error("Insufficient payment.")]
     InsufficientPayment,
 
+    //
+    // IBC
+    //
+    #[error("The nois-proxy contract must be on chain A of the connection. Try swapping A and B in the channel creation.")]
+    MustBeChainA,
+
     #[error("Unsupported packet type.")]
     UnsupportedPacketType,
 

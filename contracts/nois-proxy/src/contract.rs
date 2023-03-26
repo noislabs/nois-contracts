@@ -263,12 +263,13 @@ pub fn ibc_channel_open(
     _env: Env,
     msg: IbcChannelOpenMsg,
 ) -> Result<Option<Ibc3ChannelOpenResponse>, ContractError> {
-    let channel = msg.channel();
+    let channel = match msg {
+        IbcChannelOpenMsg::OpenInit { channel } => channel,
+        IbcChannelOpenMsg::OpenTry { .. } => return Err(ContractError::MustBeChainA),
+    };
+
     check_order(&channel.order)?;
     check_version(&channel.version)?;
-    if let Some(counter_version) = msg.counterparty_version() {
-        check_version(counter_version)?;
-    }
 
     Ok(None)
 }
@@ -281,14 +282,21 @@ pub fn ibc_channel_connect(
     _env: Env,
     msg: IbcChannelConnectMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
-    let channel = msg.channel();
-    let channel_id = &channel.endpoint.channel_id;
+    let channel = match msg {
+        IbcChannelConnectMsg::OpenAck {
+            channel,
+            counterparty_version: _,
+        } => channel,
+        IbcChannelConnectMsg::OpenConfirm { .. } => return Err(ContractError::MustBeChainA),
+    };
+
+    let channel_id = channel.endpoint.channel_id;
 
     if GATEWAY_CHANNEL.may_load(deps.storage)?.is_some() {
         return Err(ContractError::ChannelAlreadySet);
     }
 
-    GATEWAY_CHANNEL.save(deps.storage, channel_id)?;
+    GATEWAY_CHANNEL.save(deps.storage, &channel_id)?;
     Ok(IbcBasicResponse::new()
         .add_attribute("action", "ibc_connect")
         .add_attribute("channel_id", channel_id))
@@ -448,7 +456,7 @@ mod tests {
             mock_dependencies, mock_dependencies_with_balance, mock_env,
             mock_ibc_channel_close_confirm, mock_ibc_channel_close_init,
             mock_ibc_channel_connect_ack, mock_ibc_channel_connect_confirm,
-            mock_ibc_channel_open_try, mock_ibc_packet_ack, mock_info, MockApi, MockQuerier,
+            mock_ibc_channel_open_init, mock_ibc_packet_ack, mock_info, MockApi, MockQuerier,
             MockStorage,
         },
         CosmosMsg, IbcAcknowledgement, OwnedDeps, ReplyOn, Uint128,
@@ -490,11 +498,11 @@ mod tests {
     }
 
     fn setup_channel(mut deps: DepsMut) {
-        let open_try = mock_ibc_channel_open_try("channel-12", APP_ORDER, IBC_APP_VERSION);
-        ibc_channel_open(deps.branch(), mock_env(), open_try).unwrap();
+        let init = mock_ibc_channel_open_init("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_open(deps.branch(), mock_env(), init).unwrap();
 
-        let connect_ack = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
-        ibc_channel_connect(deps, mock_env(), connect_ack).unwrap();
+        let ack = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_connect(deps, mock_env(), ack).unwrap();
     }
 
     #[test]
@@ -678,16 +686,16 @@ mod tests {
         let mut deps = setup();
 
         // All good
-        let valid_handshake = mock_ibc_channel_open_try("channel-12", APP_ORDER, IBC_APP_VERSION);
+        let valid_handshake = mock_ibc_channel_open_init("channel-12", APP_ORDER, IBC_APP_VERSION);
         ibc_channel_open(deps.as_mut(), mock_env(), valid_handshake).unwrap();
 
         // Wrong order
-        let wrong_order = mock_ibc_channel_open_try("channel-12", BAD_APP_ORDER, IBC_APP_VERSION);
+        let wrong_order = mock_ibc_channel_open_init("channel-12", BAD_APP_ORDER, IBC_APP_VERSION);
         let res = ibc_channel_open(deps.as_mut(), mock_env(), wrong_order).unwrap_err();
         assert!(matches!(res, ContractError::ChannelError(..)));
 
         // Wrong version
-        let wrong_version = mock_ibc_channel_open_try("channel-12", APP_ORDER, "another version");
+        let wrong_version = mock_ibc_channel_open_init("channel-12", APP_ORDER, "another version");
         let res = ibc_channel_open(deps.as_mut(), mock_env(), wrong_version).unwrap_err();
         assert!(matches!(res, ContractError::ChannelError(..)));
     }
@@ -695,68 +703,33 @@ mod tests {
     #[test]
     fn ibc_channel_connect_works() {
         // We are chain A and get the ChanOpenAck
-        {
-            let mut deps = setup();
 
-            // Channel is unset
-            let GatewayChannelResponse { channel } = from_binary(
-                &query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap(),
-            )
-            .unwrap();
-            assert_eq!(channel, None);
+        let mut deps = setup();
 
-            let msg = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
-            ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
+        // Channel is unset
+        let GatewayChannelResponse { channel } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
+                .unwrap();
+        assert_eq!(channel, None);
 
-            // Channel is now set
-            let GatewayChannelResponse { channel } = from_binary(
-                &query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap(),
-            )
-            .unwrap();
-            assert_eq!(channel, Some("channel-12".to_string()));
+        let msg = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
+        ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
 
-            // One more ChanOpenAck
-            let msg = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
-            let err = ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap_err();
-            assert!(matches!(err, ContractError::ChannelAlreadySet));
+        // Channel is now set
+        let GatewayChannelResponse { channel } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
+                .unwrap();
+        assert_eq!(channel, Some("channel-12".to_string()));
 
-            // Or an ChanOpenConfirm
-            let msg = mock_ibc_channel_connect_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);
-            let err = ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap_err();
-            assert!(matches!(err, ContractError::ChannelAlreadySet));
-        }
+        // One more ChanOpenAck
+        let msg = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
+        let err = ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap_err();
+        assert!(matches!(err, ContractError::ChannelAlreadySet));
 
-        // We are chain B and get the ChanOpenConfirm
-        {
-            let mut deps = setup();
-
-            // Channel is unset
-            let GatewayChannelResponse { channel } = from_binary(
-                &query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap(),
-            )
-            .unwrap();
-            assert_eq!(channel, None);
-
-            let msg = mock_ibc_channel_connect_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);
-            ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
-
-            // Channel is now set
-            let GatewayChannelResponse { channel } = from_binary(
-                &query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap(),
-            )
-            .unwrap();
-            assert_eq!(channel, Some("channel-12".to_string()));
-
-            // One more ChanOpenConfirm
-            let msg = mock_ibc_channel_connect_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);
-            let err = ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap_err();
-            assert!(matches!(err, ContractError::ChannelAlreadySet));
-
-            // Or an ChanOpenAck
-            let msg = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
-            let err = ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap_err();
-            assert!(matches!(err, ContractError::ChannelAlreadySet));
-        }
+        // ChanOpenConfirm is rejected
+        let msg = mock_ibc_channel_connect_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);
+        let err = ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap_err();
+        assert!(matches!(err, ContractError::MustBeChainA));
     }
 
     #[test]
@@ -764,11 +737,11 @@ mod tests {
         let mut deps = setup();
 
         // Open
-        let valid_handshake = mock_ibc_channel_open_try("channel-12", APP_ORDER, IBC_APP_VERSION);
+        let valid_handshake = mock_ibc_channel_open_init("channel-12", APP_ORDER, IBC_APP_VERSION);
         ibc_channel_open(deps.as_mut(), mock_env(), valid_handshake).unwrap();
 
         // Connect
-        let msg = mock_ibc_channel_connect_confirm("channel-12", APP_ORDER, IBC_APP_VERSION);
+        let msg = mock_ibc_channel_connect_ack("channel-12", APP_ORDER, IBC_APP_VERSION);
         ibc_channel_connect(deps.as_mut(), mock_env(), msg).unwrap();
 
         // Channel is now set
