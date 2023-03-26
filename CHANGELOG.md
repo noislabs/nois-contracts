@@ -8,18 +8,32 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Gateway: Add manager and price to config. This is a state breaking change.
+  ([#193])
+- Upgrade cosmwasm to 1.2.3
+- Payment: Support zero amounts ([#198])
+
+[#193]: https://github.com/noislabs/nois-contracts/pull/192
+[#198]: https://github.com/noislabs/nois-contracts/pull/198
+
 ## [0.10.2] - 2023-03-24
 
 ### Changed
 
 - Icecube: Ensure only manager can set drand address. This way an attacker
-  cannot set a wrong address during the deployment process. (#192)
+  cannot set a wrong address during the deployment process. ([#192])
+
+[#192]: https://github.com/noislabs/nois-contracts/pull/192
 
 ## [0.10.1] - 2023-03-23
 
 ### Changed
 
-- Allow manager of nois-drand to set configugation
+- Allow manager of nois-drand to set configugation ([#191]).
+
+[#191]: https://github.com/noislabs/nois-contracts/pull/191
 
 ## [0.10.0] - 2023-03-20
 
