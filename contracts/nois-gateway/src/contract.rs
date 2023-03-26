@@ -2,13 +2,13 @@ use cosmwasm_std::{
     attr, ensure_eq, entry_point, from_binary, from_slice, instantiate2_address, to_binary, Addr,
     Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
-    IbcChannelOpenMsg, IbcChannelOpenResponse, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryRequest, QueryResponse,
     Response, StdError, StdResult, SystemError, SystemResult, WasmMsg, WasmQuery,
 };
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, RequestBeaconPacket, StdAck,
-    IBC_APP_VERSION,
+    check_order, check_version, DeliverBeaconPacketAck, OutPacket, RequestBeaconPacket, StdAck,
+    IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
 };
 use sha2::{Digest, Sha256};
 
@@ -171,8 +171,18 @@ pub fn ibc_channel_connect(
         salt,
     };
 
+    // Send info to proxy
+    let packet = IbcMsg::SendPacket {
+        channel_id: chan_id.to_string(),
+        data: to_binary(&OutPacket::Welcome {
+            payment: address.into(),
+        })?,
+        timeout: env.block.time.plus_seconds(WELCOME_PACKET_LIFETIME).into(),
+    };
+
     Ok(IbcBasicResponse::new()
         .add_message(msg)
+        .add_message(packet)
         .add_attribute("action", "ibc_connect")
         .add_attribute("channel_id", chan_id)
         .add_event(Event::new("ibc").add_attribute("channel", "connect")))
@@ -423,7 +433,7 @@ mod tests {
         IbcAcknowledgement, IbcMsg, OwnedDeps, QuerierResult, SystemError, SystemResult, Timestamp,
         WasmQuery,
     };
-    use nois_protocol::{DeliverBeaconPacket, APP_ORDER, BAD_APP_ORDER};
+    use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
     const MANAGER: &str = "boss";
@@ -601,7 +611,7 @@ mod tests {
         let handshake_connect =
             mock_ibc_channel_connect_ack(channel_id, APP_ORDER, IBC_APP_VERSION);
         let res = ibc_channel_connect(deps.branch(), mock_env(), handshake_connect).unwrap();
-        assert_eq!(res.messages.len(), 1);
+        assert_eq!(res.messages.len(), 2);
         assert_eq!(res.events.len(), 1);
         assert_eq!(
             res.events[0],
@@ -1157,7 +1167,7 @@ mod tests {
         let mut deps = setup();
 
         // The gateway -> proxy packet we get the acknowledgement for
-        let packet = DeliverBeaconPacket {
+        let packet = OutPacket::DeliverBeacon {
             source_id: "backend:123:456".to_string(),
             randomness: HexBinary::from_hex("aabbccdd").unwrap(),
             origin: origin(1),

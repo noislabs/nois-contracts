@@ -95,6 +95,8 @@ test.serial("set up channel", async (t) => {
   const [src, dest] = await setup(wasmd, nois);
   const link = await Link.createWithNewConnections(src, dest);
   await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
+  const info2 = await link.relayAll();
+  assertPacketsFromB(info2, 1, true); // Welcome packet
 });
 
 interface SetupInfo {
@@ -183,6 +185,8 @@ async function instantiateAndConnectIbc(
     wasmChannelId: info.src.channelId,
     osmoChannelId: info.dest.channelId,
   };
+  const info2 = await link.relayAll();
+  assertPacketsFromB(info2, 1, true); // Welcome packet
 
   // Also create a ics20 channel
   const ics20Info = await link.createChannel("A", wasmd.ics20Port, nois.ics20Port, Order.ORDER_UNORDERED, "ics20-1");

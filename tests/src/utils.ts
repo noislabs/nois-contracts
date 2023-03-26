@@ -34,7 +34,7 @@ export const noisValidator = {
   address: "noisvaloper13k69ev2re0vlk952cf8cnuua5znhvv7dvrayrm",
 };
 
-export const NoisProtocolIbcVersion = "nois-v5";
+export const NoisProtocolIbcVersion = "nois-v6";
 
 // This creates a client for the CosmWasm chain, that can interact with contracts
 export async function setupWasmClient(): Promise<CosmWasmSigner> {

@@ -4,9 +4,7 @@ use cosmwasm_std::{
     to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
 };
 use drand_common::{valid_round_after, DRAND_CHAIN_HASH};
-use nois_protocol::{
-    DeliverBeaconPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME,
-};
+use nois_protocol::{OutPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME};
 
 use crate::{
     drand_archive::{archive_lookup, archive_store},
@@ -135,7 +133,7 @@ fn create_deliver_beacon_ibc_message(
     job: Job,
     randomness: HexBinary,
 ) -> Result<IbcMsg, StdError> {
-    let packet = DeliverBeaconPacket {
+    let packet = OutPacket::DeliverBeacon {
         randomness,
         source_id: job.source_id,
         origin: job.origin,

@@ -12,6 +12,8 @@ pub struct Config {
     pub test_mode: bool,
     /// The amount of gas that the callback to the dapp can consume
     pub callback_gas_limit: u64,
+    /// Address of the payment contract (on the other chain)
+    pub payment: Option<String>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

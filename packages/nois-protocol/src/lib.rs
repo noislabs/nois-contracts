@@ -5,11 +5,11 @@ use cosmwasm_std::IbcOrder;
 
 pub use checks::{check_order, check_version, ChannelError};
 pub use ibc_msg::{
-    DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket, RequestBeaconPacketAck,
-    StdAck,
+    DeliverBeaconPacketAck, OutPacket, RequestBeaconPacket, RequestBeaconPacketAck, StdAck,
+    WelcomePacketAck,
 };
 
-pub const IBC_APP_VERSION: &str = "nois-v5";
+pub const IBC_APP_VERSION: &str = "nois-v6";
 pub const APP_ORDER: IbcOrder = IbcOrder::Unordered;
 // we use this for tests to ensure it is rejected
 pub const BAD_APP_ORDER: IbcOrder = IbcOrder::Ordered;
@@ -21,3 +21,4 @@ pub const BAD_APP_ORDER: IbcOrder = IbcOrder::Ordered;
 // timeouts due to relayer downtime, we set the lifetime to 100 days.
 pub const REQUEST_BEACON_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
 pub const DELIVER_BEACON_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
+pub const WELCOME_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
