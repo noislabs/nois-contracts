@@ -456,6 +456,7 @@ jobs:
             - nois_proxy.wasm
             - nois_gateway.wasm
             - nois_sink.wasm
+            - nois_payment.wasm
 
   ts-build:
     docker:
