@@ -9,8 +9,8 @@ use cosmwasm_std::{
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacket, DeliverBeaconPacketAck, RequestBeaconPacket,
-    RequestBeaconPacketAck, StdAck, REQUEST_BEACON_PACKET_LIFETIME,
+    check_order, check_version, DeliverBeaconPacketAck, OutPacket, RequestBeaconPacket,
+    RequestBeaconPacketAck, StdAck, WelcomePacketAck, REQUEST_BEACON_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -43,6 +43,7 @@ pub fn instantiate(
         withdrawal_address,
         test_mode,
         callback_gas_limit,
+        payment: None,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -325,12 +326,16 @@ pub fn ibc_packet_receive(
 ) -> Result<IbcReceiveResponse, Never> {
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
-        let DeliverBeaconPacket {
-            source_id: _,
-            randomness,
-            origin,
-        } = from_binary(&packet.packet.data)?;
-        receive_deliver_beacon(deps, randomness, origin)
+        let op: OutPacket = from_binary(&packet.packet.data)?;
+        match op {
+            OutPacket::DeliverBeacon {
+                source_id: _,
+                randomness,
+                origin,
+            } => receive_deliver_beacon(deps, randomness, origin),
+            OutPacket::Welcome { payment } => receive_welcome(deps, payment),
+            _ => Err(ContractError::UnsupportedPacketType),
+        }
     })()
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
@@ -380,6 +385,14 @@ fn receive_deliver_beacon(
         .add_attribute("action", "acknowledge_ibc_query")
         .add_attribute("job_id", job_id)
         .add_submessage(msg))
+}
+
+fn receive_welcome(deps: DepsMut, payment: String) -> Result<IbcReceiveResponse, ContractError> {
+    let mut config = CONFIG.load(deps.storage)?;
+    config.payment = Some(payment);
+    CONFIG.save(deps.storage, &config)?;
+    let ack = StdAck::success(WelcomePacketAck::default());
+    Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

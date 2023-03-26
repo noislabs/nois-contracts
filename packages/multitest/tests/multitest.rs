@@ -152,6 +152,7 @@ fn integration_test() {
                 withdrawal_address: Addr::unchecked("dao_dao_dao_dao_dao"),
                 test_mode: false,
                 callback_gas_limit: 500_000,
+                payment: None,
             },
         }
     );

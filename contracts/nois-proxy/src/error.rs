@@ -15,6 +15,9 @@ pub enum ContractError {
     #[error("Insufficient payment.")]
     InsufficientPayment,
 
+    #[error("Unsupported packet type.")]
+    UnsupportedPacketType,
+
     #[error("Channel is not stored. Channel not yet established or closed.")]
     UnsetChannel,
 
