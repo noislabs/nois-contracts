@@ -114,14 +114,18 @@ pub fn ibc_channel_open(
     _env: Env,
     msg: IbcChannelOpenMsg,
 ) -> Result<IbcChannelOpenResponse, ContractError> {
-    let channel = msg.channel();
+    let (channel, counterparty_version) = match msg {
+        IbcChannelOpenMsg::OpenInit { .. } => return Err(ContractError::MustBeChainB),
+        IbcChannelOpenMsg::OpenTry {
+            channel,
+            counterparty_version,
+        } => (channel, counterparty_version),
+    };
 
     check_order(&channel.order)?;
     // In ibcv3 we don't check the version string passed in the message
     // and only check the counterparty version.
-    if let Some(counter_version) = msg.counterparty_version() {
-        check_version(counter_version)?;
-    }
+    check_version(&counterparty_version)?;
 
     // We return the version we need (which could be different than the counterparty version)
     Ok(Some(Ibc3ChannelOpenResponse {
@@ -134,9 +138,12 @@ pub fn ibc_channel_connect(
     deps: DepsMut,
     env: Env,
     msg: IbcChannelConnectMsg,
-) -> StdResult<IbcBasicResponse> {
-    let channel = msg.channel();
-    let chan_id = &channel.endpoint.channel_id;
+) -> Result<IbcBasicResponse, ContractError> {
+    let channel = match msg {
+        IbcChannelConnectMsg::OpenAck { .. } => return Err(ContractError::MustBeChainB),
+        IbcChannelConnectMsg::OpenConfirm { channel, .. } => channel,
+    };
+    let chan_id = channel.endpoint.channel_id;
 
     let config = CONFIG.load(deps.storage)?;
 
@@ -144,7 +151,7 @@ pub fn ibc_channel_connect(
     let creator = deps.api.addr_canonicalize(env.contract.address.as_str())?;
     let CodeInfoResponse { checksum, .. } =
         deps.querier.query_wasm_code_info(config.payment_code_id)?;
-    let salt = hash_channel(chan_id);
+    let salt = hash_channel(&chan_id);
     #[allow(unused)]
     let address = instantiate2_address(&checksum, &creator, &salt)
         .map_err(|e| StdError::generic_err(format!("Cound not generate address: {}", e)))?;
@@ -157,7 +164,7 @@ pub fn ibc_channel_connect(
         #[cfg(test)]
         cosmwasm_std::Addr::unchecked("some paymane address")
     };
-    PAYMENT_ADDRESSES.save(deps.storage, chan_id, &address)?;
+    PAYMENT_ADDRESSES.save(deps.storage, &chan_id, &address)?;
 
     let msg = WasmMsg::Instantiate2 {
         admin: Some(env.contract.address.into()), // Only gateway can update the contracts it created
@@ -173,7 +180,7 @@ pub fn ibc_channel_connect(
 
     // Send info to proxy
     let packet = IbcMsg::SendPacket {
-        channel_id: chan_id.to_string(),
+        channel_id: chan_id.clone(),
         data: to_binary(&OutPacket::Welcome {
             payment: address.into(),
         })?,
@@ -424,9 +431,9 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{
-        self, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_ack,
-        mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_ibc_packet_ack,
-        mock_ibc_packet_recv, mock_info, MockApi, MockQuerier, MockStorage,
+        self, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_confirm,
+        mock_ibc_channel_open_try, mock_ibc_packet_ack, mock_ibc_packet_recv, mock_info, MockApi,
+        MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
         coin, from_binary, Addr, Binary, CodeInfoResponse, Coin, ContractResult, CosmosMsg,
@@ -603,13 +610,13 @@ mod tests {
     fn connect(mut deps: DepsMut, channel_id: &str, account: impl Into<String>) {
         let _account: String = account.into();
 
-        let handshake_open = mock_ibc_channel_open_init(channel_id, APP_ORDER, IBC_APP_VERSION);
+        let handshake_open = mock_ibc_channel_open_try(channel_id, APP_ORDER, IBC_APP_VERSION);
         // first we try to open with a valid handshake
         ibc_channel_open(deps.branch(), mock_env(), handshake_open).unwrap();
 
         // then we connect (with counter-party version set)
         let handshake_connect =
-            mock_ibc_channel_connect_ack(channel_id, APP_ORDER, IBC_APP_VERSION);
+            mock_ibc_channel_connect_confirm(channel_id, APP_ORDER, IBC_APP_VERSION);
         let res = ibc_channel_connect(deps.branch(), mock_env(), handshake_connect).unwrap();
         assert_eq!(res.messages.len(), 2);
         assert_eq!(res.events.len(), 1);
@@ -1135,12 +1142,12 @@ mod tests {
         let channel_id = "channel-1234";
 
         // first we try to open with a valid handshake
-        let handshake_open = mock_ibc_channel_open_init(channel_id, APP_ORDER, IBC_APP_VERSION);
+        let handshake_open = mock_ibc_channel_open_try(channel_id, APP_ORDER, IBC_APP_VERSION);
         ibc_channel_open(deps.as_mut(), mock_env(), handshake_open).unwrap();
 
         // then we connect (with counter-party version set)
         let handshake_connect =
-            mock_ibc_channel_connect_ack(channel_id, APP_ORDER, IBC_APP_VERSION);
+            mock_ibc_channel_connect_confirm(channel_id, APP_ORDER, IBC_APP_VERSION);
         let _res = ibc_channel_connect(deps.as_mut(), mock_env(), handshake_connect).unwrap();
     }
 
