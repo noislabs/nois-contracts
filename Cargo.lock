@@ -617,6 +617,7 @@ dependencies = [
  "nois-drand",
  "nois-gateway",
  "nois-icecube",
+ "nois-payment",
  "nois-proxy",
 ]
 

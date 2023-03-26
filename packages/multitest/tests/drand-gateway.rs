@@ -4,7 +4,6 @@ use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Uint128, V
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{first_attr, mint_native, query_balance_native};
 
-const PAYMENT: u64 = 33;
 const SINK: &str = "sink";
 const COMMUNOTY_POOL: &str = "community_pool";
 
@@ -78,6 +77,14 @@ fn integration_test() {
         }
     );
 
+    // Storing nois-payment code
+    let code_nois_payment = ContractWrapper::new(
+        nois_payment::contract::execute,
+        nois_payment::contract::instantiate,
+        nois_payment::contract::query,
+    );
+    let code_id_nois_payment = app.store_code(Box::new(code_nois_payment));
+
     // Storing nois-gateway code
     let code_nois_gateway = ContractWrapper::new(
         nois_gateway::contract::execute,
@@ -94,7 +101,7 @@ fn integration_test() {
             &nois_gateway::msg::InstantiateMsg {
                 manager: "manager".to_string(),
                 price: Coin::new(1, "unois"),
-                payment_code_id: PAYMENT,
+                payment_code_id: code_id_nois_payment,
                 sink: SINK.to_string(),
                 community_pool: COMMUNOTY_POOL.to_string(),
             },
@@ -115,7 +122,7 @@ fn integration_test() {
             drand: None,
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
-            payment_code_id: PAYMENT,
+            payment_code_id: code_id_nois_payment,
             sink: Addr::unchecked(SINK),
             community_pool: Addr::unchecked(COMMUNOTY_POOL),
         }
@@ -173,7 +180,7 @@ fn integration_test() {
             drand: Some(addr_nois_drand.clone()),
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
-            payment_code_id: PAYMENT,
+            payment_code_id: code_id_nois_payment,
             sink: Addr::unchecked(SINK),
             community_pool: Addr::unchecked(COMMUNOTY_POOL),
         }
@@ -482,13 +489,4 @@ fn integration_test() {
     // Check balance nois-gateway
     let balance = query_balance_native(&app, &addr_nois_gateway, "unois").amount;
     assert_eq!(balance, Uint128::new(0));
-
-    // Check balance nois-drand-bot-operator
-    // let balance = query_balance_native(&app, &Addr::unchecked("drand_bot"), "unois").amount;
-    // assert_eq!(
-    //     balance,
-    //     Uint128::new(100_000) //incentive
-    // );
-
-    //TODO simulte advance many blocks to accumulate some staking rewards
 }

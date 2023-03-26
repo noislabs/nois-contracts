@@ -2,15 +2,15 @@
 
 Steps:
 
-- Instantiate and check nois-delegator contract
-- Instantiate and check nois-oracle contract
-- Set nois-oracle address in nois-delegator
+- Instantiate and check nois-icecube contract
+- Instantiate and check nois-drand contract
+- Set nois-drand address in nois-icecube
 - Instantiate nois-proxy
-- Register a bot in nois-oracle
-- Check that a non admin cannot whitelist a bot
-- Whitelist the bot
-- Add randomness round in nois-oracle
-- Check that the incentive has been paid from the delegator contract to the
+- Register a bot in nois-drand
+- Check that a non manager cannot allowlist a bot
+- Allowlist the bot
+- Add randomness round in nois-drand
+- Check that the incentive has been paid from the icecube contract to the
   drand-operator by checking the respective Bank balances
-- As admin, make the nois-delegator delegate to a validator and check that the
+- As manager, make the nois-icecube delegate to a validator and check that the
   delegations are queriable
