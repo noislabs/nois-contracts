@@ -73,7 +73,9 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.10.0...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.10.2...HEAD
+[0.10.2]: https://github.com/noislabs/nois-contracts/compare/v0.10.1...v0.10.2
+[0.10.1]: https://github.com/noislabs/nois-contracts/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/noislabs/nois-contracts/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/noislabs/nois-contracts/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/noislabs/nois-contracts/tree/v0.8.0
