@@ -629,6 +629,7 @@ dependencies = [
 name = "nois-payment"
 version = "0.11.0"
 dependencies = [
+ "anything",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
