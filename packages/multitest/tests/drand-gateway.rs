@@ -5,7 +5,6 @@ use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{first_attr, mint_native, query_balance_native};
 
 const SINK: &str = "sink";
-const COMMUNOTY_POOL: &str = "community_pool";
 
 #[test]
 fn integration_test() {
@@ -103,7 +102,6 @@ fn integration_test() {
                 price: Coin::new(1, "unois"),
                 payment_code_id: code_id_nois_payment,
                 sink: SINK.to_string(),
-                community_pool: COMMUNOTY_POOL.to_string(),
             },
             &[],
             "Nois-Gateway",
@@ -124,7 +122,6 @@ fn integration_test() {
             price: Coin::new(1, "unois"),
             payment_code_id: code_id_nois_payment,
             sink: Addr::unchecked(SINK),
-            community_pool: Addr::unchecked(COMMUNOTY_POOL),
         }
     );
 
@@ -182,7 +179,6 @@ fn integration_test() {
             price: Coin::new(1, "unois"),
             payment_code_id: code_id_nois_payment,
             sink: Addr::unchecked(SINK),
-            community_pool: Addr::unchecked(COMMUNOTY_POOL),
         }
     );
 

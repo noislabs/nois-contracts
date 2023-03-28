@@ -19,14 +19,9 @@ pub fn instantiate(
         .api
         .addr_validate(&msg.sink)
         .map_err(|_| ContractError::InvalidAddress)?;
-    let nois_com_pool_addr = deps
-        .api
-        .addr_validate(&msg.community_pool)
-        .map_err(|_| ContractError::InvalidAddress)?;
     CONFIG.save(
         deps.storage,
         &Config {
-            community_pool: nois_com_pool_addr,
             sink: nois_sink_addr,
             gateway: info.sender.clone(),
         },
@@ -34,7 +29,6 @@ pub fn instantiate(
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("nois_sink", msg.sink)
-        .add_attribute("nois_community_pool", msg.community_pool)
         .add_attribute("nois_gateway", info.sender))
 }
 
@@ -153,7 +147,6 @@ mod tests {
     };
 
     const NOIS_SINK: &str = "sink";
-    const NOIS_COMMUNITY_POOL: &str = "community_pool";
     const NOIS_GATEWAY: &str = "nois-gateway";
 
     /// Gets the value of the first attribute with the given key
@@ -172,7 +165,6 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             sink: NOIS_SINK.to_string(),
-            community_pool: NOIS_COMMUNITY_POOL.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -182,7 +174,6 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                community_pool: Addr::unchecked(NOIS_COMMUNITY_POOL),
                 sink: Addr::unchecked(NOIS_SINK),
                 gateway: Addr::unchecked(NOIS_GATEWAY),
             }
@@ -194,7 +185,6 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             sink: NOIS_SINK.to_string(),
-            community_pool: NOIS_COMMUNITY_POOL.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
@@ -227,7 +217,6 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             sink: NOIS_SINK.to_string(),
-            community_pool: NOIS_COMMUNITY_POOL.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
@@ -260,7 +249,6 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             sink: NOIS_SINK.to_string(),
-            community_pool: NOIS_COMMUNITY_POOL.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
