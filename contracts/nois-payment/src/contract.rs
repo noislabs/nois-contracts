@@ -1,3 +1,4 @@
+use anything::Anything;
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     QueryResponse, Response, StdResult, WasmMsg,
@@ -69,7 +70,7 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 fn execute_pay(
     deps: DepsMut,
     info: MessageInfo,
-    _env: Env,
+    env: Env,
     burn: Coin,
     community_pool: Coin,
     relayer: (String, Coin),
@@ -116,13 +117,19 @@ fn execute_pay(
 
     // Send to community pool
     if !community_pool.amount.is_zero() {
-        out_msgs.push(
-            BankMsg::Send {
-                to_address: config.community_pool.to_string(),
-                amount: vec![community_pool.clone()],
-            }
-            .into(),
-        );
+        // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
+        // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
+        let coin = Anything::new()
+            .append_bytes(1, &community_pool.denom)
+            .append_bytes(2, community_pool.amount.to_string());
+        let msg_fund_community_pool = Anything::new()
+            .append_anything(1, &coin)
+            .append_bytes(2, env.contract.address.as_bytes())
+            .into_vec();
+        out_msgs.push(CosmosMsg::Stargate {
+            type_url: "cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
+            value: msg_fund_community_pool.into(),
+        });
     }
 
     Ok(Response::new()
@@ -294,13 +301,10 @@ mod tests {
                 amount: coins(50_000, "unois"),
             })
         );
-        assert_eq!(
+        assert!(matches!(
             response.messages[2].msg,
-            CosmosMsg::Bank(BankMsg::Send {
-                to_address: "community_pool".to_string(),
-                amount: coins(450_000, "unois"),
-            })
-        );
+            CosmosMsg::Stargate { .. }
+        ));
         assert_eq!(
             first_attr(&response.attributes, "burnt").unwrap(),
             "500000unois"
