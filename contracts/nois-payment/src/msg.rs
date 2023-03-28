@@ -7,8 +7,6 @@ use crate::state::Config;
 pub struct InstantiateMsg {
     /// Address of the Nois sink
     pub sink: String,
-    /// Address of the Nois community pool
-    pub community_pool: String,
 }
 
 #[cw_serde]

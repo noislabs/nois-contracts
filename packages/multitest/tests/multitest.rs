@@ -4,7 +4,6 @@ use nois_multitest::mint_native;
 
 const PAYMENT: u64 = 17;
 const SINK: &str = "sink";
-const COMMUNOTY_POOL: &str = "community_pool";
 
 #[test]
 fn integration_test() {
@@ -55,7 +54,6 @@ fn integration_test() {
                 price: Coin::new(1, "unois"),
                 payment_code_id: PAYMENT,
                 sink: SINK.to_string(),
-                community_pool: COMMUNOTY_POOL.to_string(),
             },
             &[],
             "Nois-Gateway",
@@ -76,7 +74,6 @@ fn integration_test() {
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
             sink: Addr::unchecked(SINK),
-            community_pool: Addr::unchecked(COMMUNOTY_POOL),
         }
     );
 
@@ -111,7 +108,6 @@ fn integration_test() {
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
             sink: Addr::unchecked(SINK),
-            community_pool: Addr::unchecked(COMMUNOTY_POOL),
         }
     );
 

@@ -11,8 +11,6 @@ pub struct InstantiateMsg {
     pub payment_code_id: u64,
     /// Address of the Nois sink
     pub sink: String,
-    /// Address of the Nois community pool
-    pub community_pool: String,
 }
 
 #[cw_serde]

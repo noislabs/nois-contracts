@@ -32,12 +32,10 @@ pub fn instantiate(
         manager,
         payment_code_id,
         sink,
-        community_pool,
     } = msg;
 
     let manager = deps.api.addr_validate(&manager)?;
     let sink = deps.api.addr_validate(&sink)?;
-    let community_pool = deps.api.addr_validate(&community_pool)?;
 
     ensure_code_id_exists(deps.as_ref(), payment_code_id)?;
 
@@ -47,7 +45,6 @@ pub fn instantiate(
         price,
         payment_code_id,
         sink,
-        community_pool,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -172,7 +169,6 @@ pub fn ibc_channel_connect(
         label: format!("For {chan_id}"),
         msg: to_binary(&nois_payment::msg::InstantiateMsg {
             sink: config.sink.into(),
-            community_pool: config.community_pool.into(),
         })?,
         funds: vec![],
         salt,
@@ -393,8 +389,7 @@ fn execute_set_config(
         drand,
         price,
         payment_code_id,
-        sink: config.sink,                     // TODO: make updatable?
-        community_pool: config.community_pool, // TODO: make updatable?
+        sink: config.sink, // TODO: make updatable?
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -447,7 +442,6 @@ mod tests {
     const PAYMENT: u64 = 33;
     const PAYMENT2: u64 = 37;
     const SINK: &str = "sink";
-    const COMMUNOTY_POOL: &str = "community_pool";
 
     // Consecutive timestamps for the rounds 810, 820, 830, 840
     const AFTER1: Timestamp = Timestamp::from_seconds(1677687627 - 1);
@@ -466,7 +460,6 @@ mod tests {
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
             sink: SINK.to_string(),
-            community_pool: COMMUNOTY_POOL.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -688,7 +681,6 @@ mod tests {
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
             sink: SINK.to_string(),
-            community_pool: COMMUNOTY_POOL.to_string(),
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
@@ -705,7 +697,6 @@ mod tests {
                 price: Coin::new(1, "unois"),
                 payment_code_id: PAYMENT,
                 sink: Addr::unchecked(SINK),
-                community_pool: Addr::unchecked(COMMUNOTY_POOL),
             }
         );
     }
@@ -719,7 +710,6 @@ mod tests {
             price: Coin::new(1, "unois"),
             payment_code_id: 654321,
             sink: SINK.to_string(),
-            community_pool: COMMUNOTY_POOL.to_string(),
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
@@ -743,7 +733,6 @@ mod tests {
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
             sink: SINK.to_string(),
-            community_pool: COMMUNOTY_POOL.to_string(),
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
@@ -782,7 +771,6 @@ mod tests {
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
             sink: SINK.to_string(),
-            community_pool: COMMUNOTY_POOL.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -826,7 +814,6 @@ mod tests {
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
             sink: SINK.to_string(),
-            community_pool: COMMUNOTY_POOL.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -990,7 +977,6 @@ mod tests {
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
             sink: SINK.to_string(),
-            community_pool: COMMUNOTY_POOL.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
