@@ -123,7 +123,7 @@ fn execute_pay(
             .append_bytes(1, &community_pool.denom)
             .append_bytes(2, community_pool.amount.to_string());
         let msg_fund_community_pool = Anything::new()
-            .append_anything(1, &coin)
+            .append_message(1, &coin)
             .append_bytes(2, env.contract.address.as_bytes())
             .into_vec();
         out_msgs.push(CosmosMsg::Stargate {

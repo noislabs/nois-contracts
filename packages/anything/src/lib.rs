@@ -72,7 +72,8 @@ impl Anything {
         self
     }
 
-    pub fn append_u64(mut self, field_number: u32, value: u64) -> Self {
+    /// Appends a uint64 field to with the given field number.
+    pub fn append_uint64(mut self, field_number: u32, value: u64) -> Self {
         if value == 0 {
             return self;
         }
@@ -81,7 +82,20 @@ impl Anything {
         self
     }
 
-    pub fn append_anything(self, field_number: u32, value: &Anything) -> Self {
+    /// Appends a uint32 field to with the given field number.
+    #[inline]
+    pub fn append_uint32(self, field_number: u32, value: u32) -> Self {
+        self.append_uint64(field_number, value.into())
+    }
+
+    /// Appends a bool field to with the given field number.
+    #[inline]
+    pub fn append_bool(self, field_number: u32, value: bool) -> Self {
+        self.append_uint64(field_number, value.into())
+    }
+
+    /// Appends a nested protobuf message with the given field number.
+    pub fn append_message(self, field_number: u32, value: &Anything) -> Self {
         self.append_bytes(field_number, value.as_bytes())
     }
 
@@ -95,6 +109,9 @@ impl Anything {
     }
 
     fn append_tag(&mut self, field_number: u32, field_type: WireType) {
+        // The top 3 bits of a field number must be unset, ie.e this shift is safe for valid field numbers
+        // "The smallest field number you can specify is 1, and the largest is 2^29-1, or 536,870,911"
+        // https://protobuf.dev/programming-guides/proto3/#assigning-field-numbers
         let tag: u32 = (field_number << 3) | field_type as u32;
         varint_encode(tag as u64, &mut self.output);
     }
@@ -111,12 +128,41 @@ mod tests {
     }
 
     #[test]
-    fn append_u64() {
-        let data = Anything::new().append_u64(1, 150);
+    fn append_uint64_works() {
+        let data = Anything::new().append_uint64(1, 150);
         assert_eq!(data.into_vec(), [0b00001000, 0b10010110, 0b00000001]);
 
         // Zero/Default field not written
-        let data = Anything::new().append_u64(1, 0);
+        let data = Anything::new().append_uint64(1, 0);
+        assert_eq!(data.into_vec(), &[]);
+    }
+
+    #[test]
+    fn append_uint32_works() {
+        let data = Anything::new().append_uint32(1, 150);
+        assert_eq!(data.into_vec(), [0b00001000, 0b10010110, 0b00000001]);
+
+        // large value (echo "number: 215874321" | protoc --encode=Room *.proto | hexdump -C)
+        let data = Anything::new().append_uint32(1, 215874321);
+        assert_eq!(data.into_vec(), b"\x08\x91\xf6\xf7\x66");
+
+        // max value (echo "number: 4294967295" | protoc --encode=Room *.proto | hexdump -C)
+        let data = Anything::new().append_uint32(1, u32::MAX);
+        assert_eq!(data.into_vec(), b"\x08\xff\xff\xff\xff\x0f");
+
+        // Zero/Default field not written
+        let data = Anything::new().append_uint32(1, 0);
+        assert_eq!(data.into_vec(), &[]);
+    }
+
+    #[test]
+    fn append_bool_works() {
+        // echo "on: true" | protoc --encode=Lights *.proto | hexdump -C
+        let data = Anything::new().append_bool(3, true);
+        assert_eq!(data.into_vec(), [0x18, 0x01]);
+
+        // Zero/Default field not written
+        let data = Anything::new().append_bool(3, false);
         assert_eq!(data.into_vec(), &[]);
     }
 
@@ -146,5 +192,15 @@ mod tests {
         // Empty field not written
         let data = Anything::new().append_bytes(2, b"");
         assert_eq!(data.into_vec(), []);
+    }
+
+    #[test]
+    fn append_message_works() {
+        // echo "number: 4; lights: {on: true}; size: 56" | protoc --encode=Room *.proto | hexdump -C
+        let data = Anything::new()
+            .append_uint64(1, 4)
+            .append_message(2, &Anything::new().append_bool(3, true))
+            .append_uint64(3, 56);
+        assert_eq!(data.into_vec(), b"\x08\x04\x12\x02\x18\x01\x18\x38");
     }
 }
