@@ -14,6 +14,7 @@ import {
   NoisContractPaths,
   noisContracts,
   ProxyInstantiateMsg,
+  SinkInstantiateMsg,
   uploadContracts,
   wasmContracts,
   WasmdContractPaths,
@@ -77,6 +78,7 @@ test.serial("set up channel", async (t) => {
     manager: noisClient.senderAddress,
     price: coin(0, "unois"),
     payment_code_id: context.noisCodeIds.payment,
+    // any dummy address is good here because we only test channel creation
     sink: "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
   };
   const { contractAddress: gatewayAddress } = await noisClient.sign.instantiate(
@@ -146,12 +148,22 @@ async function instantiateAndConnectIbc(
     "auto"
   );
 
+  // Instantiate sink on Nois
+  const sinkMsg: SinkInstantiateMsg = {};
+  const { contractAddress: sinkAddress } = await noisClient.sign.instantiate(
+    noisClient.senderAddress,
+    context.noisCodeIds.sink,
+    sinkMsg,
+    "Sink instance",
+    "auto"
+  );
+
   // Instantiate Gateway on Nois
   const instantiateMsg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
     price: coin(0, "unois"),
     payment_code_id: context.noisCodeIds.payment,
-    sink: "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
+    sink: sinkAddress,
   };
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,

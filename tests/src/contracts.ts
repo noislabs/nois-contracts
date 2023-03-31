@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-interface */
 import { readFileSync } from "fs";
 
 import { CosmWasmSigner } from "@confio/relayer";
@@ -43,6 +44,8 @@ export interface DrandExecuteMsg {
   readonly set_gateway_addr?: { addr: string };
 }
 
+export interface SinkInstantiateMsg {}
+
 export interface GatewayInstantiateMsg {
   readonly manager: string;
   readonly price: Coin;
@@ -82,6 +85,7 @@ export interface NoisContractPaths {
   readonly gateway: string;
   readonly drand: string;
   readonly payment: string;
+  readonly sink: string;
 }
 
 export const wasmContracts: WasmdContractPaths = {
@@ -94,6 +98,7 @@ export const noisContracts: NoisContractPaths = {
   gateway: "./internal/nois_gateway.wasm",
   drand: "./internal/nois_drand.wasm",
   payment: "./internal/nois_payment.wasm",
+  sink: "./internal/nois_sink.wasm",
 };
 
 export async function uploadContracts(
