@@ -18,7 +18,7 @@
         {
           "@type": "/cosmos.auth.v1beta1.BaseAccount",
           "account_number": "0",
-          "address": "nois1muhhzqqjvk5eg5l9esw36c7a4m97rq5anxs6ms",
+          "address": "nois18lwlcz6dc7zwj887t0cayr77v8xfv0q9sqjm7n",
           "pub_key": null,
           "sequence": "0"
         },
@@ -44,7 +44,7 @@
     "bank": {
       "balances": [
         {
-          "address": "nois1hqg5nqnka82cwm3v02xj6ufns9tmss7rlpvucx",
+          "address": "nois18lwlcz6dc7zwj887t0cayr77v8xfv0q9sqjm7n",
           "coins": [
             {
               "amount": "1000000000",
@@ -53,7 +53,7 @@
           ]
         },
         {
-          "address": "nois1muhhzqqjvk5eg5l9esw36c7a4m97rq5anxs6ms",
+          "address": "nois1hqg5nqnka82cwm3v02xj6ufns9tmss7rlpvucx",
           "coins": [
             {
               "amount": "1000000000",
@@ -112,8 +112,8 @@
       },
       "outstanding_rewards": [],
       "params": {
-        "base_proposer_reward": "0.010000000000000000",
-        "bonus_proposer_reward": "0.040000000000000000",
+        "base_proposer_reward": "0.000000000000000000",
+        "bonus_proposer_reward": "0.000000000000000000",
         "community_tax": "0.000000000000000000",
         "withdraw_addr_enabled": true
       },
@@ -148,7 +148,7 @@
                 },
                 "public_key": {
                   "@type": "/cosmos.crypto.secp256k1.PubKey",
-                  "key": "A9KreTI6OcNaXfTeEbxUyDWOyP2sfa92X4VfNOfPEt1o"
+                  "key": "AuPrZajPC/c362ZpvQGZc4P6gNZ9JPQt9SUa5WReAMYR"
                 },
                 "sequence": "0"
               }
@@ -156,7 +156,7 @@
           },
           "body": {
             "extension_options": [],
-            "memo": "e4ed4074be15271890710f254fd47388e8d042fa@172.17.0.3:26656",
+            "memo": "eeeaf16d3ab0046dc9b419323e2f50cef9e940dd@172.17.0.2:26656",
             "messages": [
               {
                 "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
@@ -165,7 +165,7 @@
                   "max_rate": "0.200000000000000000",
                   "rate": "0.100000000000000000"
                 },
-                "delegator_address": "nois1muhhzqqjvk5eg5l9esw36c7a4m97rq5anxs6ms",
+                "delegator_address": "nois18lwlcz6dc7zwj887t0cayr77v8xfv0q9sqjm7n",
                 "description": {
                   "details": "",
                   "identity": "",
@@ -176,9 +176,9 @@
                 "min_self_delegation": "1",
                 "pubkey": {
                   "@type": "/cosmos.crypto.ed25519.PubKey",
-                  "key": "3lLITzDkAIFtCBTWxtf7/4E1yHH8JS9vZMwmHLfIQbo="
+                  "key": "HjixdGkOJIOJdUfGroITQMSJktK/4XcGtTeFpZOF7M4="
                 },
-                "validator_address": "noisvaloper1muhhzqqjvk5eg5l9esw36c7a4m97rq5ajxzmzy",
+                "validator_address": "noisvaloper18lwlcz6dc7zwj887t0cayr77v8xfv0q93qq688",
                 "value": {
                   "amount": "3000000",
                   "denom": "unois"
@@ -189,7 +189,7 @@
             "timeout_height": "0"
           },
           "signatures": [
-            "BjgmDnzc5zwukLxJfzTQSMO2rOEVfwIbEaIbqgTPeck4/HUcw0mUBPdWOuvHddOMUUMMIc1IrJdgZKjFPa52yw=="
+            "byqLSKliUCJPCBrQVX5ozXdyK3GznvVJkmLvL8BlL+Uj6DRQ133iufmFfWUwx4Xb0rDqw8RyuVPOWmEsELWiyg=="
           ]
         }
       ]
@@ -253,14 +253,14 @@
     "mint": {
       "minter": {
         "annual_provisions": "0.000000000000000000",
-        "inflation": "0.130000000000000000"
+        "inflation": "0.200000000000000000"
       },
       "params": {
         "blocks_per_year": "12623040",
         "goal_bonded": "0.670000000000000000",
         "inflation_max": "0.200000000000000000",
         "inflation_min": "0.200000000000000000",
-        "inflation_rate_change": "0.130000000000000000",
+        "inflation_rate_change": "1.000000000000000000",
         "mint_denom": "unois"
       }
     },
@@ -321,7 +321,7 @@
     "block": {
       "max_bytes": "22020096",
       "max_gas": "4500000",
-      "time_iota_ms": "10"
+      "time_iota_ms": "100"
     },
     "evidence": {
       "max_age_duration": "1814400000000000",
@@ -335,6 +335,6 @@
     },
     "version": {}
   },
-  "genesis_time": "2023-03-19T08:31:53.414761596Z",
+  "genesis_time": "2023-03-31T21:55:35.899633758Z",
   "initial_height": "1"
 }
