@@ -78,6 +78,7 @@ test.serial("set up channel", async (t) => {
     manager: noisClient.senderAddress,
     price: coin(0, "unois"),
     payment_code_id: context.noisCodeIds.payment,
+    payment_initial_funds: coin(0, "unois"),
     // any dummy address is good here because we only test channel creation
     sink: "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
   };
@@ -161,8 +162,9 @@ async function instantiateAndConnectIbc(
   // Instantiate Gateway on Nois
   const instantiateMsg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
-    price: coin(0, "unois"),
+    price: coin(50, "unois"),
     payment_code_id: context.noisCodeIds.payment,
+    payment_initial_funds: coin(200, "unois"),
     sink: sinkAddress,
   };
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
@@ -172,6 +174,7 @@ async function instantiateAndConnectIbc(
     "Gateway instance",
     "auto"
   );
+  await fundAccount(nois, noisGatewayAddress, "1000"); // 1000 unois can fund 5 payment contracts
 
   const setDrandMsg: GatewayExecuteMsg = { set_config: { drand_addr: options.mockDrandAddr } };
   await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");

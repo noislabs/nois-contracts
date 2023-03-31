@@ -31,6 +31,7 @@ pub fn instantiate(
         price,
         manager,
         payment_code_id,
+        payment_initial_funds,
         sink,
     } = msg;
 
@@ -44,6 +45,7 @@ pub fn instantiate(
         manager,
         price,
         payment_code_id,
+        payment_initial_funds,
         sink,
     };
     CONFIG.save(deps.storage, &config)?;
@@ -170,7 +172,7 @@ pub fn ibc_channel_connect(
         msg: to_binary(&nois_payment::msg::InstantiateMsg {
             sink: config.sink.into(),
         })?,
-        funds: vec![],
+        funds: vec![config.payment_initial_funds],
         salt,
     };
 
@@ -389,7 +391,8 @@ fn execute_set_config(
         drand,
         price,
         payment_code_id,
-        sink: config.sink, // TODO: make updatable?
+        payment_initial_funds: config.payment_initial_funds, // TODO: make updatable?
+        sink: config.sink,                                   // TODO: make updatable?
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -453,12 +456,17 @@ mod tests {
     const ROUND3: u64 = 830;
     const ROUND4: u64 = 840;
 
+    fn payment_initial() -> Coin {
+        coin(2_000000, "unois")
+    }
+
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
@@ -680,6 +688,7 @@ mod tests {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
         };
         let info = mock_info("creator", &[]);
@@ -696,6 +705,7 @@ mod tests {
                 manager: Addr::unchecked(MANAGER),
                 price: Coin::new(1, "unois"),
                 payment_code_id: PAYMENT,
+                payment_initial_funds: payment_initial(),
                 sink: Addr::unchecked(SINK),
             }
         );
@@ -709,6 +719,7 @@ mod tests {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
             payment_code_id: 654321,
+            payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
         };
         let info = mock_info("creator", &[]);
@@ -732,6 +743,7 @@ mod tests {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
         };
         let info = mock_info("creator", &[]);
@@ -770,6 +782,7 @@ mod tests {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -813,6 +826,7 @@ mod tests {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -976,6 +990,7 @@ mod tests {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();

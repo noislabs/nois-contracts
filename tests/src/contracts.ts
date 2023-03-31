@@ -50,6 +50,7 @@ export interface GatewayInstantiateMsg {
   readonly manager: string;
   readonly price: Coin;
   readonly payment_code_id: number;
+  readonly payment_initial_funds: Coin;
   /** Address of the Nois sink */
   readonly sink: string;
 }

@@ -9,6 +9,9 @@ pub struct InstantiateMsg {
     pub price: Coin,
     pub manager: String,
     pub payment_code_id: u64,
+    /// An amount the gateway sends to the payment contract during instantiation.
+    /// Use 0unois to diable.
+    pub payment_initial_funds: Coin,
     /// Address of the Nois sink
     pub sink: String,
 }

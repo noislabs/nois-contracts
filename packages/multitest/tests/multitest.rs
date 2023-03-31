@@ -1,6 +1,6 @@
 use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Validator};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::mint_native;
+use nois_multitest::{mint_native, payment_initial};
 
 const PAYMENT: u64 = 17;
 const SINK: &str = "sink";
@@ -53,6 +53,7 @@ fn integration_test() {
                 manager: "manager".to_string(),
                 price: Coin::new(1, "unois"),
                 payment_code_id: PAYMENT,
+                payment_initial_funds: payment_initial(),
                 sink: SINK.to_string(),
             },
             &[],
@@ -73,6 +74,7 @@ fn integration_test() {
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
             sink: Addr::unchecked(SINK),
         }
     );
@@ -107,6 +109,7 @@ fn integration_test() {
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
             sink: Addr::unchecked(SINK),
         }
     );
