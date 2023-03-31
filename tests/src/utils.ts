@@ -30,8 +30,8 @@ export const nois: ChainDefinition = {
 };
 
 export const noisValidator = {
-  // from ci-scripts/nois/template/.noisd/config/genesis.json
-  address: "noisvaloper1muhhzqqjvk5eg5l9esw36c7a4m97rq5ajxzmzy",
+  // cat ci-scripts/nois/template/.noisd/config/genesis.json | jq '.app_state.genutil.gen_txs[0].body.messages[0].validator_address' -r
+  address: "noisvaloper18lwlcz6dc7zwj887t0cayr77v8xfv0q93qq688",
 };
 
 export const NoisProtocolIbcVersion = "nois-v5";
