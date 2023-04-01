@@ -111,18 +111,10 @@ fn execute_pay(
 
     // Send to community pool
     if !community_pool.amount.is_zero() {
-        // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
-        // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
-        let coin = Anything::new()
-            .append_bytes(1, &community_pool.denom)
-            .append_bytes(2, community_pool.amount.to_string());
-        let msg_fund_community_pool = Anything::new()
-            .append_message(1, &coin)
-            .append_bytes(2, env.contract.address.as_bytes())
-            .into_vec();
         out_msgs.push(CosmosMsg::Stargate {
-            type_url: "cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
-            value: msg_fund_community_pool.into(),
+            type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
+            value: encode_msg_fund_community_pool(&community_pool, env.contract.address.as_str())
+                .into(),
         });
     }
 
@@ -134,17 +126,30 @@ fn execute_pay(
         .add_attribute("sent_to_community_pool", community_pool.to_string()))
 }
 
+fn encode_msg_fund_community_pool(amount: &Coin, depositor: &str) -> Vec<u8> {
+    // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
+    // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
+    let coin = Anything::new()
+        .append_bytes(1, &amount.denom)
+        .append_bytes(2, amount.amount.to_string());
+    Anything::new()
+        .append_message(1, &coin)
+        .append_bytes(2, depositor.as_bytes())
+        .into_vec()
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     use crate::msg::{ConfigResponse, QueryMsg};
 
-    use super::*;
     use cosmwasm_std::{
         coins, from_binary,
         testing::{mock_dependencies, mock_env, mock_info},
         Addr, Attribute, Binary, Uint128,
     };
+    use hex;
 
     const NOIS_SINK: &str = "sink";
     const NOIS_GATEWAY: &str = "nois-gateway";
@@ -325,5 +330,20 @@ mod tests {
             first_attr(&response.attributes, "sent_to_community_pool").unwrap(),
             "0unois"
         );
+    }
+
+    #[test]
+    fn encode_msg_fund_community_pool_works() {
+        // https://www.mintscan.io/stargaze/txs/0F52332EA355E306363FE321C218A3873730A6C20748425D2888063B36DCFAFB
+        // tx from https://stargaze-rpc.polkachu.com/tx?hash=0x0F52332EA355E306363FE321C218A3873730A6C20748425D2888063B36DCFAFB
+        // "Cr0BCroBCjEvY29zbW9zLmRpc3RyaWJ1dGlvbi52MWJldGExLk1zZ0Z1bmRDb21tdW5pdHlQb29sEoQBClQKRGliYy8wRjE4MUQ5RjVCQjE4QTg0OTYxNTNDMTY2NkU5MzQxNjk1MTU1OTJDMTM1RThFOUZDQ0MzNTU4ODk4NThFQUY5Egw3OTk5OTk5OTk5OTkSLHN0YXJzMTh4c3AzN3pjNjU2OTBobHEwem0zcTVzeGN1MnJwbTRtcnR4NmVjElgKUApGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQMP/0ZvxxP7PnrW5662nEqW6GMqA1k4sWiLzoFvws+o9xIECgIIARgBEgQQwJoMGkAQ0WA71nUCX0QoOFL6KRqWrGnYsZRn9T0TtpLI6YQVVzoqat5sRdoVkNyN7HP04mzc3nZxXxJZ9//JKUx0wDXP"
+
+        let amount = Coin::new(
+            799999999999,
+            "ibc/0F181D9F5BB18A8496153C1666E934169515592C135E8E9FCCC355889858EAF9",
+        );
+        let encoded =
+            encode_msg_fund_community_pool(&amount, "stars18xsp37zc65690hlq0zm3q5sxcu2rpm4mrtx6ec");
+        assert_eq!(encoded, hex::decode("0a540a446962632f30463138314439463542423138413834393631353343313636364539333431363935313535393243313335453845394643434333353538383938353845414639120c373939393939393939393939122c7374617273313878737033377a633635363930686c71307a6d337135737863753272706d346d727478366563").unwrap());
     }
 }
