@@ -523,9 +523,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
     t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
-    const tx = await wasmClient.sign.getTx(infoB2A.acksFromA[0].txHash);
-    assert(tx);
-    const callbackEvent = tx.events.find((e) => e.type.startsWith("wasm-nois-callback"));
+    const callbackEvent = infoB2A.acksFromA[0].txEvents.find((e) => e.type.startsWith("wasm-nois-callback"));
     t.deepEqual(callbackEvent?.attributes, [
       {
         key: "_contract_address",
@@ -577,9 +575,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
     t.deepEqual(fromBinary(stdAckDeliver.result), {});
 
-    const tx = await wasmClient.sign.getTx(infoB2A2.acksFromA[0].txHash);
-    assert(tx);
-    const callbackEvent = tx.events.find((e) => e.type.startsWith("wasm-nois-callback"));
+    const callbackEvent = infoB2A2.acksFromA[0].txEvents.find((e) => e.type.startsWith("wasm-nois-callback"));
     t.deepEqual(callbackEvent?.attributes, [
       {
         key: "_contract_address",
