@@ -2,6 +2,7 @@ import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
 import { ExecuteInstruction, fromBinary, toBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
+import { Decimal } from "@cosmjs/math";
 import { assert } from "@cosmjs/utils";
 import test, { ExecutionContext } from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
@@ -22,6 +23,7 @@ import {
 import {
   assertPacketsFromA,
   assertPacketsFromB,
+  communityPoolFunds,
   nois,
   NoisProtocolIbcVersion,
   setupNoisClient,
@@ -162,9 +164,9 @@ async function instantiateAndConnectIbc(
   // Instantiate Gateway on Nois
   const instantiateMsg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
-    price: coin(50, "unois"),
+    price: coin(100, "unois"),
     payment_code_id: context.noisCodeIds.payment,
-    payment_initial_funds: coin(200, "unois"),
+    payment_initial_funds: coin(500, "unois"), // enough to pay 5 beacon requests
     sink: sinkAddress,
   };
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
@@ -174,7 +176,7 @@ async function instantiateAndConnectIbc(
     "Gateway instance",
     "auto"
   );
-  await fundAccount(nois, noisGatewayAddress, "1000"); // 1000 unois can fund 5 payment contracts
+  await fundAccount(nois, noisGatewayAddress, "1500"); // 1500 unois can fund 3 payment contracts
 
   const setDrandMsg: GatewayExecuteMsg = { set_config: { drand_addr: options.mockDrandAddr } };
   await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
@@ -231,7 +233,7 @@ async function instantiateAndConnectIbc(
 
 test.serial("proxy works", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
+  const { wasmClient, noisClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
     mockDrandAddr: bot.address,
   });
   bot.setGatewayAddress(noisGatewayAddress);
@@ -257,12 +259,16 @@ test.serial("proxy works", async (t) => {
     );
 
     t.log("Relaying RequestBeacon");
+    const commPool1 = await communityPoolFunds(noisClient.sign);
     const info1 = await link.relayAll();
     assertPacketsFromA(info1, 1, true);
     const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(ack1.result), {
       processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
+    const commPool2 = await communityPoolFunds(noisClient.sign);
+    const commPoolIncrease = commPool2.minus(commPool1);
+    t.deepEqual(commPoolIncrease, Decimal.fromUserInput("45", 18)); // 45% of the gateway `price`
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
