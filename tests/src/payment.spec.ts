@@ -25,9 +25,13 @@ test.before(async (t) => {
   t.pass();
 });
 
+function printCoin(c: Coin): string {
+  return `${c.amount}${c.denom}`;
+}
+
 test.serial("payment works", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisClient, noisProxyAddress, link, noisGatewayAddress, sinkAddress } =
+  const { wasmClient, noisClient, noisProxyAddress, link, noisGatewayAddress, sinkAddress, noisChannel } =
     await instantiateAndConnectIbc(t, {
       mockDrandAddr: bot.address,
       enablePayment: true,
@@ -35,9 +39,17 @@ test.serial("payment works", async (t) => {
   assert(sinkAddress);
   bot.setGatewayAddress(noisGatewayAddress);
 
+  const { address: paymentAddress } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
+    payment_address: { channel_id: noisChannel.noisChannelId },
+  });
+  assert(paymentAddress, "payment address must be set");
+
+  const paymentBalanceInitial = await noisClient.sign.getBalance(paymentAddress, "unois");
+  t.log(`Initial balance of payment contract ${paymentAddress}: ${printCoin(paymentBalanceInitial)}`);
+
   t.log(`Getting randomness prices ...`);
   const { prices } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { prices: {} });
-  t.log(`All available randomness prices: ${prices.map((p: Coin) => p.amount + p.denom).join(",")}`);
+  t.log(`All available randomness prices: ${prices.map(printCoin).join(",")}`);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
   const payment = coin(price, "ucosm");
@@ -56,6 +68,7 @@ test.serial("payment works", async (t) => {
     );
 
     t.log("Relaying RequestBeacon");
+    const paymentBalance1 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
     const commPool1 = await communityPoolFunds(noisClient.sign);
     const info1 = await link.relayAll();
     assertPacketsFromA(info1, 1, true);
@@ -63,12 +76,15 @@ test.serial("payment works", async (t) => {
     t.deepEqual(fromBinary(ack1.result), {
       processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
+    const paymentBalance2 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
+    const paymentBalanceDecrease = paymentBalance1 - paymentBalance2;
+    t.deepEqual(paymentBalanceDecrease, 100); // the gateway's `price`
     const commPool2 = await communityPoolFunds(noisClient.sign);
     const commPoolIncrease = commPool2 - commPool1;
     t.deepEqual(commPoolIncrease, 45); // 45% of the gateway `price`
     const { ashes } = await noisClient.sign.queryContractSmart(sinkAddress, { ashes_desc: {} });
     t.deepEqual(ashes.length, 1);
-    // t.deepEqual(ashes[0].burner, paymentAddress);
+    t.deepEqual(ashes[0].burner, paymentAddress);
     t.deepEqual(ashes[0].amount, coin(50, "unois"));
 
     t.log("Relaying DeliverBeacon");
@@ -90,6 +106,7 @@ test.serial("payment works", async (t) => {
     );
 
     t.log("Relaying RequestBeacon");
+    const paymentBalance1 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
     const commPool1 = await communityPoolFunds(noisClient.sign);
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
@@ -97,12 +114,15 @@ test.serial("payment works", async (t) => {
     t.deepEqual(fromBinary(stdAck.result), {
       queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
+    const paymentBalance2 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
+    const paymentBalanceDecrease = paymentBalance1 - paymentBalance2;
+    t.deepEqual(paymentBalanceDecrease, 100); // the gateway's `price`
     const commPool2 = await communityPoolFunds(noisClient.sign);
     const commPoolIncrease = commPool2 - commPool1;
     t.deepEqual(commPoolIncrease, 45); // 45% of the gateway `price`
     const { ashes } = await noisClient.sign.queryContractSmart(sinkAddress, { ashes_desc: {} });
     t.deepEqual(ashes.length, 2);
-    // t.deepEqual(ashes[0].burner, paymentAddress);
+    t.deepEqual(ashes[0].burner, paymentAddress);
     t.deepEqual(ashes[0].amount, coin(50, "unois"));
   }
 });
