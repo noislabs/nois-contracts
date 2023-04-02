@@ -1,6 +1,7 @@
 import { coin } from "@cosmjs/amino";
 import { fromBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
+import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 
@@ -26,10 +27,12 @@ test.before(async (t) => {
 
 test.serial("payment works", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
-    mockDrandAddr: bot.address,
-    enablePayment: true,
-  });
+  const { wasmClient, noisClient, noisProxyAddress, link, noisGatewayAddress, sinkAddress } =
+    await instantiateAndConnectIbc(t, {
+      mockDrandAddr: bot.address,
+      enablePayment: true,
+    });
+  assert(sinkAddress);
   bot.setGatewayAddress(noisGatewayAddress);
 
   t.log(`Getting randomness prices ...`);
@@ -63,6 +66,10 @@ test.serial("payment works", async (t) => {
     const commPool2 = await communityPoolFunds(noisClient.sign);
     const commPoolIncrease = commPool2 - commPool1;
     t.deepEqual(commPoolIncrease, 45); // 45% of the gateway `price`
+    const { ashes } = await noisClient.sign.queryContractSmart(sinkAddress, { ashes_desc: {} });
+    t.deepEqual(ashes.length, 1);
+    // t.deepEqual(ashes[0].burner, paymentAddress);
+    t.deepEqual(ashes[0].amount, coin(50, "unois"));
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
@@ -93,5 +100,9 @@ test.serial("payment works", async (t) => {
     const commPool2 = await communityPoolFunds(noisClient.sign);
     const commPoolIncrease = commPool2 - commPool1;
     t.deepEqual(commPoolIncrease, 45); // 45% of the gateway `price`
+    const { ashes } = await noisClient.sign.queryContractSmart(sinkAddress, { ashes_desc: {} });
+    t.deepEqual(ashes.length, 2);
+    // t.deepEqual(ashes[0].burner, paymentAddress);
+    t.deepEqual(ashes[0].amount, coin(50, "unois"));
   }
 });

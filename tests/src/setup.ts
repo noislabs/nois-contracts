@@ -30,6 +30,8 @@ export interface SetupInfo {
   noisDemoAddress: string | undefined;
   /// Address on Nois
   noisGatewayAddress: string;
+  /// Address on Nois
+  sinkAddress: string | undefined;
   link: Link;
   noisChannel: {
     wasmChannelId: string;
@@ -154,6 +156,7 @@ export async function instantiateAndConnectIbc(
     noisProxyAddress,
     noisDemoAddress,
     noisGatewayAddress,
+    sinkAddress,
     link,
     noisChannel,
     ics20Channel,
