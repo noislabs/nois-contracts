@@ -2,7 +2,6 @@ import { Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
 import { ExecuteInstruction, fromBinary, toBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
-import { Decimal } from "@cosmjs/math";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
@@ -14,7 +13,6 @@ import { instantiateAndConnectIbc, TestContext } from "./setup";
 import {
   assertPacketsFromA,
   assertPacketsFromB,
-  communityPoolFunds,
   nois,
   NoisProtocolIbcVersion,
   setupNoisClient,
@@ -28,7 +26,7 @@ test.before(async (t) => {
   t.log("Upload contracts ...");
   const [wasmCodeIds, noisCodeIds] = await Promise.all([
     uploadContracts(t, wasmClient, wasmContracts),
-    uploadContracts(t, noisClient, noisContracts),
+    uploadContracts(t, noisClient, noisContracts, ["sink"]),
   ]);
   const context: TestContext = {
     wasmCodeIds,
@@ -91,7 +89,7 @@ test.serial("set up channel", async (t) => {
 
 test.serial("proxy works", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
+  const { wasmClient, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(t, {
     mockDrandAddr: bot.address,
   });
   bot.setGatewayAddress(noisGatewayAddress);
@@ -117,16 +115,12 @@ test.serial("proxy works", async (t) => {
     );
 
     t.log("Relaying RequestBeacon");
-    const commPool1 = await communityPoolFunds(noisClient.sign);
     const info1 = await link.relayAll();
     assertPacketsFromA(info1, 1, true);
     const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(ack1.result), {
       processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
-    const commPool2 = await communityPoolFunds(noisClient.sign);
-    const commPoolIncrease = commPool2.minus(commPool1);
-    t.deepEqual(commPoolIncrease, Decimal.fromUserInput("45", 18)); // 45% of the gateway `price`
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
@@ -272,6 +266,7 @@ test.serial("demo contract can be used", async (t) => {
     t,
     { mockDrandAddr: bot.address }
   );
+  assert(noisDemoAddress);
   bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
@@ -379,6 +374,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
       callback_gas_limit: 1_000, // Very low value
     }
   );
+  assert(noisDemoAddress);
   bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });

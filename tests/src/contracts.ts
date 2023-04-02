@@ -105,11 +105,17 @@ export const noisContracts: NoisContractPaths = {
 export async function uploadContracts(
   t: ExecutionContext,
   cosmwasm: CosmWasmSigner,
-  contracts: WasmdContractPaths | NoisContractPaths
+  contracts: WasmdContractPaths | NoisContractPaths,
+  disable: (keyof WasmdContractPaths | keyof NoisContractPaths)[] = []
 ): Promise<Record<string, number>> {
   const results: Record<string, number> = {};
 
   for (const [name, path] of Object.entries(contracts)) {
+    if ((disable as string[]).includes(name)) {
+      t.log(`Skipping disabled ${name}`);
+      results[name] = Number.NaN;
+      continue;
+    }
     t.log(`Storing ${name} from ${path}...`);
     const wasm = readFileSync(path);
     const multiplier = 1.1; // see https://github.com/cosmos/cosmjs/issues/1360

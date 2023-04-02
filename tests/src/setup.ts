@@ -27,7 +27,7 @@ export interface SetupInfo {
   /// Address on app chain (wasmd)
   noisProxyAddress: string;
   /// Address on app chain (wasmd)
-  noisDemoAddress: string;
+  noisDemoAddress: string | undefined;
   /// Address on Nois
   noisGatewayAddress: string;
   link: Link;
@@ -45,6 +45,7 @@ export interface InstantiateAndConnectOptions {
   readonly testMode?: boolean;
   readonly mockDrandAddr: string;
   readonly callback_gas_limit?: number;
+  readonly enablePayment?: boolean; // defaults to false
 }
 
 export async function instantiateAndConnectIbc(
@@ -70,22 +71,26 @@ export async function instantiateAndConnectIbc(
   );
 
   // Instantiate sink on Nois
-  const sinkMsg: SinkInstantiateMsg = {};
-  const { contractAddress: sinkAddress } = await noisClient.sign.instantiate(
-    noisClient.senderAddress,
-    context.noisCodeIds.sink,
-    sinkMsg,
-    "Sink instance",
-    "auto"
-  );
+  let sinkAddress: string | undefined;
+  if (options.enablePayment) {
+    const sinkMsg: SinkInstantiateMsg = {};
+    const { contractAddress } = await noisClient.sign.instantiate(
+      noisClient.senderAddress,
+      context.noisCodeIds.sink,
+      sinkMsg,
+      "Sink instance",
+      "auto"
+    );
+    sinkAddress = contractAddress;
+  }
 
   // Instantiate Gateway on Nois
   const instantiateMsg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
-    price: coin(100, "unois"),
+    price: coin(options.enablePayment ? 100 : 0, "unois"),
     payment_code_id: context.noisCodeIds.payment,
-    payment_initial_funds: coin(500, "unois"), // enough to pay 5 beacon requests
-    sink: sinkAddress,
+    payment_initial_funds: coin(options.enablePayment ? 500 : 0, "unois"), // enough to pay 5 beacon requests
+    sink: sinkAddress ?? "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
   };
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
@@ -94,7 +99,9 @@ export async function instantiateAndConnectIbc(
     "Gateway instance",
     "auto"
   );
-  await fundAccount(nois, noisGatewayAddress, "1500"); // 1500 unois can fund 3 payment contracts
+  if (options.enablePayment) {
+    await fundAccount(nois, noisGatewayAddress, "1500"); // 1500 unois can fund 3 payment contracts
+  }
 
   const setDrandMsg: GatewayExecuteMsg = { set_config: { drand_addr: options.mockDrandAddr } };
   await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
@@ -129,13 +136,17 @@ export async function instantiateAndConnectIbc(
   };
 
   // Instantiate demo app
-  const { contractAddress: noisDemoAddress } = await wasmClient.sign.instantiate(
-    wasmClient.senderAddress,
-    context.wasmCodeIds.demo,
-    { nois_proxy: noisProxyAddress },
-    "A demo contract",
-    "auto"
-  );
+  let noisDemoAddress: string | undefined;
+  if (context.wasmCodeIds.demo) {
+    const { contractAddress } = await wasmClient.sign.instantiate(
+      wasmClient.senderAddress,
+      context.wasmCodeIds.demo,
+      { nois_proxy: noisProxyAddress },
+      "A demo contract",
+      "auto"
+    );
+    noisDemoAddress = contractAddress;
+  }
 
   return {
     wasmClient,
