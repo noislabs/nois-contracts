@@ -35,11 +35,11 @@ export interface SetupInfo {
   link: Link;
   noisChannel: {
     wasmChannelId: string;
-    osmoChannelId: string;
+    noisChannelId: string;
   };
   ics20Channel: {
     wasmChannelId: string;
-    osmoChannelId: string;
+    noisChannelId: string;
   };
 }
 
@@ -125,7 +125,7 @@ export async function instantiateAndConnectIbc(
   const info = await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
   const noisChannel = {
     wasmChannelId: info.src.channelId,
-    osmoChannelId: info.dest.channelId,
+    noisChannelId: info.dest.channelId,
   };
   const info2 = await link.relayAll();
   assertPacketsFromB(info2, 1, true); // Welcome packet
@@ -134,7 +134,7 @@ export async function instantiateAndConnectIbc(
   const ics20Info = await link.createChannel("A", wasmd.ics20Port, nois.ics20Port, Order.ORDER_UNORDERED, "ics20-1");
   const ics20Channel = {
     wasmChannelId: ics20Info.src.channelId,
-    osmoChannelId: ics20Info.dest.channelId,
+    noisChannelId: ics20Info.dest.channelId,
   };
 
   // Instantiate demo app
