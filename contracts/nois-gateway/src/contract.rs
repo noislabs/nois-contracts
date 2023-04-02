@@ -3,9 +3,10 @@ use cosmwasm_std::{
     Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryRequest, QueryResponse,
-    Response, StdError, StdResult, SystemError, SystemResult, WasmMsg, WasmQuery,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order, QueryRequest,
+    QueryResponse, Response, StdError, StdResult, SystemError, SystemResult, WasmMsg, WasmQuery,
 };
+use cw_storage_plus::Bound;
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacketAck, OutPacket, RequestBeaconPacket, StdAck,
     IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
@@ -14,7 +15,10 @@ use sha2::{Digest, Sha256};
 
 use crate::error::ContractError;
 use crate::job_id::validate_origin;
-use crate::msg::{ConfigResponse, DrandJobStatsResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{
+    ConfigResponse, DrandJobStatsResponse, ExecuteMsg, InstantiateMsg, PaymentAddressResponse,
+    PaymentAddressesResponse, QueriedPaymentAddress, QueryMsg,
+};
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
     get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, CONFIG, PAYMENT_ADDRESSES,
@@ -86,6 +90,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
         QueryMsg::DrandJobStats { round } => to_binary(&query_drand_job_stats(deps, round)?)?,
+        QueryMsg::PaymentAddress { channel_id } => {
+            to_binary(&query_payment_address(deps, channel_id)?)?
+        }
+        QueryMsg::PaymentAddresses { start_after, limit } => {
+            to_binary(&query_payment_addresses(deps, start_after, limit)?)?
+        }
     };
     Ok(response)
 }
@@ -104,6 +114,35 @@ fn query_drand_job_stats(deps: Deps, round: u64) -> StdResult<DrandJobStatsRespo
         unprocessed,
         processed,
     })
+}
+
+fn query_payment_address(deps: Deps, channel_id: String) -> StdResult<PaymentAddressResponse> {
+    let address = PAYMENT_ADDRESSES.may_load(deps.storage, &channel_id)?;
+    Ok(PaymentAddressResponse { address })
+}
+
+fn query_payment_addresses(
+    deps: Deps,
+    start_after: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<PaymentAddressesResponse> {
+    let limit = limit.unwrap_or(50) as usize;
+
+    let start_after = start_after.as_deref();
+    let low_bound = start_after.map(Bound::exclusive);
+
+    let addresses: Vec<QueriedPaymentAddress> = PAYMENT_ADDRESSES
+        .range(deps.storage, low_bound, None, Order::Ascending)
+        .take(limit)
+        .map(|c| {
+            c.map(|(channel_id, address)| QueriedPaymentAddress {
+                channel_id,
+                address,
+            })
+        })
+        .collect::<Result<_, _>>()?;
+
+    Ok(PaymentAddressesResponse { addresses })
 }
 
 #[entry_point]
@@ -161,7 +200,7 @@ pub fn ibc_channel_connect(
             deps.api.addr_humanize(&address)?
         }
         #[cfg(test)]
-        cosmwasm_std::Addr::unchecked("some paymane address")
+        cosmwasm_std::Addr::unchecked("some payment address")
     };
     PAYMENT_ADDRESSES.save(deps.storage, &chan_id, &address)?;
 
@@ -1208,5 +1247,103 @@ mod tests {
         assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "true");
         assert_eq!(first_attr(&attributes, "error").unwrap(), "kaputt");
+    }
+
+    #[test]
+    fn query_payment_address_works() {
+        let mut deps = setup();
+
+        let channel_id = "channel-123";
+        let account = "acct-123";
+
+        // register the channel
+        connect(deps.as_mut(), channel_id, account);
+
+        // Existing channel
+        let PaymentAddressResponse { address } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::PaymentAddress {
+                    channel_id: channel_id.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(address, Some(Addr::unchecked("some payment address")));
+
+        // Non-Existing channel
+        let PaymentAddressResponse { address } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::PaymentAddress {
+                    channel_id: "channel-does-not-exist".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(address, None);
+    }
+
+    #[test]
+    fn query_payment_addresses_works() {
+        let mut deps = setup();
+
+        let channel_id = "channel-123";
+        let account = "acct-123";
+
+        let PaymentAddressesResponse { addresses } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::PaymentAddresses {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(addresses, vec![]);
+
+        // register the channel
+        connect(deps.as_mut(), channel_id, account);
+
+        let PaymentAddressesResponse { addresses } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::PaymentAddresses {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            addresses,
+            vec![QueriedPaymentAddress {
+                channel_id: channel_id.to_string(),
+                address: Addr::unchecked("some payment address")
+            }]
+        );
+
+        let PaymentAddressesResponse { addresses } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::PaymentAddresses {
+                    start_after: Some(channel_id.to_string()),
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(addresses, vec![]);
     }
 }

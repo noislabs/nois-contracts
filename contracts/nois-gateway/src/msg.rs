@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, HexBinary};
+use cosmwasm_std::{Addr, Coin, HexBinary};
 
 use crate::state::Config;
 
@@ -42,6 +42,14 @@ pub enum QueryMsg {
     /// Gets basic statistics about jobs in this drand round.
     #[returns(DrandJobStatsResponse)]
     DrandJobStats { round: u64 },
+    #[returns(PaymentAddressResponse)]
+    PaymentAddress { channel_id: String },
+    #[returns(PaymentAddressesResponse)]
+    PaymentAddresses {
+        /// The channel ID after which to start
+        start_after: Option<String>,
+        limit: Option<u32>,
+    },
 }
 
 // We define a custom struct for each query response
@@ -54,4 +62,22 @@ pub struct DrandJobStatsResponse {
     pub unprocessed: u32,
     /// Number of processed jobs
     pub processed: u32,
+}
+
+#[cw_serde]
+pub struct QueriedPaymentAddress {
+    pub channel_id: String,
+    /// The address of the payment contract
+    pub address: Addr,
+}
+
+#[cw_serde]
+pub struct PaymentAddressResponse {
+    /// The address of the payment contract
+    pub address: Option<Addr>,
+}
+
+#[cw_serde]
+pub struct PaymentAddressesResponse {
+    pub addresses: Vec<QueriedPaymentAddress>,
 }
