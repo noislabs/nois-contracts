@@ -2,7 +2,6 @@ import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/r
 import { ChainDefinition } from "@confio/relayer/build/lib/helpers";
 import { fromBinary, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
-import { Decimal } from "@cosmjs/math";
 import { decodeCosmosSdkDecFromProto, QueryClient, setupDistributionExtension } from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 
@@ -31,16 +30,17 @@ export const nois: ChainDefinition = {
   estimatedIndexerTime: 80,
 };
 
-export async function communityPoolFunds(client: SigningCosmWasmClient): Promise<Decimal> {
+/* Queries the community pool funds in full unois. */
+export async function communityPoolFunds(client: SigningCosmWasmClient): Promise<number> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tmClient = (client as any).forceGetTmClient();
   const queryClient = QueryClient.withExtensions(tmClient, setupDistributionExtension);
   const resp = await queryClient.distribution.communityPool();
   const unois = resp.pool.find((coin) => coin.denom === "unois");
   if (!unois) {
-    return Decimal.zero(18);
+    return 0;
   } else {
-    return decodeCosmosSdkDecFromProto(unois.amount);
+    return decodeCosmosSdkDecFromProto(unois.amount).floor().toFloatApproximation();
   }
 }
 

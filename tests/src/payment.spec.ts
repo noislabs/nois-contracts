@@ -1,7 +1,6 @@
 import { coin } from "@cosmjs/amino";
 import { fromBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
-import { Decimal } from "@cosmjs/math";
 import test from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 
@@ -62,8 +61,8 @@ test.serial("payment works", async (t) => {
       processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
     const commPool2 = await communityPoolFunds(noisClient.sign);
-    const commPoolIncrease = commPool2.minus(commPool1);
-    t.deepEqual(commPoolIncrease, Decimal.fromUserInput("45", 18)); // 45% of the gateway `price`
+    const commPoolIncrease = commPool2 - commPool1;
+    t.deepEqual(commPoolIncrease, 45); // 45% of the gateway `price`
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
@@ -92,7 +91,7 @@ test.serial("payment works", async (t) => {
       queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
     const commPool2 = await communityPoolFunds(noisClient.sign);
-    const commPoolIncrease = commPool2.minus(commPool1);
-    t.deepEqual(commPoolIncrease, Decimal.fromUserInput("45", 18)); // 45% of the gateway `price`
+    const commPoolIncrease = commPool2 - commPool1;
+    t.deepEqual(commPoolIncrease, 45); // 45% of the gateway `price`
   }
 });
