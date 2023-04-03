@@ -30,6 +30,7 @@ pub enum ExecuteMsg {
         price: Option<Coin>,
         drand_addr: Option<String>,
         payment_code_id: Option<u64>,
+        payment_initial_funds: Option<Coin>,
     },
 }
 
