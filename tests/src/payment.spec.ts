@@ -8,7 +8,14 @@ import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 import { MockBot } from "./bot";
 import { noisContracts, uploadContracts, wasmContracts } from "./contracts";
 import { instantiateAndConnectIbc, TestContext } from "./setup";
-import { assertPacketsFromA, assertPacketsFromB, communityPoolFunds, setupNoisClient, setupWasmClient } from "./utils";
+import {
+  assertPacketsFromA,
+  assertPacketsFromB,
+  communityPoolFunds,
+  setupNoisClient,
+  setupWasmClient,
+  totalSupply,
+} from "./utils";
 
 test.before(async (t) => {
   const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
@@ -38,6 +45,10 @@ test.serial("payment works", async (t) => {
     });
   assert(sinkAddress);
   bot.setGatewayAddress(noisGatewayAddress);
+
+  const gatewayPrice = 50_000; // the gateway `price`
+  const burnAmount = 25_000; // 50% of the gateway `price`
+  const poolAmount = 22_500; // 45% of the gateway `price`
 
   const { address: paymentAddress } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
     payment_address: { channel_id: noisChannel.noisChannelId },
@@ -70,22 +81,26 @@ test.serial("payment works", async (t) => {
     t.log("Relaying RequestBeacon");
     const paymentBalance1 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
     const commPool1 = await communityPoolFunds(noisClient.sign);
-    const info1 = await link.relayAll();
-    assertPacketsFromA(info1, 1, true);
-    const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
+    const total1 = parseInt((await totalSupply(noisClient.sign)).amount, 10);
+    const info = await link.relayAll();
+    assertPacketsFromA(info, 1, true);
+    const ack1 = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(ack1.result), {
       processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
+    const total2 = parseInt((await totalSupply(noisClient.sign)).amount, 10);
+    const reduction = total1 - total2;
+    t.assert(reduction >= 0.99 * burnAmount && reduction <= burnAmount);
     const paymentBalance2 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
     const paymentBalanceDecrease = paymentBalance1 - paymentBalance2;
-    t.deepEqual(paymentBalanceDecrease, 100); // the gateway's `price`
+    t.deepEqual(paymentBalanceDecrease, gatewayPrice);
     const commPool2 = await communityPoolFunds(noisClient.sign);
     const commPoolIncrease = commPool2 - commPool1;
-    t.deepEqual(commPoolIncrease, 45); // 45% of the gateway `price`
+    t.deepEqual(commPoolIncrease, poolAmount);
     const { ashes } = await noisClient.sign.queryContractSmart(sinkAddress, { ashes_desc: {} });
     t.deepEqual(ashes.length, 1);
     t.deepEqual(ashes[0].burner, paymentAddress);
-    t.deepEqual(ashes[0].amount, coin(50, "unois"));
+    t.deepEqual(ashes[0].amount, coin(burnAmount, "unois"));
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
@@ -108,21 +123,25 @@ test.serial("payment works", async (t) => {
     t.log("Relaying RequestBeacon");
     const paymentBalance1 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
     const commPool1 = await communityPoolFunds(noisClient.sign);
+    const total1 = parseInt((await totalSupply(noisClient.sign)).amount, 10);
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
       queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
+    const total2 = parseInt((await totalSupply(noisClient.sign)).amount, 10);
+    const reduction = total1 - total2;
+    t.assert(reduction >= 0.99 * burnAmount && reduction <= burnAmount);
     const paymentBalance2 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
     const paymentBalanceDecrease = paymentBalance1 - paymentBalance2;
-    t.deepEqual(paymentBalanceDecrease, 100); // the gateway's `price`
+    t.deepEqual(paymentBalanceDecrease, gatewayPrice);
     const commPool2 = await communityPoolFunds(noisClient.sign);
     const commPoolIncrease = commPool2 - commPool1;
-    t.deepEqual(commPoolIncrease, 45); // 45% of the gateway `price`
+    t.deepEqual(commPoolIncrease, poolAmount);
     const { ashes } = await noisClient.sign.queryContractSmart(sinkAddress, { ashes_desc: {} });
     t.deepEqual(ashes.length, 2);
     t.deepEqual(ashes[0].burner, paymentAddress);
-    t.deepEqual(ashes[0].amount, coin(50, "unois"));
+    t.deepEqual(ashes[0].amount, coin(burnAmount, "unois"));
   }
 });

@@ -2,7 +2,13 @@ import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/r
 import { ChainDefinition } from "@confio/relayer/build/lib/helpers";
 import { fromBinary, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
-import { decodeCosmosSdkDecFromProto, QueryClient, setupDistributionExtension } from "@cosmjs/stargate";
+import {
+  Coin,
+  decodeCosmosSdkDecFromProto,
+  QueryClient,
+  setupBankExtension,
+  setupDistributionExtension,
+} from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 
 const { fundAccount, generateMnemonic, signingCosmWasmClient, wasmd } = testutils;
@@ -42,6 +48,14 @@ export async function communityPoolFunds(client: SigningCosmWasmClient): Promise
   } else {
     return decodeCosmosSdkDecFromProto(unois.amount).floor().toFloatApproximation();
   }
+}
+
+/* Queries the community pool funds in full unois. */
+export async function totalSupply(client: SigningCosmWasmClient): Promise<Coin> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tmClient = (client as any).forceGetTmClient();
+  const queryClient = QueryClient.withExtensions(tmClient, setupBankExtension);
+  return queryClient.bank.supplyOf("unois");
 }
 
 export const noisValidator = {
