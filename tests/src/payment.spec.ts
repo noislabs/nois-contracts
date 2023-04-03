@@ -38,7 +38,7 @@ function printCoin(c: Coin): string {
 
 test.serial("payment works", async (t) => {
   const bot = await MockBot.connect();
-  const { wasmClient, noisClient, noisProxyAddress, link, noisGatewayAddress, sinkAddress, noisChannel } =
+  const { wasmClient, noisClient, noisProxyAddress, link, noisGatewayAddress, sinkAddress, noisChannel, realyerNois } =
     await instantiateAndConnectIbc(t, {
       mockDrandAddr: bot.address,
       enablePayment: true,
@@ -46,9 +46,10 @@ test.serial("payment works", async (t) => {
   assert(sinkAddress);
   bot.setGatewayAddress(noisGatewayAddress);
 
-  const gatewayPrice = 50_000; // the gateway `price`
-  const burnAmount = 25_000; // 50% of the gateway `price`
-  const poolAmount = 22_500; // 45% of the gateway `price`
+  const gatewayPrice = 50_000000; // the gateway `price`
+  const burnAmount = 0.5 * gatewayPrice; // 50% of the gateway `price`
+  const poolAmount = 0.45 * gatewayPrice; // 45% of the gateway `price`
+  const relayerAmount = 0.05 * gatewayPrice; // 5% of the gateway `price`
 
   const { address: paymentAddress } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
     payment_address: { channel_id: noisChannel.noisChannelId },
@@ -82,6 +83,7 @@ test.serial("payment works", async (t) => {
     const paymentBalance1 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
     const commPool1 = await communityPoolFunds(noisClient.sign);
     const total1 = parseInt((await totalSupply(noisClient.sign)).amount, 10);
+    const relayer1 = parseInt((await noisClient.sign.getBalance(realyerNois, "unois")).amount, 10);
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const ack1 = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
@@ -91,6 +93,9 @@ test.serial("payment works", async (t) => {
     const total2 = parseInt((await totalSupply(noisClient.sign)).amount, 10);
     const reduction = total1 - total2;
     t.assert(reduction >= 0.99 * burnAmount && reduction <= burnAmount);
+    const relayer2 = parseInt((await noisClient.sign.getBalance(realyerNois, "unois")).amount, 10);
+    const relayeIncrease = relayer2 - relayer1;
+    t.assert(relayeIncrease >= 0.98 * relayerAmount && relayeIncrease <= relayerAmount);
     const paymentBalance2 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
     const paymentBalanceDecrease = paymentBalance1 - paymentBalance2;
     t.deepEqual(paymentBalanceDecrease, gatewayPrice);

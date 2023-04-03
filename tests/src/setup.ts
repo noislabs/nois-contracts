@@ -41,6 +41,8 @@ export interface SetupInfo {
     wasmChannelId: string;
     noisChannelId: string;
   };
+  realyerWasm: string;
+  realyerNois: string;
 }
 
 export interface InstantiateAndConnectOptions {
@@ -89,9 +91,9 @@ export async function instantiateAndConnectIbc(
   // Instantiate Gateway on Nois
   const instantiateMsg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
-    price: coin(options.enablePayment ? 50_000 : 0, "unois"),
+    price: coin(options.enablePayment ? 50_000000 : 0, "unois"),
     payment_code_id: context.noisCodeIds.payment,
-    payment_initial_funds: coin(options.enablePayment ? 100_000 : 0, "unois"), // enough to pay 2 beacon requests
+    payment_initial_funds: coin(options.enablePayment ? 100_000000 : 0, "unois"), // enough to pay 2 beacon requests
     sink: sinkAddress ?? "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
   };
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
@@ -102,7 +104,7 @@ export async function instantiateAndConnectIbc(
     "auto"
   );
   if (options.enablePayment) {
-    await fundAccount(nois, noisGatewayAddress, "100000"); // 100000 unois can fund 1 payment contracts
+    await fundAccount(nois, noisGatewayAddress, "100000000"); // 100 NOIS can fund 1 payment contracts
   }
 
   const setDrandMsg: GatewayExecuteMsg = { set_config: { drand_addr: options.mockDrandAddr } };
@@ -119,6 +121,7 @@ export async function instantiateAndConnectIbc(
 
   // Create a connection between the chains
   const [src, dest] = await setup(wasmd, nois);
+  dest.senderAddress;
   const link = await Link.createWithNewConnections(src, dest);
 
   // Create a channel for the Nois protocol
@@ -160,5 +163,7 @@ export async function instantiateAndConnectIbc(
     link,
     noisChannel,
     ics20Channel,
+    realyerWasm: src.senderAddress,
+    realyerNois: dest.senderAddress,
   };
 }
