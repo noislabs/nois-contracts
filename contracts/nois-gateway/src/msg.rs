@@ -10,8 +10,8 @@ pub struct InstantiateMsg {
     pub manager: String,
     pub payment_code_id: u64,
     /// An amount the gateway sends to the payment contract during instantiation.
-    /// Use 0unois to diable.
-    pub payment_initial_funds: Coin,
+    /// Use None or 0unois to disable.
+    pub payment_initial_funds: Option<Coin>,
     /// Address of the Nois sink
     pub sink: String,
 }
@@ -30,6 +30,10 @@ pub enum ExecuteMsg {
         price: Option<Coin>,
         drand_addr: Option<String>,
         payment_code_id: Option<u64>,
+        /// Updates the `payment_initial_funds`. When this value is set, the config will be updated.
+        /// It is currently not possible to unset the value after it has been set before.
+        /// See https://twitter.com/simon_warta/status/1643354582494642177 for why.
+        /// To deactivate it later on, send Some(Coin::new(0, "unois")) here.
         payment_initial_funds: Option<Coin>,
     },
 }

@@ -14,8 +14,9 @@ pub struct Config {
     /// The code ID of the payment contract to be instantatiated
     pub payment_code_id: u64,
     /// An amount the gateway sends to the payment contract during instantiation.
-    /// Use 0unois to diable.
-    pub payment_initial_funds: Coin,
+    /// Used for testing only to avoid draining the gateway's balance by opening channels.
+    /// Use None or 0unois to disable.
+    pub payment_initial_funds: Option<Coin>,
     /// Address of the Nois sink
     pub sink: Addr,
 }

@@ -64,7 +64,7 @@ test.serial("set up channel", async (t) => {
     manager: noisClient.senderAddress,
     price: coin(0, "unois"),
     payment_code_id: context.noisCodeIds.payment,
-    payment_initial_funds: coin(0, "unois"),
+    payment_initial_funds: null,
     // any dummy address is good here because we only test channel creation
     sink: "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
   };

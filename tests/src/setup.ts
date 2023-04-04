@@ -93,7 +93,7 @@ export async function instantiateAndConnectIbc(
     manager: noisClient.senderAddress,
     price: coin(options.enablePayment ? 50_000000 : 0, "unois"),
     payment_code_id: context.noisCodeIds.payment,
-    payment_initial_funds: coin(options.enablePayment ? 100_000000 : 0, "unois"), // enough to pay 2 beacon requests
+    payment_initial_funds: options.enablePayment ? coin(100_000000, "unois") : null, // enough to pay 2 beacon requests
     sink: sinkAddress ?? "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
   };
   const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(

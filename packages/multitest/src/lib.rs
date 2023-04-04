@@ -43,6 +43,6 @@ pub fn mint_native(
     .unwrap();
 }
 
-pub fn payment_initial() -> Coin {
-    coin(2_000000, "unois")
+pub fn payment_initial() -> Option<Coin> {
+    Some(coin(2_000000, "unois"))
 }

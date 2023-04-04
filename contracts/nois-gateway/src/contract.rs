@@ -214,6 +214,11 @@ pub fn ibc_channel_connect(
     };
     PAYMENT_ADDRESSES.save(deps.storage, &chan_id, &address)?;
 
+    let funds = if let Some(pif) = config.payment_initial_funds {
+        vec![pif]
+    } else {
+        vec![]
+    };
     let msg = WasmMsg::Instantiate2 {
         admin: Some(env.contract.address.into()), // Only gateway can update the contracts it created
         code_id: config.payment_code_id,
@@ -221,7 +226,7 @@ pub fn ibc_channel_connect(
         msg: to_binary(&nois_payment::msg::InstantiateMsg {
             sink: config.sink.into(),
         })?,
-        funds: vec![config.payment_initial_funds],
+        funds,
         salt,
     };
 
@@ -432,7 +437,10 @@ fn execute_set_config(
         }
         None => config.payment_code_id,
     };
-    let payment_initial_funds = payment_initial_funds.unwrap_or(config.payment_initial_funds);
+    let payment_initial_funds = match payment_initial_funds {
+        Some(pif) => Some(pif),
+        None => config.payment_initial_funds,
+    };
 
     let new_config = Config {
         manager,
@@ -505,8 +513,8 @@ mod tests {
     const ROUND3: u64 = 830;
     const ROUND4: u64 = 840;
 
-    fn payment_initial() -> Coin {
-        coin(2_000000, "unois")
+    fn payment_initial() -> Option<Coin> {
+        Some(coin(2_000000, "unois"))
     }
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
@@ -733,6 +741,34 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
+        // Without payment_initial_funds
+
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: None,
+            sink: SINK.to_string(),
+        };
+        let info = mock_info("creator", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let config: ConfigResponse =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(
+            config,
+            ConfigResponse {
+                drand: None,
+                manager: Addr::unchecked(MANAGER),
+                price: Coin::new(1, "unois"),
+                payment_code_id: PAYMENT,
+                payment_initial_funds: None,
+                sink: Addr::unchecked(SINK),
+            }
+        );
+
+        // With payment_initial_funds
+
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
@@ -741,9 +777,7 @@ mod tests {
             sink: SINK.to_string(),
         };
         let info = mock_info("creator", &[]);
-        let env = mock_env();
-        let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let config: ConfigResponse =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
@@ -792,7 +826,7 @@ mod tests {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
-            payment_initial_funds: payment_initial(),
+            payment_initial_funds: None,
             sink: SINK.to_string(),
         };
         let info = mock_info("creator", &[]);
@@ -832,7 +866,7 @@ mod tests {
                 price: Coin::new(123, "unois"),
                 drand: Some(Addr::unchecked("somewhere")),
                 payment_code_id: PAYMENT,
-                payment_initial_funds: Coin::new(500, "unois"),
+                payment_initial_funds: Some(Coin::new(500, "unois")),
                 sink: Addr::unchecked(SINK),
             }
         )
