@@ -86,7 +86,6 @@ fn integration_test() {
         manager: None,
         price: None,
         drand_addr: Some(DRAND.to_string()),
-        payment_code_id: None,
         payment_initial_funds: None,
     };
     let _resp = app

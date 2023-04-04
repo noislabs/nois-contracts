@@ -80,7 +80,6 @@ pub fn execute(
             manager,
             price,
             drand_addr,
-            payment_code_id,
             payment_initial_funds,
         } => execute_set_config(
             deps,
@@ -89,7 +88,6 @@ pub fn execute(
             manager,
             price,
             drand_addr,
-            payment_code_id,
             payment_initial_funds,
         ),
     }
@@ -405,7 +403,6 @@ fn execute_add_verified_round(
 /// in a context where the contract addresses generration is not known
 /// in advance, we set the contract address at a later stage after the
 /// instantation and make sure it is immutable once set
-#[allow(clippy::too_many_arguments)]
 fn execute_set_config(
     deps: DepsMut,
     info: MessageInfo,
@@ -413,7 +410,6 @@ fn execute_set_config(
     manager: Option<String>,
     price: Option<Coin>,
     drand: Option<String>,
-    payment_code_id: Option<u64>,
     payment_initial_funds: Option<Coin>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
@@ -430,13 +426,6 @@ fn execute_set_config(
         None => config.drand,
     };
     let price = price.unwrap_or(config.price);
-    let payment_code_id = match payment_code_id {
-        Some(new_code_id) => {
-            ensure_code_id_exists(deps.as_ref(), new_code_id)?;
-            new_code_id
-        }
-        None => config.payment_code_id,
-    };
     let payment_initial_funds = match payment_initial_funds {
         Some(pif) => Some(pif),
         None => config.payment_initial_funds,
@@ -446,7 +435,7 @@ fn execute_set_config(
         manager,
         drand,
         price,
-        payment_code_id,
+        payment_code_id: config.payment_code_id, // Use a separate message for this in order to migrate all existing contracts too
         payment_initial_funds,
         sink: config.sink, // Make updatable?
     };
@@ -837,7 +826,6 @@ mod tests {
             manager: Some(MANAGER2.to_string()),
             price: Some(Coin::new(123, "unois")),
             drand_addr: Some("somewhere".to_string()),
-            payment_code_id: None,
             payment_initial_funds: Some(Coin::new(500, "unois")),
         };
 
@@ -873,46 +861,6 @@ mod tests {
     }
 
     #[test]
-    fn execute_set_config_works_for_code_id() {
-        let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
-            payment_code_id: PAYMENT,
-            payment_initial_funds: payment_initial(),
-            sink: SINK.to_string(),
-        };
-        let info = mock_info("creator", &[]);
-        let env = mock_env();
-        instantiate(deps.as_mut(), env, info, msg).unwrap();
-
-        // Works
-        let msg = ExecuteMsg::SetConfig {
-            manager: None,
-            price: None,
-            drand_addr: None,
-            payment_code_id: Some(PAYMENT2),
-            payment_initial_funds: None,
-        };
-        execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
-
-        // Fails for non-existing code ID
-        let msg = ExecuteMsg::SetConfig {
-            manager: None,
-            price: None,
-            drand_addr: None,
-            payment_code_id: Some(554466),
-            payment_initial_funds: None,
-        };
-        let err = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap_err();
-        match err {
-            ContractError::CodeIdDoesNotExist { code_id } => assert_eq!(code_id, 554466), // ok
-            err => panic!("Unexpected error: {:?}", err),
-        }
-    }
-
-    #[test]
     fn add_round_verified_must_only_be_called_by_drand() {
         let mut deps = mock_dependencies();
 
@@ -942,7 +890,6 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
-            payment_code_id: None,
             payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
@@ -978,7 +925,6 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
-            payment_code_id: None,
             payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
@@ -1143,7 +1089,6 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
-            payment_code_id: None,
             payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();

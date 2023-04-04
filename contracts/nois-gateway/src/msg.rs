@@ -29,7 +29,6 @@ pub enum ExecuteMsg {
         manager: Option<String>,
         price: Option<Coin>,
         drand_addr: Option<String>,
-        payment_code_id: Option<u64>,
         /// Updates the `payment_initial_funds`. When this value is set, the config will be updated.
         /// It is currently not possible to unset the value after it has been set before.
         /// See https://twitter.com/simon_warta/status/1643354582494642177 for why.

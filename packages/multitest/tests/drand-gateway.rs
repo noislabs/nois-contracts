@@ -164,7 +164,6 @@ fn integration_test() {
             manager: None,
             price: None,
             drand_addr: Some(addr_nois_drand.to_string()),
-            payment_code_id: None,
             payment_initial_funds: None,
         },
         &[],
