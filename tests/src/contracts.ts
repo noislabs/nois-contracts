@@ -66,7 +66,7 @@ export interface GatewayExecuteMsg {
     readonly price?: null | Coin;
     readonly drand_addr?: null | string;
     readonly payment_code_id?: null | number;
-    readonly payment_initial_funds?: null | number;
+    readonly payment_initial_funds?: null | Coin;
   };
 }
 
