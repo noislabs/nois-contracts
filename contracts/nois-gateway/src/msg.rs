@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Coin, HexBinary};
 
-use crate::state::Config;
+use crate::state::{Config, Customer};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -46,10 +46,10 @@ pub enum QueryMsg {
     /// Gets basic statistics about jobs in this drand round.
     #[returns(DrandJobStatsResponse)]
     DrandJobStats { round: u64 },
-    #[returns(PaymentAddressResponse)]
-    PaymentAddress { channel_id: String },
-    #[returns(PaymentAddressesResponse)]
-    PaymentAddresses {
+    #[returns(CustomerResponse)]
+    Customer { channel_id: String },
+    #[returns(CustomersResponse)]
+    Customers {
         /// The channel ID after which to start
         start_after: Option<String>,
         limit: Option<u32>,
@@ -69,19 +69,31 @@ pub struct DrandJobStatsResponse {
 }
 
 #[cw_serde]
-pub struct QueriedPaymentAddress {
+pub struct QueriedCustomer {
     pub channel_id: String,
-    /// The address of the payment contract
-    pub address: Addr,
+    /// The payment contract address
+    pub payment: Addr,
+    /// Number of beacons requested in total
+    pub requested_beacons: u64,
+}
+
+impl QueriedCustomer {
+    pub fn new(channel_id: String, customer: Customer) -> Self {
+        Self {
+            channel_id,
+            payment: customer.payment,
+            requested_beacons: customer.requested_beacons,
+        }
+    }
 }
 
 #[cw_serde]
-pub struct PaymentAddressResponse {
-    /// The address of the payment contract
-    pub address: Option<Addr>,
+pub struct CustomerResponse {
+    /// The customer when found. None/null otherwise.
+    pub customer: Option<QueriedCustomer>,
 }
 
 #[cw_serde]
-pub struct PaymentAddressesResponse {
-    pub addresses: Vec<QueriedPaymentAddress>,
+pub struct CustomersResponse {
+    pub customers: Vec<QueriedCustomer>,
 }

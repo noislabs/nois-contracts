@@ -83,5 +83,13 @@ pub fn increment_processed_drand_jobs(storage: &mut dyn Storage, round: u64) -> 
     Ok(())
 }
 
-/// A map from channel ID to address of the payment contract
-pub const PAYMENT_ADDRESSES: Map<&str, Addr> = Map::new("pa");
+#[cw_serde]
+pub struct Customer {
+    /// The payment contract address
+    pub payment: Addr,
+    /// Number of beacons requested in total
+    pub requested_beacons: u64,
+}
+
+/// A map from channel ID to customer information
+pub const CUSTOMERS: Map<&str, Customer> = Map::new("customers");

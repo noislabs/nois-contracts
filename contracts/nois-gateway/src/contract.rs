@@ -16,12 +16,12 @@ use sha2::{Digest, Sha256};
 use crate::error::ContractError;
 use crate::job_id::validate_origin;
 use crate::msg::{
-    ConfigResponse, DrandJobStatsResponse, ExecuteMsg, InstantiateMsg, PaymentAddressResponse,
-    PaymentAddressesResponse, QueriedPaymentAddress, QueryMsg,
+    ConfigResponse, CustomerResponse, CustomersResponse, DrandJobStatsResponse, ExecuteMsg,
+    InstantiateMsg, QueriedCustomer, QueryMsg,
 };
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, CONFIG, PAYMENT_ADDRESSES,
+    get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, Customer, CONFIG, CUSTOMERS,
 };
 
 #[entry_point]
@@ -98,11 +98,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
         QueryMsg::DrandJobStats { round } => to_binary(&query_drand_job_stats(deps, round)?)?,
-        QueryMsg::PaymentAddress { channel_id } => {
-            to_binary(&query_payment_address(deps, channel_id)?)?
-        }
-        QueryMsg::PaymentAddresses { start_after, limit } => {
-            to_binary(&query_payment_addresses(deps, start_after, limit)?)?
+        QueryMsg::Customer { channel_id } => to_binary(&query_customer(deps, channel_id)?)?,
+        QueryMsg::Customers { start_after, limit } => {
+            to_binary(&query_customers(deps, start_after, limit)?)?
         }
     };
     Ok(response)
@@ -124,33 +122,30 @@ fn query_drand_job_stats(deps: Deps, round: u64) -> StdResult<DrandJobStatsRespo
     })
 }
 
-fn query_payment_address(deps: Deps, channel_id: String) -> StdResult<PaymentAddressResponse> {
-    let address = PAYMENT_ADDRESSES.may_load(deps.storage, &channel_id)?;
-    Ok(PaymentAddressResponse { address })
+fn query_customer(deps: Deps, channel_id: String) -> StdResult<CustomerResponse> {
+    let customer = CUSTOMERS.may_load(deps.storage, &channel_id)?;
+    Ok(CustomerResponse {
+        customer: customer.map(|c| QueriedCustomer::new(channel_id, c)),
+    })
 }
 
-fn query_payment_addresses(
+fn query_customers(
     deps: Deps,
     start_after: Option<String>,
     limit: Option<u32>,
-) -> StdResult<PaymentAddressesResponse> {
+) -> StdResult<CustomersResponse> {
     let limit = limit.unwrap_or(50) as usize;
 
     let start_after = start_after.as_deref();
     let low_bound = start_after.map(Bound::exclusive);
 
-    let addresses: Vec<QueriedPaymentAddress> = PAYMENT_ADDRESSES
+    let customers: Vec<_> = CUSTOMERS
         .range(deps.storage, low_bound, None, Order::Ascending)
         .take(limit)
-        .map(|c| {
-            c.map(|(channel_id, address)| QueriedPaymentAddress {
-                channel_id,
-                address,
-            })
-        })
+        .map(|c| c.map(|(channel_id, customer)| QueriedCustomer::new(channel_id, customer)))
         .collect::<Result<_, _>>()?;
 
-    Ok(PaymentAddressesResponse { addresses })
+    Ok(CustomersResponse { customers })
 }
 
 #[entry_point]
@@ -210,7 +205,11 @@ pub fn ibc_channel_connect(
         #[cfg(test)]
         cosmwasm_std::Addr::unchecked("some payment address")
     };
-    PAYMENT_ADDRESSES.save(deps.storage, &chan_id, &address)?;
+    let customer = Customer {
+        payment: address,
+        requested_beacons: 0,
+    };
+    CUSTOMERS.save(deps.storage, &chan_id, &customer)?;
 
     let funds = if let Some(pif) = config.payment_initial_funds {
         vec![pif]
@@ -232,7 +231,7 @@ pub fn ibc_channel_connect(
     let packet = IbcMsg::SendPacket {
         channel_id: chan_id.clone(),
         data: to_binary(&OutPacket::Welcome {
-            payment: address.into(),
+            payment: customer.payment.into(),
         })?,
         timeout: env.block.time.plus_seconds(WELCOME_PACKET_LIFETIME).into(),
     };
@@ -305,7 +304,7 @@ fn receive_request_beacon(
     } = router.route(deps.branch(), env, channel_id.clone(), after, origin)?;
 
     // Pay time
-    let payment_contract = PAYMENT_ADDRESSES.load(deps.storage, &channel_id)?;
+    let customer = CUSTOMERS.load(deps.storage, &channel_id)?;
 
     let config = CONFIG.load(deps.storage)?;
 
@@ -315,7 +314,7 @@ fn receive_request_beacon(
     let amount_rest = amount - amount_burn - amount_relayer; // 45%
 
     let msg = WasmMsg::Execute {
-        contract_addr: payment_contract.into(),
+        contract_addr: customer.payment.into(),
         msg: to_binary(&nois_payment::msg::ExecuteMsg::Pay {
             burn: Coin::new(amount_burn.u128(), &denom),
             relayer: (relayer.into(), Coin::new(amount_relayer.u128(), &denom)),
@@ -1298,7 +1297,7 @@ mod tests {
     }
 
     #[test]
-    fn query_payment_address_works() {
+    fn query_customer_works() {
         let mut deps = setup();
 
         let channel_id = "channel-123";
@@ -1308,25 +1307,32 @@ mod tests {
         connect(deps.as_mut(), channel_id, account);
 
         // Existing channel
-        let PaymentAddressResponse { address } = from_binary(
+        let CustomerResponse { customer: address } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::PaymentAddress {
+                QueryMsg::Customer {
                     channel_id: channel_id.to_string(),
                 },
             )
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(address, Some(Addr::unchecked("some payment address")));
+        assert_eq!(
+            address,
+            Some(QueriedCustomer {
+                channel_id: channel_id.to_string(),
+                payment: Addr::unchecked("some payment address"),
+                requested_beacons: 0,
+            })
+        );
 
         // Non-Existing channel
-        let PaymentAddressResponse { address } = from_binary(
+        let CustomerResponse { customer: address } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::PaymentAddress {
+                QueryMsg::Customer {
                     channel_id: "channel-does-not-exist".to_string(),
                 },
             )
@@ -1337,17 +1343,19 @@ mod tests {
     }
 
     #[test]
-    fn query_payment_addresses_works() {
+    fn query_customers_works() {
         let mut deps = setup();
 
         let channel_id = "channel-123";
         let account = "acct-123";
 
-        let PaymentAddressesResponse { addresses } = from_binary(
+        let CustomersResponse {
+            customers: addresses,
+        } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::PaymentAddresses {
+                QueryMsg::Customers {
                     start_after: None,
                     limit: None,
                 },
@@ -1360,11 +1368,13 @@ mod tests {
         // register the channel
         connect(deps.as_mut(), channel_id, account);
 
-        let PaymentAddressesResponse { addresses } = from_binary(
+        let CustomersResponse {
+            customers: addresses,
+        } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::PaymentAddresses {
+                QueryMsg::Customers {
                     start_after: None,
                     limit: None,
                 },
@@ -1374,17 +1384,20 @@ mod tests {
         .unwrap();
         assert_eq!(
             addresses,
-            vec![QueriedPaymentAddress {
+            vec![QueriedCustomer {
                 channel_id: channel_id.to_string(),
-                address: Addr::unchecked("some payment address")
+                payment: Addr::unchecked("some payment address"),
+                requested_beacons: 0,
             }]
         );
 
-        let PaymentAddressesResponse { addresses } = from_binary(
+        let CustomersResponse {
+            customers: addresses,
+        } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::PaymentAddresses {
+                QueryMsg::Customers {
                     start_after: Some(channel_id.to_string()),
                     limit: None,
                 },

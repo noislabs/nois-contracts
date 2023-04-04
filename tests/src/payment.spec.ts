@@ -51,10 +51,12 @@ test.serial("payment works", async (t) => {
   const poolAmount = 0.45 * gatewayPrice; // 45% of the gateway `price`
   const relayerAmount = 0.05 * gatewayPrice; // 5% of the gateway `price`
 
-  const { address: paymentAddress } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
-    payment_address: { channel_id: noisChannel.noisChannelId },
+  const { customer } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
+    customer: { channel_id: noisChannel.noisChannelId },
   });
-  assert(paymentAddress, "payment address must be set");
+  assert(customer, "customer must be set");
+  const paymentAddress: string = customer.payment;
+  assert(typeof paymentAddress === "string");
 
   const paymentBalanceInitial = await noisClient.sign.getBalance(paymentAddress, "unois");
   t.log(`Initial balance of payment contract ${paymentAddress}: ${printCoin(paymentBalanceInitial)}`);
