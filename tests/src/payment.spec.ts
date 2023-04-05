@@ -6,7 +6,7 @@ import test from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 
 import { MockBot } from "./bot";
-import { noisContracts, uploadContracts, wasmContracts } from "./contracts";
+import { GatewayCustomerResponse, noisContracts, uploadContracts, wasmContracts } from "./contracts";
 import { instantiateAndConnectIbc, TestContext } from "./setup";
 import {
   assertPacketsFromA,
@@ -51,13 +51,12 @@ test.serial("payment works", async (t) => {
   const poolAmount = 0.45 * gatewayPrice; // 45% of the gateway `price`
   const relayerAmount = 0.05 * gatewayPrice; // 5% of the gateway `price`
 
-  const { payment: paymentAddress, requested_beacons: requested_beacons1 } = await noisClient.sign.queryContractSmart(
-    noisGatewayAddress,
-    {
-      customer: { channel_id: noisChannel.noisChannelId },
-    }
-  );
-  t.is(requested_beacons1, 0);
+  const { customer }: GatewayCustomerResponse = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
+    customer: { channel_id: noisChannel.noisChannelId },
+  });
+  assert(customer, "customer not set");
+  t.is(customer.requested_beacons, 0);
+  const paymentAddress = customer.payment;
   assert(typeof paymentAddress === "string");
 
   const paymentBalanceInitial = await noisClient.sign.getBalance(paymentAddress, "unois");
@@ -111,10 +110,14 @@ test.serial("payment works", async (t) => {
     t.deepEqual(ashes[0].burner, paymentAddress);
     t.deepEqual(ashes[0].amount, coin(burnAmount, "unois"));
 
-    const { requested_beacons: requested_beacons2 } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
-      customer: { channel_id: noisChannel.noisChannelId },
-    });
-    t.is(requested_beacons2, 1);
+    const { customer: customer2 }: GatewayCustomerResponse = await noisClient.sign.queryContractSmart(
+      noisGatewayAddress,
+      {
+        customer: { channel_id: noisChannel.noisChannelId },
+      }
+    );
+    assert(customer2, "customer not set");
+    t.is(customer2.requested_beacons, 1);
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
@@ -158,9 +161,13 @@ test.serial("payment works", async (t) => {
     t.deepEqual(ashes[0].burner, paymentAddress);
     t.deepEqual(ashes[0].amount, coin(burnAmount, "unois"));
 
-    const { requested_beacons: requested_beacons3 } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
-      customer: { channel_id: noisChannel.noisChannelId },
-    });
-    t.is(requested_beacons3, 2);
+    const { customer: customer3 }: GatewayCustomerResponse = await noisClient.sign.queryContractSmart(
+      noisGatewayAddress,
+      {
+        customer: { channel_id: noisChannel.noisChannelId },
+      }
+    );
+    assert(customer3, "customer not set");
+    t.is(customer3.requested_beacons, 2);
   }
 });

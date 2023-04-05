@@ -69,6 +69,16 @@ export interface GatewayExecuteMsg {
   };
 }
 
+export interface GatewayQueriedCustomer {
+  readonly channel_id: string;
+  readonly payment: string;
+  readonly requested_beacons: number;
+}
+
+export interface GatewayCustomerResponse {
+  readonly customer: null | GatewayQueriedCustomer;
+}
+
 export interface ProxyInstantiateMsg {
   readonly prices: Array<Coin>;
   readonly withdrawal_address: string;
