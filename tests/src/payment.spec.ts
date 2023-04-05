@@ -51,11 +51,13 @@ test.serial("payment works", async (t) => {
   const poolAmount = 0.45 * gatewayPrice; // 45% of the gateway `price`
   const relayerAmount = 0.05 * gatewayPrice; // 5% of the gateway `price`
 
-  const { customer } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
-    customer: { channel_id: noisChannel.noisChannelId },
-  });
-  assert(customer, "customer must be set");
-  const paymentAddress: string = customer.payment;
+  const { payment: paymentAddress, requested_beacons: requested_beacons1 } = await noisClient.sign.queryContractSmart(
+    noisGatewayAddress,
+    {
+      customer: { channel_id: noisChannel.noisChannelId },
+    }
+  );
+  t.is(requested_beacons1, 0);
   assert(typeof paymentAddress === "string");
 
   const paymentBalanceInitial = await noisClient.sign.getBalance(paymentAddress, "unois");
@@ -109,6 +111,11 @@ test.serial("payment works", async (t) => {
     t.deepEqual(ashes[0].burner, paymentAddress);
     t.deepEqual(ashes[0].amount, coin(burnAmount, "unois"));
 
+    const { requested_beacons: requested_beacons2 } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
+      customer: { channel_id: noisChannel.noisChannelId },
+    });
+    t.is(requested_beacons2, 1);
+
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
     assertPacketsFromB(info2, 1, true);
@@ -150,5 +157,10 @@ test.serial("payment works", async (t) => {
     t.deepEqual(ashes.length, 2);
     t.deepEqual(ashes[0].burner, paymentAddress);
     t.deepEqual(ashes[0].amount, coin(burnAmount, "unois"));
+
+    const { requested_beacons: requested_beacons3 } = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
+      customer: { channel_id: noisChannel.noisChannelId },
+    });
+    t.is(requested_beacons3, 2);
   }
 });

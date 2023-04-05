@@ -304,7 +304,9 @@ fn receive_request_beacon(
     } = router.route(deps.branch(), env, channel_id.clone(), after, origin)?;
 
     // Pay time
-    let customer = CUSTOMERS.load(deps.storage, &channel_id)?;
+    let mut customer = CUSTOMERS.load(deps.storage, &channel_id)?;
+    customer.requested_beacons += 1;
+    CUSTOMERS.save(deps.storage, &channel_id, &customer)?;
 
     let config = CONFIG.load(deps.storage)?;
 
@@ -1340,6 +1342,90 @@ mod tests {
         )
         .unwrap();
         assert_eq!(address, None);
+    }
+
+    #[test]
+    fn query_customer_requested_beacons_works() {
+        let mut deps = setup();
+
+        const DRAND: &str = "drand_verifier_7";
+        const CHANNEL_ID: &str = "the-channel";
+        let account = "acct-123";
+
+        // register the channel
+        connect(deps.as_mut(), CHANNEL_ID, account);
+
+        // Set drand contract
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            price: None,
+            drand_addr: Some(DRAND.to_string()),
+            payment_initial_funds: None,
+        };
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+
+        fn customer(deps: Deps, channel_id: &str) -> QueriedCustomer {
+            let res: CustomerResponse = from_binary(
+                &query(
+                    deps,
+                    mock_env(),
+                    QueryMsg::Customer {
+                        channel_id: channel_id.to_string(),
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            res.customer.unwrap()
+        }
+
+        // No jobs by default
+        assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 0);
+
+        // Create one job
+        let msg = mock_ibc_packet_recv(
+            CHANNEL_ID,
+            &RequestBeaconPacket {
+                after: AFTER1,
+                origin: origin(1),
+            },
+        )
+        .unwrap();
+        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // One requested beacon
+        assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 1);
+
+        let msg = make_add_verified_round_msg(ROUND1, true);
+        execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+
+        // New job for existing round gets processed immediately
+        let msg = mock_ibc_packet_recv(
+            CHANNEL_ID,
+            &RequestBeaconPacket {
+                after: AFTER1,
+                origin: origin(2),
+            },
+        )
+        .unwrap();
+        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // 2 requested beacons
+        assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 2);
+
+        // Create more 20 jobs
+        for i in 0..20 {
+            let msg = mock_ibc_packet_recv(
+                CHANNEL_ID,
+                &RequestBeaconPacket {
+                    after: AFTER2,
+                    origin: origin(i),
+                },
+            )
+            .unwrap();
+            ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+        }
+        assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 22);
     }
 
     #[test]
