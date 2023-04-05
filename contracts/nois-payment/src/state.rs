@@ -6,8 +6,6 @@ use cw_storage_plus::Item;
 pub struct Config {
     /// The address of the sink contract to burn the used tokens.
     pub sink: Addr,
-    /// The address of the community pool.
-    pub community_pool: Addr,
     /// The address of nois-gateway
     pub gateway: Addr,
 }

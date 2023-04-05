@@ -1,6 +1,9 @@
 use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Validator};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::mint_native;
+use nois_multitest::{mint_native, payment_initial};
+
+const PAYMENT: u64 = 17;
+const SINK: &str = "sink";
 
 #[test]
 fn integration_test() {
@@ -49,6 +52,9 @@ fn integration_test() {
             &nois_gateway::msg::InstantiateMsg {
                 manager: "manager".to_string(),
                 price: Coin::new(1, "unois"),
+                payment_code_id: PAYMENT,
+                payment_initial_funds: payment_initial(),
+                sink: SINK.to_string(),
             },
             &[],
             "Nois-Gateway",
@@ -67,6 +73,9 @@ fn integration_test() {
             drand: None,
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
+            sink: Addr::unchecked(SINK),
         }
     );
 
@@ -77,6 +86,7 @@ fn integration_test() {
         manager: None,
         price: None,
         drand_addr: Some(DRAND.to_string()),
+        payment_initial_funds: None,
     };
     let _resp = app
         .execute_contract(
@@ -98,6 +108,9 @@ fn integration_test() {
             drand: Some(Addr::unchecked(DRAND)),
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
+            sink: Addr::unchecked(SINK),
         }
     );
 
@@ -138,6 +151,7 @@ fn integration_test() {
                 withdrawal_address: Addr::unchecked("dao_dao_dao_dao_dao"),
                 test_mode: false,
                 callback_gas_limit: 500_000,
+                payment: None,
             },
         }
     );

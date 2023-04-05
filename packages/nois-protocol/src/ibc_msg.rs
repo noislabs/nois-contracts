@@ -28,22 +28,35 @@ pub enum RequestBeaconPacketAck {
 
 /// This is the message we send over the IBC channel from nois-gateway to nois-proxy.
 #[cw_serde]
-pub struct DeliverBeaconPacket {
-    /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
-    pub source_id: String,
-    pub randomness: HexBinary,
-    /// The origin data set by the proxy in a proxy specific format.
-    pub origin: Binary,
+#[non_exhaustive]
+pub enum OutPacket {
+    DeliverBeacon {
+        /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
+        source_id: String,
+        randomness: HexBinary,
+        /// The origin data set by the proxy in a proxy specific format.
+        origin: Binary,
+    },
+    Welcome {
+        /// Payment address on the Nois blockchain
+        payment: String,
+    },
 }
 
-/// The ack the proxy must send when receiving a [`DeliverBeaconPacket`].
+/// The ack the proxy must send when receiving a `OutPacket::DeliverBeacon`.
 ///
-/// This is a lighweight structre as the gateway does not do anything other than
+/// This is a lighweight structure as the gateway does not do anything other than
 /// simple logging of the beacon delivery ack.
 #[non_exhaustive]
 #[cw_serde]
 #[derive(Default)]
 pub struct DeliverBeaconPacketAck {}
+
+/// The ack the proxy must send when receiving a `OutPacket::Welcome`.
+#[non_exhaustive]
+#[cw_serde]
+#[derive(Default)]
+pub struct WelcomePacketAck {}
 
 /// This is a generic ICS acknowledgement format.
 /// Proto defined here: https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147

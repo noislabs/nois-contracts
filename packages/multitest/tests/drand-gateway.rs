@@ -2,7 +2,9 @@
 
 use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Uint128, Validator};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::{first_attr, mint_native, query_balance_native};
+use nois_multitest::{first_attr, mint_native, payment_initial, query_balance_native};
+
+const SINK: &str = "sink";
 
 #[test]
 fn integration_test() {
@@ -74,6 +76,14 @@ fn integration_test() {
         }
     );
 
+    // Storing nois-payment code
+    let code_nois_payment = ContractWrapper::new(
+        nois_payment::contract::execute,
+        nois_payment::contract::instantiate,
+        nois_payment::contract::query,
+    );
+    let code_id_nois_payment = app.store_code(Box::new(code_nois_payment));
+
     // Storing nois-gateway code
     let code_nois_gateway = ContractWrapper::new(
         nois_gateway::contract::execute,
@@ -90,6 +100,9 @@ fn integration_test() {
             &nois_gateway::msg::InstantiateMsg {
                 manager: "manager".to_string(),
                 price: Coin::new(1, "unois"),
+                payment_code_id: code_id_nois_payment,
+                payment_initial_funds: payment_initial(),
+                sink: SINK.to_string(),
             },
             &[],
             "Nois-Gateway",
@@ -108,6 +121,9 @@ fn integration_test() {
             drand: None,
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
+            payment_code_id: code_id_nois_payment,
+            payment_initial_funds: payment_initial(),
+            sink: Addr::unchecked(SINK),
         }
     );
 
@@ -148,6 +164,7 @@ fn integration_test() {
             manager: None,
             price: None,
             drand_addr: Some(addr_nois_drand.to_string()),
+            payment_initial_funds: None,
         },
         &[],
     )
@@ -162,6 +179,9 @@ fn integration_test() {
             drand: Some(addr_nois_drand.clone()),
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
+            payment_code_id: code_id_nois_payment,
+            payment_initial_funds: payment_initial(),
+            sink: Addr::unchecked(SINK),
         }
     );
 
@@ -203,6 +223,7 @@ fn integration_test() {
                 withdrawal_address: Addr::unchecked("dao_dao_dao_dao_dao"),
                 test_mode: false,
                 callback_gas_limit: 500_000,
+                payment: None,
             },
         }
     );
@@ -467,13 +488,4 @@ fn integration_test() {
     // Check balance nois-gateway
     let balance = query_balance_native(&app, &addr_nois_gateway, "unois").amount;
     assert_eq!(balance, Uint128::new(0));
-
-    // Check balance nois-drand-bot-operator
-    // let balance = query_balance_native(&app, &Addr::unchecked("drand_bot"), "unois").amount;
-    // assert_eq!(
-    //     balance,
-    //     Uint128::new(100_000) //incentive
-    // );
-
-    //TODO simulte advance many blocks to accumulate some staking rewards
 }

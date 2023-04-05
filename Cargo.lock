@@ -20,6 +20,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "216261ddc8289130e551ddcd5ce8a064710c0d064a4d2895c67151c92b5443f6"
 
 [[package]]
+name = "anything"
+version = "0.11.0"
+
+[[package]]
 name = "base16ct"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -578,8 +582,10 @@ dependencies = [
  "cw-storage-plus",
  "drand-common",
  "nois",
+ "nois-payment",
  "nois-protocol",
  "serde",
+ "sha2 0.10.6",
  "thiserror",
 ]
 
@@ -615,6 +621,7 @@ dependencies = [
  "nois-drand",
  "nois-gateway",
  "nois-icecube",
+ "nois-payment",
  "nois-proxy",
 ]
 
@@ -622,9 +629,11 @@ dependencies = [
 name = "nois-payment"
 version = "0.11.0"
 dependencies = [
+ "anything",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
+ "hex",
  "nois",
  "serde",
  "thiserror",

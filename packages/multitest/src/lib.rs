@@ -1,7 +1,7 @@
 // Testing utils. See tests folder for actual tests.
 
 use cosmwasm_std::{
-    from_binary, to_binary, Addr, Attribute, BalanceResponse, BankQuery, Coin, Querier,
+    coin, from_binary, to_binary, Addr, Attribute, BalanceResponse, BankQuery, Coin, Querier,
     QueryRequest,
 };
 use cw_multi_test::App;
@@ -41,4 +41,8 @@ pub fn mint_native(
         },
     ))
     .unwrap();
+}
+
+pub fn payment_initial() -> Option<Coin> {
+    Some(coin(2_000000, "unois"))
 }

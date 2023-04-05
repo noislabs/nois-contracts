@@ -1,20 +1,28 @@
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, from_binary, from_slice, to_binary, Attribute, Coin, Deps,
-    DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcChannelOpenResponse,
-    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    Never, QueryResponse, Response, StdResult,
+    attr, ensure_eq, entry_point, from_binary, from_slice, instantiate2_address, to_binary, Addr,
+    Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
+    Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
+    IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order, QueryRequest,
+    QueryResponse, Response, StdError, StdResult, SystemError, SystemResult, WasmMsg, WasmQuery,
 };
+use cw_storage_plus::Bound;
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, RequestBeaconPacket, StdAck,
-    IBC_APP_VERSION,
+    check_order, check_version, DeliverBeaconPacketAck, OutPacket, RequestBeaconPacket, StdAck,
+    IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
 };
+use sha2::{Digest, Sha256};
 
 use crate::error::ContractError;
 use crate::job_id::validate_origin;
-use crate::msg::{ConfigResponse, DrandJobStatsResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{
+    ConfigResponse, CustomerResponse, CustomersResponse, DrandJobStatsResponse, ExecuteMsg,
+    InstantiateMsg, QueriedCustomer, QueryMsg,
+};
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
-use crate::state::{get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, CONFIG};
+use crate::state::{
+    get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, Customer, CONFIG, CUSTOMERS,
+};
 
 #[entry_point]
 pub fn instantiate(
@@ -23,11 +31,26 @@ pub fn instantiate(
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let manager = deps.api.addr_validate(&msg.manager)?;
+    let InstantiateMsg {
+        price,
+        manager,
+        payment_code_id,
+        payment_initial_funds,
+        sink,
+    } = msg;
+
+    let manager = deps.api.addr_validate(&manager)?;
+    let sink = deps.api.addr_validate(&sink)?;
+
+    ensure_code_id_exists(deps.as_ref(), payment_code_id)?;
+
     let config = Config {
         drand: None,
         manager,
-        price: msg.price,
+        price,
+        payment_code_id,
+        payment_initial_funds,
+        sink,
     };
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
@@ -57,7 +80,16 @@ pub fn execute(
             manager,
             price,
             drand_addr,
-        } => execute_set_config(deps, info, env, manager, price, drand_addr),
+            payment_initial_funds,
+        } => execute_set_config(
+            deps,
+            info,
+            env,
+            manager,
+            price,
+            drand_addr,
+            payment_initial_funds,
+        ),
     }
 }
 
@@ -66,6 +98,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
         QueryMsg::DrandJobStats { round } => to_binary(&query_drand_job_stats(deps, round)?)?,
+        QueryMsg::Customer { channel_id } => to_binary(&query_customer(deps, channel_id)?)?,
+        QueryMsg::Customers { start_after, limit } => {
+            to_binary(&query_customers(deps, start_after, limit)?)?
+        }
     };
     Ok(response)
 }
@@ -86,6 +122,32 @@ fn query_drand_job_stats(deps: Deps, round: u64) -> StdResult<DrandJobStatsRespo
     })
 }
 
+fn query_customer(deps: Deps, channel_id: String) -> StdResult<CustomerResponse> {
+    let customer = CUSTOMERS.may_load(deps.storage, &channel_id)?;
+    Ok(CustomerResponse {
+        customer: customer.map(|c| QueriedCustomer::new(channel_id, c)),
+    })
+}
+
+fn query_customers(
+    deps: Deps,
+    start_after: Option<String>,
+    limit: Option<u32>,
+) -> StdResult<CustomersResponse> {
+    let limit = limit.unwrap_or(50) as usize;
+
+    let start_after = start_after.as_deref();
+    let low_bound = start_after.map(Bound::exclusive);
+
+    let customers: Vec<_> = CUSTOMERS
+        .range(deps.storage, low_bound, None, Order::Ascending)
+        .take(limit)
+        .map(|c| c.map(|(channel_id, customer)| QueriedCustomer::new(channel_id, customer)))
+        .collect::<Result<_, _>>()?;
+
+    Ok(CustomersResponse { customers })
+}
+
 #[entry_point]
 /// enforces ordering and versioing constraints
 pub fn ibc_channel_open(
@@ -93,14 +155,18 @@ pub fn ibc_channel_open(
     _env: Env,
     msg: IbcChannelOpenMsg,
 ) -> Result<IbcChannelOpenResponse, ContractError> {
-    let channel = msg.channel();
+    let (channel, counterparty_version) = match msg {
+        IbcChannelOpenMsg::OpenInit { .. } => return Err(ContractError::MustBeChainB),
+        IbcChannelOpenMsg::OpenTry {
+            channel,
+            counterparty_version,
+        } => (channel, counterparty_version),
+    };
 
     check_order(&channel.order)?;
     // In ibcv3 we don't check the version string passed in the message
     // and only check the counterparty version.
-    if let Some(counter_version) = msg.counterparty_version() {
-        check_version(counter_version)?;
-    }
+    check_version(&counterparty_version)?;
 
     // We return the version we need (which could be different than the counterparty version)
     Ok(Some(Ibc3ChannelOpenResponse {
@@ -110,14 +176,69 @@ pub fn ibc_channel_open(
 
 #[entry_point]
 pub fn ibc_channel_connect(
-    _deps: DepsMut,
-    _env: Env,
+    deps: DepsMut,
+    env: Env,
     msg: IbcChannelConnectMsg,
-) -> StdResult<IbcBasicResponse> {
-    let channel = msg.channel();
-    let chan_id = &channel.endpoint.channel_id;
+) -> Result<IbcBasicResponse, ContractError> {
+    let channel = match msg {
+        IbcChannelConnectMsg::OpenAck { .. } => return Err(ContractError::MustBeChainB),
+        IbcChannelConnectMsg::OpenConfirm { channel, .. } => channel,
+    };
+    let chan_id = channel.endpoint.channel_id;
+
+    let config = CONFIG.load(deps.storage)?;
+
+    // Instantiate payment contract
+    let creator = deps.api.addr_canonicalize(env.contract.address.as_str())?;
+    let CodeInfoResponse { checksum, .. } =
+        deps.querier.query_wasm_code_info(config.payment_code_id)?;
+    let salt = hash_channel(&chan_id);
+    #[allow(unused)]
+    let address = instantiate2_address(&checksum, &creator, &salt)
+        .map_err(|e| StdError::generic_err(format!("Cound not generate address: {}", e)))?;
+
+    let address = {
+        #[cfg(not(test))]
+        {
+            deps.api.addr_humanize(&address)?
+        }
+        #[cfg(test)]
+        cosmwasm_std::Addr::unchecked("some payment address")
+    };
+    let customer = Customer {
+        payment: address,
+        requested_beacons: 0,
+    };
+    CUSTOMERS.save(deps.storage, &chan_id, &customer)?;
+
+    let funds = if let Some(pif) = config.payment_initial_funds {
+        vec![pif]
+    } else {
+        vec![]
+    };
+    let msg = WasmMsg::Instantiate2 {
+        admin: Some(env.contract.address.into()), // Only gateway can update the contracts it created
+        code_id: config.payment_code_id,
+        label: format!("For {chan_id}"),
+        msg: to_binary(&nois_payment::msg::InstantiateMsg {
+            sink: config.sink.into(),
+        })?,
+        funds,
+        salt,
+    };
+
+    // Send info to proxy
+    let packet = IbcMsg::SendPacket {
+        channel_id: chan_id.clone(),
+        data: to_binary(&OutPacket::Welcome {
+            payment: customer.payment.into(),
+        })?,
+        timeout: env.block.time.plus_seconds(WELCOME_PACKET_LIFETIME).into(),
+    };
 
     Ok(IbcBasicResponse::new()
+        .add_message(msg)
+        .add_message(packet)
         .add_attribute("action", "ibc_connect")
         .add_attribute("channel_id", chan_id)
         .add_event(Event::new("ibc").add_attribute("channel", "connect")))
@@ -144,14 +265,16 @@ pub fn ibc_packet_receive(
     env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, Never> {
-    let packet = msg.packet;
+    let IbcPacketReceiveMsg {
+        packet, relayer, ..
+    } = msg;
     // which local channel did this packet come on
-    let channel = packet.dest.channel_id;
+    let channel_id = packet.dest.channel_id;
 
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
         let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-        receive_request_beacon(deps, env, channel, msg)
+        receive_request_beacon(deps, env, channel_id, relayer, msg)
     })()
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
@@ -164,9 +287,10 @@ pub fn ibc_packet_receive(
 }
 
 fn receive_request_beacon(
-    deps: DepsMut,
+    mut deps: DepsMut,
     env: Env,
-    channel: String,
+    channel_id: String,
+    relayer: Addr,
     msg: RequestBeaconPacket,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let RequestBeaconPacket { origin, after } = msg;
@@ -176,8 +300,31 @@ fn receive_request_beacon(
     let router = RequestRouter::new();
     let RoutingReceipt {
         acknowledgement,
-        msgs,
-    } = router.route(deps, env, channel, after, origin)?;
+        mut msgs,
+    } = router.route(deps.branch(), env, channel_id.clone(), after, origin)?;
+
+    // Pay time
+    let mut customer = CUSTOMERS.load(deps.storage, &channel_id)?;
+    customer.requested_beacons += 1;
+    CUSTOMERS.save(deps.storage, &channel_id, &customer)?;
+
+    let config = CONFIG.load(deps.storage)?;
+
+    let Coin { amount, denom } = config.price;
+    let amount_burn = amount.mul_floor((50u128, 100)); // 50%
+    let amount_relayer = amount.mul_floor((5u128, 100)); // 5%
+    let amount_rest = amount - amount_burn - amount_relayer; // 45%
+
+    let msg = WasmMsg::Execute {
+        contract_addr: customer.payment.into(),
+        msg: to_binary(&nois_payment::msg::ExecuteMsg::Pay {
+            burn: Coin::new(amount_burn.u128(), &denom),
+            relayer: (relayer.into(), Coin::new(amount_relayer.u128(), &denom)),
+            community_pool: Coin::new(amount_rest.u128(), denom),
+        })?,
+        funds: vec![],
+    };
+    msgs.push(msg.into());
 
     Ok(IbcReceiveResponse::new()
         .set_ack(acknowledgement)
@@ -264,6 +411,7 @@ fn execute_set_config(
     manager: Option<String>,
     price: Option<Coin>,
     drand: Option<String>,
+    payment_initial_funds: Option<Coin>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -278,19 +426,46 @@ fn execute_set_config(
         Some(dr) => Some(deps.api.addr_validate(&dr)?),
         None => config.drand,
     };
-    let price = match price {
-        Some(pr) => pr,
-        None => config.price,
+    let price = price.unwrap_or(config.price);
+    let payment_initial_funds = match payment_initial_funds {
+        Some(pif) => Some(pif),
+        None => config.payment_initial_funds,
     };
+
     let new_config = Config {
         manager,
         drand,
         price,
+        payment_code_id: config.payment_code_id, // Use a separate message for this in order to migrate all existing contracts too
+        payment_initial_funds,
+        sink: config.sink, // Make updatable?
     };
 
     CONFIG.save(deps.storage, &new_config)?;
 
     Ok(Response::default())
+}
+
+fn ensure_code_id_exists(deps: Deps, code_id: u64) -> Result<(), ContractError> {
+    let query = to_binary(&QueryRequest::<Empty>::Wasm(WasmQuery::CodeInfo {
+        code_id,
+    }))?;
+    match deps.querier.raw_query(&query) {
+        SystemResult::Ok(_) => Ok(()),
+        SystemResult::Err(SystemError::NoSuchCode { code_id }) => {
+            Err(ContractError::CodeIdDoesNotExist { code_id })
+        }
+        SystemResult::Err(system_err) => {
+            Err(StdError::generic_err(format!("Querier system error: {}", system_err)).into())
+        }
+    }
+}
+
+fn hash_channel(channel_id: &str) -> Binary {
+    let mut hasher = Sha256::new();
+    hasher.update(channel_id.as_bytes());
+    let salt: [u8; 32] = hasher.finalize().into();
+    Binary::from(salt)
 }
 
 #[cfg(test)]
@@ -300,18 +475,23 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{
-        mock_dependencies, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_ack,
-        mock_ibc_channel_open_init, mock_ibc_channel_open_try, mock_ibc_packet_ack,
-        mock_ibc_packet_recv, mock_info, MockApi, MockQuerier, MockStorage,
+        self, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_confirm,
+        mock_ibc_channel_open_try, mock_ibc_packet_ack, mock_ibc_packet_recv, mock_info, MockApi,
+        MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
-        coin, from_binary, Addr, Binary, Coin, CosmosMsg, IbcAcknowledgement, IbcMsg, OwnedDeps,
-        Timestamp,
+        coin, from_binary, Addr, Binary, CodeInfoResponse, Coin, ContractResult, CosmosMsg,
+        IbcAcknowledgement, IbcMsg, OwnedDeps, QuerierResult, SystemError, SystemResult, Timestamp,
+        WasmQuery,
     };
-    use nois_protocol::{DeliverBeaconPacket, APP_ORDER, BAD_APP_ORDER};
+    use nois_protocol::{APP_ORDER, BAD_APP_ORDER};
 
     const CREATOR: &str = "creator";
     const MANAGER: &str = "boss";
+    const MANAGER2: &str = "boss2";
+    const PAYMENT: u64 = 33;
+    const PAYMENT2: u64 = 37;
+    const SINK: &str = "sink";
 
     // Consecutive timestamps for the rounds 810, 820, 830, 840
     const AFTER1: Timestamp = Timestamp::from_seconds(1677687627 - 1);
@@ -323,11 +503,18 @@ mod tests {
     const ROUND3: u64 = 830;
     const ROUND4: u64 = 840;
 
+    fn payment_initial() -> Option<Coin> {
+        Some(coin(2_000000, "unois"))
+    }
+
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
+            sink: SINK.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -466,25 +653,70 @@ mod tests {
         format!("job {job}").into_bytes().into()
     }
 
-    // connect will run through the entire handshake to set up a proper connect and
-    // save the account (tested in detail in `proper_handshake_flow`)
-    fn connect(mut deps: DepsMut, channel_id: &str, account: impl Into<String>) {
-        let _account: String = account.into();
-
-        let handshake_open = mock_ibc_channel_open_init(channel_id, APP_ORDER, IBC_APP_VERSION);
+    fn connect(mut deps: DepsMut, channel_id: &str) {
+        let handshake_open = mock_ibc_channel_open_try(channel_id, APP_ORDER, IBC_APP_VERSION);
         // first we try to open with a valid handshake
         ibc_channel_open(deps.branch(), mock_env(), handshake_open).unwrap();
 
         // then we connect (with counter-party version set)
         let handshake_connect =
-            mock_ibc_channel_connect_ack(channel_id, APP_ORDER, IBC_APP_VERSION);
+            mock_ibc_channel_connect_confirm(channel_id, APP_ORDER, IBC_APP_VERSION);
         let res = ibc_channel_connect(deps.branch(), mock_env(), handshake_connect).unwrap();
-        assert_eq!(res.messages.len(), 0);
+        assert_eq!(res.messages.len(), 2);
         assert_eq!(res.events.len(), 1);
         assert_eq!(
             res.events[0],
             Event::new("ibc").add_attribute("channel", "connect"),
         );
+    }
+
+    fn mock_dependencies() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
+        let mut deps = testing::mock_dependencies();
+        deps.querier
+            .update_wasm(Box::from(|request: &WasmQuery| -> QuerierResult {
+                match request {
+                    WasmQuery::Smart { contract_addr, .. } => {
+                        SystemResult::Err(SystemError::NoSuchContract {
+                            addr: contract_addr.clone(),
+                        })
+                    }
+                    WasmQuery::Raw { contract_addr, .. } => {
+                        SystemResult::Err(SystemError::NoSuchContract {
+                            addr: contract_addr.clone(),
+                        })
+                    }
+                    WasmQuery::ContractInfo { contract_addr, .. } => {
+                        SystemResult::Err(SystemError::NoSuchContract {
+                            addr: contract_addr.clone(),
+                        })
+                    }
+                    WasmQuery::CodeInfo { code_id, .. } => match *code_id {
+                        PAYMENT => {
+                            let mut resp = CodeInfoResponse::default();
+                            resp.code_id = PAYMENT;
+                            resp.creator = "whoever".to_string();
+                            resp.checksum = HexBinary::from_hex(
+                                "04b59c31429dcc5bdc58fb1ded3894797a0f0c324f5db40e1fa2c7812a300b83",
+                            )
+                            .unwrap();
+                            SystemResult::Ok(ContractResult::Ok(to_binary(&resp).unwrap()))
+                        }
+                        PAYMENT2 => {
+                            let mut resp = CodeInfoResponse::default();
+                            resp.code_id = PAYMENT2;
+                            resp.creator = "anotherone".to_string();
+                            resp.checksum = HexBinary::from_hex(
+                                "f9ed2a2e7c03937004a2079747e79e508288e721bfe63f441f3e1c397c55b88d",
+                            )
+                            .unwrap();
+                            SystemResult::Ok(ContractResult::Ok(to_binary(&resp).unwrap()))
+                        }
+                        _ => SystemResult::Err(SystemError::NoSuchCode { code_id: *code_id }),
+                    },
+                    _ => panic!("Unsupported WasmQuery case in mock handler"),
+                }
+            }));
+        deps
     }
 
     //
@@ -495,14 +727,17 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
+        // Without payment_initial_funds
+
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: None,
+            sink: SINK.to_string(),
         };
         let info = mock_info("creator", &[]);
-        let env = mock_env();
-        let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let config: ConfigResponse =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
@@ -511,14 +746,116 @@ mod tests {
             ConfigResponse {
                 drand: None,
                 manager: Addr::unchecked(MANAGER),
-                price: Coin::new(1, "unois")
+                price: Coin::new(1, "unois"),
+                payment_code_id: PAYMENT,
+                payment_initial_funds: None,
+                sink: Addr::unchecked(SINK),
             }
         );
+
+        // With payment_initial_funds
+
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
+            sink: SINK.to_string(),
+        };
+        let info = mock_info("creator", &[]);
+        let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let config: ConfigResponse =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(
+            config,
+            ConfigResponse {
+                drand: None,
+                manager: Addr::unchecked(MANAGER),
+                price: Coin::new(1, "unois"),
+                payment_code_id: PAYMENT,
+                payment_initial_funds: payment_initial(),
+                sink: Addr::unchecked(SINK),
+            }
+        );
+    }
+
+    #[test]
+    fn instantiate_with_non_existing_code_id_fails() {
+        let mut deps = mock_dependencies();
+
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+            payment_code_id: 654321,
+            payment_initial_funds: payment_initial(),
+            sink: SINK.to_string(),
+        };
+        let info = mock_info("creator", &[]);
+        let env = mock_env();
+        let err = instantiate(deps.as_mut(), env, info, msg).unwrap_err();
+        match err {
+            ContractError::CodeIdDoesNotExist { code_id } => assert_eq!(code_id, 654321), // ok
+            err => panic!("Unexpected error: {:?}", err),
+        }
     }
 
     //
     // Execute tests
     //
+
+    #[test]
+    fn execute_set_config_works() {
+        let mut deps = mock_dependencies();
+
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: None,
+            sink: SINK.to_string(),
+        };
+        let info = mock_info("creator", &[]);
+        let env = mock_env();
+        instantiate(deps.as_mut(), env, info, msg).unwrap();
+
+        let msg = ExecuteMsg::SetConfig {
+            manager: Some(MANAGER2.to_string()),
+            price: Some(Coin::new(123, "unois")),
+            drand_addr: Some("somewhere".to_string()),
+            payment_initial_funds: Some(Coin::new(500, "unois")),
+        };
+
+        // Fails for incorrect manager
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(MANAGER2, &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        match err {
+            ContractError::Unauthorized => {}
+            _ => panic!("Unexpected error: {err:?}"),
+        }
+
+        // Works for correct manager
+        execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+
+        let config: ConfigResponse =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(
+            config,
+            ConfigResponse {
+                manager: Addr::unchecked(MANAGER2),
+                price: Coin::new(123, "unois"),
+                drand: Some(Addr::unchecked("somewhere")),
+                payment_code_id: PAYMENT,
+                payment_initial_funds: Some(Coin::new(500, "unois")),
+                sink: Addr::unchecked(SINK),
+            }
+        )
+    }
 
     #[test]
     fn add_round_verified_must_only_be_called_by_drand() {
@@ -528,6 +865,9 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
+            sink: SINK.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -547,6 +887,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
@@ -568,6 +909,9 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
+            sink: SINK.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -578,6 +922,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
@@ -728,6 +1073,9 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
+            sink: SINK.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -738,6 +1086,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
@@ -878,12 +1227,12 @@ mod tests {
         let channel_id = "channel-1234";
 
         // first we try to open with a valid handshake
-        let handshake_open = mock_ibc_channel_open_init(channel_id, APP_ORDER, IBC_APP_VERSION);
+        let handshake_open = mock_ibc_channel_open_try(channel_id, APP_ORDER, IBC_APP_VERSION);
         ibc_channel_open(deps.as_mut(), mock_env(), handshake_open).unwrap();
 
         // then we connect (with counter-party version set)
         let handshake_connect =
-            mock_ibc_channel_connect_ack(channel_id, APP_ORDER, IBC_APP_VERSION);
+            mock_ibc_channel_connect_confirm(channel_id, APP_ORDER, IBC_APP_VERSION);
         let _res = ibc_channel_connect(deps.as_mut(), mock_env(), handshake_connect).unwrap();
     }
 
@@ -895,7 +1244,7 @@ mod tests {
         let account = "acct-123";
 
         // register the channel
-        connect(deps.as_mut(), channel_id, account);
+        connect(deps.as_mut(), channel_id);
         // assign it some funds
         let funds = vec![coin(123456, "uatom"), coin(7654321, "tgrd")];
         deps.querier.update_balance(account, funds);
@@ -910,7 +1259,7 @@ mod tests {
         let mut deps = setup();
 
         // The gateway -> proxy packet we get the acknowledgement for
-        let packet = DeliverBeaconPacket {
+        let packet = OutPacket::DeliverBeacon {
             source_id: "backend:123:456".to_string(),
             randomness: HexBinary::from_hex("aabbccdd").unwrap(),
             origin: origin(1),
@@ -943,5 +1292,198 @@ mod tests {
         assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "true");
         assert_eq!(first_attr(&attributes, "error").unwrap(), "kaputt");
+    }
+
+    #[test]
+    fn query_customer_works() {
+        let mut deps = setup();
+
+        let channel_id = "channel-123";
+
+        // register the channel
+        connect(deps.as_mut(), channel_id);
+
+        // Existing channel
+        let CustomerResponse { customer: address } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Customer {
+                    channel_id: channel_id.to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            address,
+            Some(QueriedCustomer {
+                channel_id: channel_id.to_string(),
+                payment: Addr::unchecked("some payment address"),
+                requested_beacons: 0,
+            })
+        );
+
+        // Non-Existing channel
+        let CustomerResponse { customer: address } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Customer {
+                    channel_id: "channel-does-not-exist".to_string(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(address, None);
+    }
+
+    #[test]
+    fn query_customer_requested_beacons_works() {
+        let mut deps = setup();
+
+        const DRAND: &str = "drand_verifier_7";
+        const CHANNEL_ID: &str = "the-channel";
+
+        // register the channel
+        connect(deps.as_mut(), CHANNEL_ID);
+
+        // Set drand contract
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            price: None,
+            drand_addr: Some(DRAND.to_string()),
+            payment_initial_funds: None,
+        };
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+
+        fn customer(deps: Deps, channel_id: &str) -> QueriedCustomer {
+            let res: CustomerResponse = from_binary(
+                &query(
+                    deps,
+                    mock_env(),
+                    QueryMsg::Customer {
+                        channel_id: channel_id.to_string(),
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap();
+            res.customer.unwrap()
+        }
+
+        // No jobs by default
+        assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 0);
+
+        // Create one job
+        let msg = mock_ibc_packet_recv(
+            CHANNEL_ID,
+            &RequestBeaconPacket {
+                after: AFTER1,
+                origin: origin(1),
+            },
+        )
+        .unwrap();
+        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // One requested beacon
+        assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 1);
+
+        let msg = make_add_verified_round_msg(ROUND1, true);
+        execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+
+        // New job for existing round gets processed immediately
+        let msg = mock_ibc_packet_recv(
+            CHANNEL_ID,
+            &RequestBeaconPacket {
+                after: AFTER1,
+                origin: origin(2),
+            },
+        )
+        .unwrap();
+        ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+
+        // 2 requested beacons
+        assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 2);
+
+        // Create more 20 jobs
+        for i in 0..20 {
+            let msg = mock_ibc_packet_recv(
+                CHANNEL_ID,
+                &RequestBeaconPacket {
+                    after: AFTER2,
+                    origin: origin(i),
+                },
+            )
+            .unwrap();
+            ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
+        }
+        assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 22);
+    }
+
+    #[test]
+    fn query_customers_works() {
+        let mut deps = setup();
+
+        let channel_id = "channel-123";
+
+        let CustomersResponse {
+            customers: addresses,
+        } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Customers {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(addresses, vec![]);
+
+        // register the channel
+        connect(deps.as_mut(), channel_id);
+
+        let CustomersResponse {
+            customers: addresses,
+        } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Customers {
+                    start_after: None,
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            addresses,
+            vec![QueriedCustomer {
+                channel_id: channel_id.to_string(),
+                payment: Addr::unchecked("some payment address"),
+                requested_beacons: 0,
+            }]
+        );
+
+        let CustomersResponse {
+            customers: addresses,
+        } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Customers {
+                    start_after: Some(channel_id.to_string()),
+                    limit: None,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(addresses, vec![]);
     }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-interface */
 import { readFileSync } from "fs";
 
 import { CosmWasmSigner } from "@confio/relayer";
@@ -43,9 +44,15 @@ export interface DrandExecuteMsg {
   readonly set_gateway_addr?: { addr: string };
 }
 
+export interface SinkInstantiateMsg {}
+
 export interface GatewayInstantiateMsg {
   readonly manager: string;
   readonly price: Coin;
+  readonly payment_code_id: number;
+  readonly payment_initial_funds?: null | Coin;
+  /** Address of the Nois sink */
+  readonly sink: string;
 }
 
 export interface GatewayExecuteMsg {
@@ -54,7 +61,22 @@ export interface GatewayExecuteMsg {
     readonly randomness: string;
     readonly is_verifying_tx: boolean;
   };
-  readonly set_config?: { drand_addr: string };
+  readonly set_config?: {
+    readonly manager?: null | string;
+    readonly price?: null | Coin;
+    readonly drand_addr?: null | string;
+    readonly payment_initial_funds?: null | Coin;
+  };
+}
+
+export interface GatewayQueriedCustomer {
+  readonly channel_id: string;
+  readonly payment: string;
+  readonly requested_beacons: number;
+}
+
+export interface GatewayCustomerResponse {
+  readonly customer: null | GatewayQueriedCustomer;
 }
 
 export interface ProxyInstantiateMsg {
@@ -74,6 +96,7 @@ export interface NoisContractPaths {
   readonly gateway: string;
   readonly drand: string;
   readonly payment: string;
+  readonly sink: string;
 }
 
 export const wasmContracts: WasmdContractPaths = {
@@ -86,16 +109,23 @@ export const noisContracts: NoisContractPaths = {
   gateway: "./internal/nois_gateway.wasm",
   drand: "./internal/nois_drand.wasm",
   payment: "./internal/nois_payment.wasm",
+  sink: "./internal/nois_sink.wasm",
 };
 
 export async function uploadContracts(
   t: ExecutionContext,
   cosmwasm: CosmWasmSigner,
-  contracts: WasmdContractPaths | NoisContractPaths
+  contracts: WasmdContractPaths | NoisContractPaths,
+  disable: (keyof WasmdContractPaths | keyof NoisContractPaths)[] = []
 ): Promise<Record<string, number>> {
   const results: Record<string, number> = {};
 
   for (const [name, path] of Object.entries(contracts)) {
+    if ((disable as string[]).includes(name)) {
+      t.log(`Skipping disabled ${name}`);
+      results[name] = Number.NaN;
+      continue;
+    }
     t.log(`Storing ${name} from ${path}...`);
     const wasm = readFileSync(path);
     const multiplier = 1.1; // see https://github.com/cosmos/cosmjs/issues/1360

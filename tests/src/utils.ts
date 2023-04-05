@@ -1,7 +1,14 @@
 import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/relayer";
 import { ChainDefinition } from "@confio/relayer/build/lib/helpers";
-import { fromBinary } from "@cosmjs/cosmwasm-stargate";
+import { fromBinary, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
+import {
+  Coin,
+  decodeCosmosSdkDecFromProto,
+  QueryClient,
+  setupBankExtension,
+  setupDistributionExtension,
+} from "@cosmjs/stargate";
 import { assert } from "@cosmjs/utils";
 
 const { fundAccount, generateMnemonic, signingCosmWasmClient, wasmd } = testutils;
@@ -29,12 +36,34 @@ export const nois: ChainDefinition = {
   estimatedIndexerTime: 80,
 };
 
+/* Queries the community pool funds in full unois. */
+export async function communityPoolFunds(client: SigningCosmWasmClient): Promise<number> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tmClient = (client as any).forceGetTmClient();
+  const queryClient = QueryClient.withExtensions(tmClient, setupDistributionExtension);
+  const resp = await queryClient.distribution.communityPool();
+  const unois = resp.pool.find((coin) => coin.denom === "unois");
+  if (!unois) {
+    return 0;
+  } else {
+    return decodeCosmosSdkDecFromProto(unois.amount).floor().toFloatApproximation();
+  }
+}
+
+/* Queries the community pool funds in full unois. */
+export async function totalSupply(client: SigningCosmWasmClient): Promise<Coin> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tmClient = (client as any).forceGetTmClient();
+  const queryClient = QueryClient.withExtensions(tmClient, setupBankExtension);
+  return queryClient.bank.supplyOf("unois");
+}
+
 export const noisValidator = {
   // cat ci-scripts/nois/template/.noisd/config/genesis.json | jq '.app_state.genutil.gen_txs[0].body.messages[0].validator_address' -r
   address: "noisvaloper13k69ev2re0vlk952cf8cnuua5znhvv7dvrayrm",
 };
 
-export const NoisProtocolIbcVersion = "nois-v5";
+export const NoisProtocolIbcVersion = "nois-v6";
 
 // This creates a client for the CosmWasm chain, that can interact with contracts
 export async function setupWasmClient(): Promise<CosmWasmSigner> {

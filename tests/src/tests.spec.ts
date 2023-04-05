@@ -1,23 +1,15 @@
-import { CosmWasmSigner, Link, testutils } from "@confio/relayer";
+import { Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
 import { ExecuteInstruction, fromBinary, toBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
-import test, { ExecutionContext } from "ava";
+import test from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { ibcPacketsSent, MockBot } from "./bot";
-import {
-  GatewayExecuteMsg,
-  GatewayInstantiateMsg,
-  NoisContractPaths,
-  noisContracts,
-  ProxyInstantiateMsg,
-  uploadContracts,
-  wasmContracts,
-  WasmdContractPaths,
-} from "./contracts";
+import { GatewayInstantiateMsg, noisContracts, ProxyInstantiateMsg, uploadContracts, wasmContracts } from "./contracts";
+import { instantiateAndConnectIbc, TestContext } from "./setup";
 import {
   assertPacketsFromA,
   assertPacketsFromB,
@@ -29,17 +21,12 @@ import {
 
 const { setup, wasmd, fundAccount } = testutils;
 
-interface TestContext {
-  wasmCodeIds: Record<keyof WasmdContractPaths, number>;
-  noisCodeIds: Record<keyof NoisContractPaths, number>;
-}
-
 test.before(async (t) => {
   const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
   t.log("Upload contracts ...");
   const [wasmCodeIds, noisCodeIds] = await Promise.all([
     uploadContracts(t, wasmClient, wasmContracts),
-    uploadContracts(t, noisClient, noisContracts),
+    uploadContracts(t, noisClient, noisContracts, ["sink"]),
   ]);
   const context: TestContext = {
     wasmCodeIds,
@@ -50,6 +37,8 @@ test.before(async (t) => {
 });
 
 test.serial("set up channel", async (t) => {
+  const context = t.context as TestContext;
+
   // Instantiate proxy on appchain
   const wasmClient = await setupWasmClient();
   const proxyMsg: ProxyInstantiateMsg = {
@@ -60,7 +49,7 @@ test.serial("set up channel", async (t) => {
   };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
-    (t.context as TestContext).wasmCodeIds.proxy,
+    context.wasmCodeIds.proxy,
     proxyMsg,
     "Proxy instance",
     "auto"
@@ -73,11 +62,15 @@ test.serial("set up channel", async (t) => {
   const noisClient = await setupNoisClient();
   const msg: GatewayInstantiateMsg = {
     manager: noisClient.senderAddress,
-    price: coins(1_000_000, "unois")[0],
+    price: coin(0, "unois"),
+    payment_code_id: context.noisCodeIds.payment,
+    payment_initial_funds: null,
+    // any dummy address is good here because we only test channel creation
+    sink: "nois1ffy2rz96sjxzm2ezwkmvyeupktp7elt6w3xckt",
   };
   const { contractAddress: gatewayAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
-    (t.context as TestContext).noisCodeIds.gateway,
+    context.noisCodeIds.gateway,
     msg,
     "Gateway instance",
     "auto"
@@ -90,118 +83,9 @@ test.serial("set up channel", async (t) => {
   const [src, dest] = await setup(wasmd, nois);
   const link = await Link.createWithNewConnections(src, dest);
   await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
+  const info2 = await link.relayAll();
+  assertPacketsFromB(info2, 1, true); // Welcome packet
 });
-
-interface SetupInfo {
-  wasmClient: CosmWasmSigner;
-  noisClient: CosmWasmSigner;
-  /// Address on app chain (wasmd)
-  noisProxyAddress: string;
-  /// Address on app chain (wasmd)
-  noisDemoAddress: string;
-  /// Address on Nois
-  noisGatewayAddress: string;
-  link: Link;
-  noisChannel: {
-    wasmChannelId: string;
-    osmoChannelId: string;
-  };
-  ics20Channel: {
-    wasmChannelId: string;
-    osmoChannelId: string;
-  };
-}
-
-interface InstantiateAndConnectOptions {
-  readonly testMode?: boolean;
-  readonly mockDrandAddr: string;
-  readonly callback_gas_limit?: number;
-}
-
-async function instantiateAndConnectIbc(
-  t: ExecutionContext,
-  options: InstantiateAndConnectOptions
-): Promise<SetupInfo> {
-  const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
-
-  // Instantiate proxy on appchain
-  const proxyMsg: ProxyInstantiateMsg = {
-    prices: coins(1_000_000, "ucosm"),
-    withdrawal_address: wasmClient.senderAddress,
-    test_mode: options.testMode ?? true,
-    callback_gas_limit: options.callback_gas_limit ?? 500_000,
-  };
-  const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
-    wasmClient.senderAddress,
-    (t.context as TestContext).wasmCodeIds.proxy,
-    proxyMsg,
-    "Proxy instance",
-    "auto"
-  );
-
-  // Instantiate Gateway on Nois
-  const instantiateMsg: GatewayInstantiateMsg = {
-    manager: noisClient.senderAddress,
-    price: coins(1_000_000, "unois")[0],
-  };
-  const { contractAddress: noisGatewayAddress } = await noisClient.sign.instantiate(
-    noisClient.senderAddress,
-    (t.context as TestContext).noisCodeIds.gateway,
-    instantiateMsg,
-    "Gateway instance",
-    "auto"
-  );
-
-  const setDrandMsg: GatewayExecuteMsg = { set_config: { drand_addr: options.mockDrandAddr } };
-  await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
-
-  const [noisProxyInfo, noisGatewayInfo] = await Promise.all([
-    wasmClient.sign.getContract(noisProxyAddress),
-    noisClient.sign.getContract(noisGatewayAddress),
-  ]);
-  const { ibcPortId: proxyPort } = noisProxyInfo;
-  assert(proxyPort);
-  const { ibcPortId: gatewayPort } = noisGatewayInfo;
-  assert(gatewayPort);
-
-  // Create a connection between the chains
-  const [src, dest] = await setup(wasmd, nois);
-  const link = await Link.createWithNewConnections(src, dest);
-
-  // Create a channel for the Nois protocol
-  const info = await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
-  const noisChannel = {
-    wasmChannelId: info.src.channelId,
-    osmoChannelId: info.dest.channelId,
-  };
-
-  // Also create a ics20 channel
-  const ics20Info = await link.createChannel("A", wasmd.ics20Port, nois.ics20Port, Order.ORDER_UNORDERED, "ics20-1");
-  const ics20Channel = {
-    wasmChannelId: ics20Info.src.channelId,
-    osmoChannelId: ics20Info.dest.channelId,
-  };
-
-  // Instantiate demo app
-  const { contractAddress: noisDemoAddress } = await wasmClient.sign.instantiate(
-    wasmClient.senderAddress,
-    (t.context as TestContext).wasmCodeIds.demo,
-    { nois_proxy: noisProxyAddress },
-    "A demo contract",
-    "auto"
-  );
-
-  return {
-    wasmClient,
-    noisClient,
-    noisProxyAddress,
-    noisDemoAddress,
-    noisGatewayAddress,
-    link,
-    noisChannel,
-    ics20Channel,
-  };
-}
 
 test.serial("proxy works", async (t) => {
   const bot = await MockBot.connect();
@@ -382,6 +266,7 @@ test.serial("demo contract can be used", async (t) => {
     t,
     { mockDrandAddr: bot.address }
   );
+  assert(noisDemoAddress);
   bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });
@@ -489,6 +374,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
       callback_gas_limit: 1_000, // Very low value
     }
   );
+  assert(noisDemoAddress);
   bot.setGatewayAddress(noisGatewayAddress);
 
   const { price } = await wasmClient.sign.queryContractSmart(noisProxyAddress, { price: { denom: "ucosm" } });

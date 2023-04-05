@@ -1,3 +1,4 @@
+use anything::Anything;
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     QueryResponse, Response, StdResult, WasmMsg,
@@ -7,7 +8,7 @@ use crate::error::ContractError;
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, NoisSinkExecuteMsg, QueryMsg};
 use crate::state::{Config, CONFIG};
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
@@ -16,28 +17,22 @@ pub fn instantiate(
 ) -> Result<Response, ContractError> {
     let nois_sink_addr = deps
         .api
-        .addr_validate(&msg.nois_sink)
-        .map_err(|_| ContractError::InvalidAddress)?;
-    let nois_com_pool_addr = deps
-        .api
-        .addr_validate(&msg.nois_com_pool_addr)
+        .addr_validate(&msg.sink)
         .map_err(|_| ContractError::InvalidAddress)?;
     CONFIG.save(
         deps.storage,
         &Config {
-            community_pool: nois_com_pool_addr,
             sink: nois_sink_addr,
             gateway: info.sender.clone(),
         },
     )?;
     Ok(Response::new()
         .add_attribute("action", "instantiate")
-        .add_attribute("nois_sink", msg.nois_sink)
-        .add_attribute("nois_community_pool", msg.nois_com_pool_addr)
+        .add_attribute("nois_sink", msg.sink)
         .add_attribute("nois_gateway", info.sender))
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -53,7 +48,7 @@ pub fn execute(
     }
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
@@ -69,7 +64,7 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 fn execute_pay(
     deps: DepsMut,
     info: MessageInfo,
-    _env: Env,
+    env: Env,
     burn: Coin,
     community_pool: Coin,
     relayer: (String, Coin),
@@ -116,13 +111,11 @@ fn execute_pay(
 
     // Send to community pool
     if !community_pool.amount.is_zero() {
-        out_msgs.push(
-            BankMsg::Send {
-                to_address: config.community_pool.to_string(),
-                amount: vec![community_pool.clone()],
-            }
-            .into(),
-        );
+        out_msgs.push(CosmosMsg::Stargate {
+            type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
+            value: encode_msg_fund_community_pool(&community_pool, env.contract.address.as_str())
+                .into(),
+        });
     }
 
     Ok(Response::new()
@@ -133,20 +126,32 @@ fn execute_pay(
         .add_attribute("sent_to_community_pool", community_pool.to_string()))
 }
 
+fn encode_msg_fund_community_pool(amount: &Coin, depositor: &str) -> Vec<u8> {
+    // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
+    // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
+    let coin = Anything::new()
+        .append_bytes(1, &amount.denom)
+        .append_bytes(2, amount.amount.to_string());
+    Anything::new()
+        .append_message(1, &coin)
+        .append_bytes(2, depositor.as_bytes())
+        .into_vec()
+}
+
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     use crate::msg::{ConfigResponse, QueryMsg};
 
-    use super::*;
     use cosmwasm_std::{
         coins, from_binary,
         testing::{mock_dependencies, mock_env, mock_info},
         Addr, Attribute, Binary, Uint128,
     };
+    use hex;
 
     const NOIS_SINK: &str = "sink";
-    const NOIS_COMMUNITY_POOL: &str = "community_pool";
     const NOIS_GATEWAY: &str = "nois-gateway";
 
     /// Gets the value of the first attribute with the given key
@@ -164,8 +169,7 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_sink: NOIS_SINK.to_string(),
-            nois_com_pool_addr: NOIS_COMMUNITY_POOL.to_string(),
+            sink: NOIS_SINK.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -175,7 +179,6 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                community_pool: Addr::unchecked(NOIS_COMMUNITY_POOL),
                 sink: Addr::unchecked(NOIS_SINK),
                 gateway: Addr::unchecked(NOIS_GATEWAY),
             }
@@ -186,8 +189,7 @@ mod tests {
     fn cannot_send_funds() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_sink: NOIS_SINK.to_string(),
-            nois_com_pool_addr: NOIS_COMMUNITY_POOL.to_string(),
+            sink: NOIS_SINK.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
@@ -219,8 +221,7 @@ mod tests {
     fn only_gateway_can_pay() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_sink: NOIS_SINK.to_string(),
-            nois_com_pool_addr: NOIS_COMMUNITY_POOL.to_string(),
+            sink: NOIS_SINK.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
@@ -252,8 +253,7 @@ mod tests {
     fn pay_fund_send_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_sink: NOIS_SINK.to_string(),
-            nois_com_pool_addr: NOIS_COMMUNITY_POOL.to_string(),
+            sink: NOIS_SINK.to_string(),
         };
         let info = mock_info(NOIS_GATEWAY, &[]);
         let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
@@ -294,13 +294,10 @@ mod tests {
                 amount: coins(50_000, "unois"),
             })
         );
-        assert_eq!(
+        assert!(matches!(
             response.messages[2].msg,
-            CosmosMsg::Bank(BankMsg::Send {
-                to_address: "community_pool".to_string(),
-                amount: coins(450_000, "unois"),
-            })
-        );
+            CosmosMsg::Stargate { .. }
+        ));
         assert_eq!(
             first_attr(&response.attributes, "burnt").unwrap(),
             "500000unois"
@@ -333,5 +330,20 @@ mod tests {
             first_attr(&response.attributes, "sent_to_community_pool").unwrap(),
             "0unois"
         );
+    }
+
+    #[test]
+    fn encode_msg_fund_community_pool_works() {
+        // https://www.mintscan.io/stargaze/txs/0F52332EA355E306363FE321C218A3873730A6C20748425D2888063B36DCFAFB
+        // tx from https://stargaze-rpc.polkachu.com/tx?hash=0x0F52332EA355E306363FE321C218A3873730A6C20748425D2888063B36DCFAFB
+        // "Cr0BCroBCjEvY29zbW9zLmRpc3RyaWJ1dGlvbi52MWJldGExLk1zZ0Z1bmRDb21tdW5pdHlQb29sEoQBClQKRGliYy8wRjE4MUQ5RjVCQjE4QTg0OTYxNTNDMTY2NkU5MzQxNjk1MTU1OTJDMTM1RThFOUZDQ0MzNTU4ODk4NThFQUY5Egw3OTk5OTk5OTk5OTkSLHN0YXJzMTh4c3AzN3pjNjU2OTBobHEwem0zcTVzeGN1MnJwbTRtcnR4NmVjElgKUApGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQMP/0ZvxxP7PnrW5662nEqW6GMqA1k4sWiLzoFvws+o9xIECgIIARgBEgQQwJoMGkAQ0WA71nUCX0QoOFL6KRqWrGnYsZRn9T0TtpLI6YQVVzoqat5sRdoVkNyN7HP04mzc3nZxXxJZ9//JKUx0wDXP"
+
+        let amount = Coin::new(
+            799999999999,
+            "ibc/0F181D9F5BB18A8496153C1666E934169515592C135E8E9FCCC355889858EAF9",
+        );
+        let encoded =
+            encode_msg_fund_community_pool(&amount, "stars18xsp37zc65690hlq0zm3q5sxcu2rpm4mrtx6ec");
+        assert_eq!(encoded, hex::decode("0a540a446962632f30463138314439463542423138413834393631353343313636364539333431363935313535393243313335453845394643434333353538383938353845414639120c373939393939393939393939122c7374617273313878737033377a633635363930686c71307a6d337135737863753272706d346d727478366563").unwrap());
     }
 }

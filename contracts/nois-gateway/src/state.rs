@@ -11,6 +11,14 @@ pub struct Config {
     pub manager: Addr,
     /// The price to pay in order to register the randomness job
     pub price: Coin,
+    /// The code ID of the payment contract to be instantatiated
+    pub payment_code_id: u64,
+    /// An amount the gateway sends to the payment contract during instantiation.
+    /// Used for testing only to avoid draining the gateway's balance by opening channels.
+    /// Use None or 0unois to disable.
+    pub payment_initial_funds: Option<Coin>,
+    /// Address of the Nois sink
+    pub sink: Addr,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
@@ -74,3 +82,14 @@ pub fn increment_processed_drand_jobs(storage: &mut dyn Storage, round: u64) -> 
     PROCESSED_DRAND_JOBS_COUNT.save(storage, round, &(current + 1))?;
     Ok(())
 }
+
+#[cw_serde]
+pub struct Customer {
+    /// The payment contract address
+    pub payment: Addr,
+    /// Number of beacons requested in total
+    pub requested_beacons: u64,
+}
+
+/// A map from channel ID to customer information
+pub const CUSTOMERS: Map<&str, Customer> = Map::new("customers");
