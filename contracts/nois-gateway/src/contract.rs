@@ -653,11 +653,7 @@ mod tests {
         format!("job {job}").into_bytes().into()
     }
 
-    // connect will run through the entire handshake to set up a proper connect and
-    // save the account (tested in detail in `proper_handshake_flow`)
-    fn connect(mut deps: DepsMut, channel_id: &str, account: impl Into<String>) {
-        let _account: String = account.into();
-
+    fn connect(mut deps: DepsMut, channel_id: &str) {
         let handshake_open = mock_ibc_channel_open_try(channel_id, APP_ORDER, IBC_APP_VERSION);
         // first we try to open with a valid handshake
         ibc_channel_open(deps.branch(), mock_env(), handshake_open).unwrap();
@@ -1248,7 +1244,7 @@ mod tests {
         let account = "acct-123";
 
         // register the channel
-        connect(deps.as_mut(), channel_id, account);
+        connect(deps.as_mut(), channel_id);
         // assign it some funds
         let funds = vec![coin(123456, "uatom"), coin(7654321, "tgrd")];
         deps.querier.update_balance(account, funds);
@@ -1303,10 +1299,9 @@ mod tests {
         let mut deps = setup();
 
         let channel_id = "channel-123";
-        let account = "acct-123";
 
         // register the channel
-        connect(deps.as_mut(), channel_id, account);
+        connect(deps.as_mut(), channel_id);
 
         // Existing channel
         let CustomerResponse { customer: address } = from_binary(
@@ -1350,10 +1345,9 @@ mod tests {
 
         const DRAND: &str = "drand_verifier_7";
         const CHANNEL_ID: &str = "the-channel";
-        let account = "acct-123";
 
         // register the channel
-        connect(deps.as_mut(), CHANNEL_ID, account);
+        connect(deps.as_mut(), CHANNEL_ID);
 
         // Set drand contract
         let msg = ExecuteMsg::SetConfig {
@@ -1433,7 +1427,6 @@ mod tests {
         let mut deps = setup();
 
         let channel_id = "channel-123";
-        let account = "acct-123";
 
         let CustomersResponse {
             customers: addresses,
@@ -1452,7 +1445,7 @@ mod tests {
         assert_eq!(addresses, vec![]);
 
         // register the channel
-        connect(deps.as_mut(), channel_id, account);
+        connect(deps.as_mut(), channel_id);
 
         let CustomersResponse {
             customers: addresses,
