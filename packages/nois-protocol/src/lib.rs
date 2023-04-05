@@ -5,8 +5,7 @@ use cosmwasm_std::IbcOrder;
 
 pub use checks::{check_order, check_version, ChannelError};
 pub use ibc_msg::{
-    DeliverBeaconPacketAck, OutPacket, RequestBeaconPacket, RequestBeaconPacketAck, StdAck,
-    WelcomePacketAck,
+    DeliverBeaconPacketAck, InPacket, OutPacket, RequestBeaconPacketAck, StdAck, WelcomePacketAck,
 };
 
 pub const IBC_APP_VERSION: &str = "nois-v6";

@@ -3,13 +3,16 @@ use cosmwasm_std::{from_slice, to_binary, Binary, HexBinary, Timestamp};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-/// This is the message we send over the IBC channel from nois-proxy to nois-gateway
+/// This is the message we send over the IBC channel from nois-proxy to nois-gateway.
 #[cw_serde]
-pub struct RequestBeaconPacket {
-    /// Beacon publish time must be > `after`
-    pub after: Timestamp,
-    /// The origin data set by the proxy in a proxy specific format.
-    pub origin: Binary,
+#[non_exhaustive]
+pub enum InPacket {
+    RequestBeacon {
+        /// Beacon publish time must be > `after`
+        after: Timestamp,
+        /// The origin data set by the proxy in a proxy specific format.
+        origin: Binary,
+    },
 }
 
 #[cw_serde]

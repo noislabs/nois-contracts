@@ -27,6 +27,9 @@ pub enum ContractError {
     #[error("The nois-gateway contract must be on chain B of the connection. Try swapping A and B in the channel creation.")]
     MustBeChainB,
 
+    #[error("Unsupported packet type.")]
+    UnsupportedPacketType,
+
     #[error("{0}")]
     ChannelError(#[from] ChannelError),
 
