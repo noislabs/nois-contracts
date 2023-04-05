@@ -9,7 +9,7 @@ use cosmwasm_std::{
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, OutPacket, RequestBeaconPacket,
+    check_order, check_version, DeliverBeaconPacketAck, InPacket, OutPacket,
     RequestBeaconPacketAck, StdAck, WelcomePacketAck, REQUEST_BEACON_PACKET_LIFETIME,
 };
 
@@ -97,7 +97,7 @@ fn execute_get_next_randomness(
     };
     let after = calculate_after(deps.storage, mode)?;
 
-    let packet = RequestBeaconPacket {
+    let packet = InPacket::RequestBeacon {
         after,
         origin: to_binary(&RequestBeaconOrigin {
             sender: info.sender.into(),
@@ -132,7 +132,7 @@ fn execute_get_randomness_after(
     let config = CONFIG.load(deps.storage)?;
     validate_payment(&config.prices, &info.funds)?;
 
-    let packet = RequestBeaconPacket {
+    let packet = InPacket::RequestBeacon {
         after,
         origin: to_binary(&RequestBeaconOrigin {
             sender: info.sender.into(),
@@ -330,11 +330,11 @@ pub fn ibc_channel_close(
 pub fn ibc_packet_receive(
     deps: DepsMut,
     _env: Env,
-    packet: IbcPacketReceiveMsg,
+    msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, Never> {
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
-        let op: OutPacket = from_binary(&packet.packet.data)?;
+        let op: OutPacket = from_binary(&msg.packet.data)?;
         match op {
             OutPacket::DeliverBeacon {
                 source_id: _,
@@ -777,7 +777,7 @@ mod tests {
         let mut deps = setup();
 
         // The proxy -> gateway packet we get the acknowledgement for
-        let packet = RequestBeaconPacket {
+        let packet = InPacket::RequestBeacon {
             after: Timestamp::from_seconds(321),
             origin: to_binary(&RequestBeaconOrigin {
                 sender: "contract345".to_string(),

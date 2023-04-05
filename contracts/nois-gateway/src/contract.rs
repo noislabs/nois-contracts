@@ -1,14 +1,15 @@
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, from_binary, from_slice, instantiate2_address, to_binary, Addr,
-    Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
+    attr, ensure_eq, entry_point, from_binary, instantiate2_address, to_binary, Addr, Attribute,
+    Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order, QueryRequest,
-    QueryResponse, Response, StdError, StdResult, SystemError, SystemResult, WasmMsg, WasmQuery,
+    QueryResponse, Response, StdError, StdResult, SystemError, SystemResult, Timestamp, WasmMsg,
+    WasmQuery,
 };
 use cw_storage_plus::Bound;
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, OutPacket, RequestBeaconPacket, StdAck,
+    check_order, check_version, DeliverBeaconPacketAck, InPacket, OutPacket, StdAck,
     IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
 };
 use sha2::{Digest, Sha256};
@@ -273,8 +274,13 @@ pub fn ibc_packet_receive(
 
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
-        let msg: RequestBeaconPacket = from_slice(&packet.data)?;
-        receive_request_beacon(deps, env, channel_id, relayer, msg)
+        let op: InPacket = from_binary(&packet.data)?;
+        match op {
+            InPacket::RequestBeacon { after, origin } => {
+                receive_request_beacon(deps, env, channel_id, relayer, after, origin)
+            }
+            _ => Err(ContractError::UnsupportedPacketType),
+        }
     })()
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
@@ -291,10 +297,9 @@ fn receive_request_beacon(
     env: Env,
     channel_id: String,
     relayer: Addr,
-    msg: RequestBeaconPacket,
+    after: Timestamp,
+    origin: Binary,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    let RequestBeaconPacket { origin, after } = msg;
-
     validate_origin(&origin)?;
 
     let router = RequestRouter::new();
@@ -929,7 +934,7 @@ mod tests {
         // Create one job
         let msg = mock_ibc_packet_recv(
             "foo",
-            &RequestBeaconPacket {
+            &InPacket::RequestBeacon {
                 after: AFTER2,
                 origin: origin(1),
             },
@@ -964,7 +969,7 @@ mod tests {
         for i in 0..2 {
             let msg = mock_ibc_packet_recv(
                 "foo",
-                &RequestBeaconPacket {
+                &InPacket::RequestBeacon {
                     after: AFTER3,
                     origin: origin(i),
                 },
@@ -996,7 +1001,7 @@ mod tests {
         for i in 0..21 {
             let msg = mock_ibc_packet_recv(
                 "foo",
-                &RequestBeaconPacket {
+                &InPacket::RequestBeacon {
                     after: AFTER4,
                     origin: origin(i),
                 },
@@ -1108,7 +1113,7 @@ mod tests {
         // Create one job
         let msg = mock_ibc_packet_recv(
             "foo",
-            &RequestBeaconPacket {
+            &InPacket::RequestBeacon {
                 after: AFTER1,
                 origin: origin(1),
             },
@@ -1142,7 +1147,7 @@ mod tests {
         // New job for existing round gets processed immediately
         let msg = mock_ibc_packet_recv(
             "foo",
-            &RequestBeaconPacket {
+            &InPacket::RequestBeacon {
                 after: AFTER1,
                 origin: origin(2),
             },
@@ -1164,7 +1169,7 @@ mod tests {
         for i in 0..20 {
             let msg = mock_ibc_packet_recv(
                 "foo",
-                &RequestBeaconPacket {
+                &InPacket::RequestBeacon {
                     after: AFTER2,
                     origin: origin(i),
                 },
@@ -1379,7 +1384,7 @@ mod tests {
         // Create one job
         let msg = mock_ibc_packet_recv(
             CHANNEL_ID,
-            &RequestBeaconPacket {
+            &InPacket::RequestBeacon {
                 after: AFTER1,
                 origin: origin(1),
             },
@@ -1396,7 +1401,7 @@ mod tests {
         // New job for existing round gets processed immediately
         let msg = mock_ibc_packet_recv(
             CHANNEL_ID,
-            &RequestBeaconPacket {
+            &InPacket::RequestBeacon {
                 after: AFTER1,
                 origin: origin(2),
             },
@@ -1411,7 +1416,7 @@ mod tests {
         for i in 0..20 {
             let msg = mock_ibc_packet_recv(
                 CHANNEL_ID,
-                &RequestBeaconPacket {
+                &InPacket::RequestBeacon {
                     after: AFTER2,
                     origin: origin(i),
                 },
