@@ -132,6 +132,7 @@ fn integration_test() {
                 withdrawal_address: "dao_dao_dao_dao_dao".to_string(),
                 test_mode: false,
                 callback_gas_limit: 500_000,
+                randomness_price: None,
             },
             &[],
             "Nois-Proxy",
@@ -152,6 +153,7 @@ fn integration_test() {
                 test_mode: false,
                 callback_gas_limit: 500_000,
                 payment: None,
+                randomness_price: None,
             },
         }
     );

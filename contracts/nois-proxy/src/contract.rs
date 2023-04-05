@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin, Deps, DepsMut, Env,
-    Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    attr, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg, Deps,
+    DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response,
     StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, WasmMsg,
@@ -36,6 +36,7 @@ pub fn instantiate(
         withdrawal_address,
         test_mode,
         callback_gas_limit,
+        randomness_price,
     } = msg;
     let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
     let config = Config {
@@ -44,6 +45,7 @@ pub fn instantiate(
         test_mode,
         callback_gas_limit,
         payment: None,
+        randomness_price,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -105,7 +107,7 @@ fn execute_get_next_randomness(
         })?,
     };
     let channel_id = get_gateway_channel(deps.storage)?;
-    let msg = IbcMsg::SendPacket {
+    let mut msgs: Vec<CosmosMsg> = vec![IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
         timeout: env
@@ -113,10 +115,29 @@ fn execute_get_next_randomness(
             .time
             .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
             .into(),
-    };
+    }
+    .into()];
+
+    if let Some(payment_contract) = config.payment {
+        if let Some(price) = config.randomness_price {
+            msgs.push(
+                IbcMsg::Transfer {
+                    channel_id: price.ics20_channel,
+                    to_address: payment_contract,
+                    amount: price.amount,
+                    timeout: env
+                        .block
+                        .time
+                        .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
+                        .into(),
+                }
+                .into(),
+            );
+        }
+    }
 
     let res = Response::new()
-        .add_message(msg)
+        .add_messages(msgs)
         .add_attribute("action", "execute_get_next_randomness");
     Ok(res)
 }
@@ -140,7 +161,8 @@ fn execute_get_randomness_after(
         })?,
     };
     let channel_id = get_gateway_channel(deps.storage)?;
-    let msg = IbcMsg::SendPacket {
+
+    let mut msgs: Vec<CosmosMsg> = vec![IbcMsg::SendPacket {
         channel_id,
         data: to_binary(&packet)?,
         timeout: env
@@ -148,10 +170,29 @@ fn execute_get_randomness_after(
             .time
             .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
             .into(),
-    };
+    }
+    .into()];
+
+    if let Some(payment_contract) = config.payment {
+        if let Some(price) = config.randomness_price {
+            msgs.push(
+                IbcMsg::Transfer {
+                    channel_id: price.ics20_channel,
+                    to_address: payment_contract,
+                    amount: price.amount,
+                    timeout: env
+                        .block
+                        .time
+                        .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
+                        .into(),
+                }
+                .into(),
+            );
+        }
+    }
 
     let res = Response::new()
-        .add_message(msg)
+        .add_messages(msgs)
         .add_attribute("action", "execute_get_randomness_after");
     Ok(res)
 }
@@ -479,6 +520,7 @@ mod tests {
             withdrawal_address: CREATOR.to_string(),
             test_mode: true,
             callback_gas_limit: 500_000,
+            randomness_price: None,
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -513,6 +555,7 @@ mod tests {
             withdrawal_address: "foo".to_string(),
             test_mode: false,
             callback_gas_limit: 500_000,
+            randomness_price: None,
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();

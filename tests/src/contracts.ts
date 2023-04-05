@@ -84,6 +84,10 @@ export interface ProxyInstantiateMsg {
   readonly withdrawal_address: string;
   readonly test_mode: boolean;
   readonly callback_gas_limit: number;
+  readonly randomness_price?: null | {
+    readonly ics20_channel: string;
+    readonly amount: Coin;
+  };
 }
 
 export interface WasmdContractPaths {

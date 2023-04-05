@@ -3,6 +3,14 @@ use cosmwasm_std::{Addr, Coin, Timestamp};
 use cw_storage_plus::Item;
 
 #[cw_serde]
+pub struct RandomnessPrice {
+    /// The ICS-20 channel ID of the NOIS token on the consummer chain
+    pub ics20_channel: String,
+    /// The amount (in IBCed NOIS) we pay per randomness
+    pub amount: Coin,
+}
+
+#[cw_serde]
 pub struct Config {
     /// The prices of a randomness. List is to be interpreted as oneof,
     /// i.e. payment must be paid in one of those denominations.
@@ -14,6 +22,8 @@ pub struct Config {
     pub callback_gas_limit: u64,
     /// Address of the payment contract (on the other chain)
     pub payment: Option<String>,
+    /// The amount the proxy sends for paying the randomness to its payment address
+    pub randomness_price: Option<RandomnessPrice>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
