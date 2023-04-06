@@ -9,7 +9,7 @@ use cosmwasm_std::{
 };
 use cw_storage_plus::Bound;
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, InPacket, OutPacket, StdAck,
+    check_order, check_version, DeliverBeaconPacketAck, InPacket, InPacketAck, OutPacket, StdAck,
     IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
 };
 use sha2::{Digest, Sha256};
@@ -279,6 +279,7 @@ pub fn ibc_packet_receive(
             InPacket::RequestBeacon { after, origin } => {
                 receive_request_beacon(deps, env, channel_id, relayer, after, origin)
             }
+            InPacket::BeaconPrice {} => receive_beacon_price(deps, env, channel_id),
             _ => Err(ContractError::UnsupportedPacketType),
         }
     })()
@@ -335,6 +336,26 @@ fn receive_request_beacon(
         .set_ack(acknowledgement)
         .add_messages(msgs)
         .add_attribute("action", "receive_request_beacon"))
+}
+
+fn receive_beacon_price(
+    deps: DepsMut,
+    env: Env,
+    _channel_id: String,
+) -> Result<IbcReceiveResponse, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
+    // It should be good enough to send an ack instead of a whole new message
+    let Coin { amount, denom } = config.price;
+    let ack = to_binary(&InPacketAck::BeaconPrice {
+        timestamp: env.block.time,
+        amount,
+        denom,
+    })?;
+
+    Ok(IbcReceiveResponse::new()
+        .set_ack(ack)
+        .add_attribute("action", "receive_beacon_price"))
 }
 
 #[entry_point]
