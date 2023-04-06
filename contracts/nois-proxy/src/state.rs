@@ -1,13 +1,16 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin, Timestamp};
+use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 use cw_storage_plus::Item;
 
+/// The denom information required to send a MsgTransfer.
+/// Ideally we could just query the ICS-20 channel ID and did not have to store it,
+/// but CosmWasm currently does not provide the query for it.
 #[cw_serde]
-pub struct RandomnessPrice {
+pub struct IbcDenom {
     /// The ICS-20 channel ID of the NOIS token on the consummer chain
     pub ics20_channel: String,
-    /// The amount (in IBCed NOIS) we pay per randomness
-    pub amount: Coin,
+    /// The ibc/* denomin for the token
+    pub denom: String,
 }
 
 #[cw_serde]
@@ -22,8 +25,10 @@ pub struct Config {
     pub callback_gas_limit: u64,
     /// Address of the payment contract (on the other chain)
     pub payment: Option<String>,
-    /// The amount the proxy sends for paying the randomness to its payment address
-    pub randomness_price: Option<RandomnessPrice>,
+    /// The denom if the IBCed unois token
+    pub unois_denom: IbcDenom,
+    /// The amount of tokens the proxy sends for each randomness request to the Nois chain
+    pub nois_beacon_price: Uint128,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

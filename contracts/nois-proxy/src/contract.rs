@@ -3,14 +3,15 @@ use cosmwasm_std::{
     DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response,
-    StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, WasmMsg,
+    StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, Uint128, WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacketAck, InPacket, InPacketAck, OutPacket, StdAck,
-    WelcomePacketAck, REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
+    WelcomePacketAck, BEACON_PRICE_PACKET_LIFETIME, REQUEST_BEACON_PACKET_LIFETIME,
+    TRANSFER_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -36,7 +37,7 @@ pub fn instantiate(
         withdrawal_address,
         test_mode,
         callback_gas_limit,
-        randomness_price,
+        unois_denom,
     } = msg;
     let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
     let config = Config {
@@ -45,7 +46,9 @@ pub fn instantiate(
         test_mode,
         callback_gas_limit,
         payment: None,
-        randomness_price,
+        unois_denom,
+        // We query the current price from IBC. As long as we don't have it, we pay nothing.
+        nois_beacon_price: Uint128::zero(),
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -119,12 +122,15 @@ fn execute_get_next_randomness(
     .into()];
 
     if let Some(payment_contract) = config.payment {
-        if let Some(price) = config.randomness_price {
+        if !config.nois_beacon_price.is_zero() {
             msgs.push(
                 IbcMsg::Transfer {
-                    channel_id: price.ics20_channel,
+                    channel_id: config.unois_denom.ics20_channel,
                     to_address: payment_contract,
-                    amount: price.amount,
+                    amount: Coin {
+                        amount: config.nois_beacon_price,
+                        denom: config.unois_denom.denom,
+                    },
                     timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
                 }
                 .into(),
@@ -170,12 +176,15 @@ fn execute_get_randomness_after(
     .into()];
 
     if let Some(payment_contract) = config.payment {
-        if let Some(price) = config.randomness_price {
+        if !config.nois_beacon_price.is_zero() {
             msgs.push(
                 IbcMsg::Transfer {
-                    channel_id: price.ics20_channel,
+                    channel_id: config.unois_denom.ics20_channel,
                     to_address: payment_contract,
-                    amount: price.amount,
+                    amount: Coin {
+                        amount: config.nois_beacon_price,
+                        denom: config.unois_denom.denom,
+                    },
                     timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
                 }
                 .into(),
@@ -362,19 +371,22 @@ pub fn ibc_channel_close(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_receive(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, Never> {
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
-        let op: OutPacket = from_binary(&msg.packet.data)?;
+        let IbcPacketReceiveMsg { packet, .. } = msg;
+        let op: OutPacket = from_binary(&packet.data)?;
         match op {
             OutPacket::DeliverBeacon {
                 source_id: _,
                 randomness,
                 origin,
             } => receive_deliver_beacon(deps, randomness, origin),
-            OutPacket::Welcome { payment } => receive_welcome(deps, payment),
+            OutPacket::Welcome { payment } => {
+                receive_welcome(deps, env, packet.dest.channel_id, payment)
+            }
             _ => Err(ContractError::UnsupportedPacketType),
         }
     })()
@@ -428,12 +440,29 @@ fn receive_deliver_beacon(
         .add_submessage(msg))
 }
 
-fn receive_welcome(deps: DepsMut, payment: String) -> Result<IbcReceiveResponse, ContractError> {
+fn receive_welcome(
+    deps: DepsMut,
+    env: Env,
+    channel_id: String,
+    payment: String,
+) -> Result<IbcReceiveResponse, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
     config.payment = Some(payment);
     CONFIG.save(deps.storage, &config)?;
+
+    // Now query the price
+    let msg = IbcMsg::SendPacket {
+        channel_id,
+        data: to_binary(&InPacket::BeaconPrice {})?,
+        timeout: env
+            .block
+            .time
+            .plus_seconds(BEACON_PRICE_PACKET_LIFETIME)
+            .into(),
+    };
+
     let ack = StdAck::success(WelcomePacketAck::default());
-    Ok(IbcReceiveResponse::new().set_ack(ack))
+    Ok(IbcReceiveResponse::new().set_ack(ack).add_message(msg))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -490,6 +519,8 @@ pub fn ibc_packet_timeout(
 
 #[cfg(test)]
 mod tests {
+    use crate::state::IbcDenom;
+
     use super::*;
     use cosmwasm_std::{
         coins,
@@ -520,7 +551,10 @@ mod tests {
             withdrawal_address: CREATOR.to_string(),
             test_mode: true,
             callback_gas_limit: 500_000,
-            randomness_price: None,
+            unois_denom: IbcDenom {
+                ics20_channel: "channel-5321".to_string(),
+                denom: "ibc/ABABAB".to_string(),
+            },
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -555,7 +589,10 @@ mod tests {
             withdrawal_address: "foo".to_string(),
             test_mode: false,
             callback_gas_limit: 500_000,
-            randomness_price: None,
+            unois_denom: IbcDenom {
+                ics20_channel: "channel-5321".to_string(),
+                denom: "ibc/ABABAB".to_string(),
+            },
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -844,7 +881,10 @@ mod tests {
         assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "false");
         assert_eq!(first_attr(&attributes, "error"), None);
-        assert_eq!(first_attr(&attributes, "ack_type").unwrap(), "processed");
+        assert_eq!(
+            first_attr(&attributes, "ack_type").unwrap(),
+            "request_processed"
+        );
 
         // Success ack (queued)
         let ack = StdAck::success(InPacketAck::RequestQueued {
@@ -861,7 +901,10 @@ mod tests {
         assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "false");
         assert_eq!(first_attr(&attributes, "error"), None);
-        assert_eq!(first_attr(&attributes, "ack_type").unwrap(), "queued");
+        assert_eq!(
+            first_attr(&attributes, "ack_type").unwrap(),
+            "request_queued"
+        );
 
         // Error ack
         let ack = StdAck::error("kaputt");

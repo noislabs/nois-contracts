@@ -3,6 +3,7 @@
 use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Uint128, Validator};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{first_attr, mint_native, payment_initial, query_balance_native};
+use nois_proxy::state::IbcDenom;
 
 const SINK: &str = "sink";
 
@@ -203,7 +204,10 @@ fn integration_test() {
                 withdrawal_address: "dao_dao_dao_dao_dao".to_string(),
                 test_mode: false,
                 callback_gas_limit: 500_000,
-                randomness_price: None,
+                unois_denom: IbcDenom {
+                    ics20_channel: "channel-5321".to_string(),
+                    denom: "ibc/ABABAB".to_string(),
+                },
             },
             &[],
             "Nois-Proxy",
@@ -225,7 +229,11 @@ fn integration_test() {
                 test_mode: false,
                 callback_gas_limit: 500_000,
                 payment: None,
-                randomness_price: None,
+                nois_beacon_price: Uint128::zero(),
+                unois_denom: IbcDenom {
+                    ics20_channel: "channel-5321".to_string(),
+                    denom: "ibc/ABABAB".to_string(),
+                },
             },
         }
     );
