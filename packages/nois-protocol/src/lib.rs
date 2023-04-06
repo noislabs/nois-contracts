@@ -21,5 +21,7 @@ pub const BAD_APP_ORDER: IbcOrder = IbcOrder::Ordered;
 pub const REQUEST_BEACON_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
 pub const DELIVER_BEACON_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
 pub const BEACON_PRICE_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
-pub const TRANSFER_PACKET_LIFETIME: u64 = 1 * 24 * 3600; // seconds
 pub const WELCOME_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
+
+/// Token transfers time out earlier than other messages to avoid locking funds for too long
+pub const TRANSFER_PACKET_LIFETIME: u64 = 24 * 3600; // seconds
