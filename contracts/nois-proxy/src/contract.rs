@@ -49,6 +49,7 @@ pub fn instantiate(
         unois_denom,
         // We query the current price from IBC. As long as we don't have it, we pay nothing.
         nois_beacon_price: Uint128::zero(),
+        nois_beacon_price_updated: Timestamp::from_seconds(0),
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -467,7 +468,7 @@ fn receive_welcome(
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
@@ -483,10 +484,11 @@ pub fn ibc_packet_ack(
                 InPacketAck::RequestProcessed { source_id: _ } => "request_processed".to_string(),
                 InPacketAck::RequestQueued { source_id: _ } => "request_queued".to_string(),
                 InPacketAck::BeaconPrice {
-                    amount: _,
-                    denom: _,
+                    timestamp,
+                    amount,
+                    denom,
                 } => {
-                    // TODO: update price
+                    update_nois_beacon_price(deps, timestamp, amount, denom)?;
                     "beacon_price".to_string()
                 }
                 _ => "other".to_string(),
@@ -505,6 +507,29 @@ pub fn ibc_packet_ack(
     }
     attributes.push(attr("is_error", is_error.to_string()));
     Ok(IbcBasicResponse::new().add_attributes(attributes))
+}
+
+fn update_nois_beacon_price(
+    deps: DepsMut,
+    timestamp: Timestamp,
+    new_price: Uint128,
+    denom: String,
+) -> Result<(), ContractError> {
+    if denom != "unois" {
+        // We don't understand the denom of this price. Ignore the price info.
+        return Ok(());
+    }
+
+    let mut config = CONFIG.load(deps.storage)?;
+    if config.nois_beacon_price_updated > timestamp {
+        // We just got an older information than we already have
+        return Ok(());
+    }
+
+    config.nois_beacon_price = new_price;
+    config.nois_beacon_price_updated = timestamp;
+    CONFIG.save(deps.storage, &config)?;
+    Ok(())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

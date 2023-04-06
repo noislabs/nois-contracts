@@ -33,6 +33,9 @@ pub enum InPacketAck {
     },
     /// The price per beacon for this channel
     BeaconPrice {
+        /// The time of this price info. Since packages are not ordered, we use this to only save
+        /// newer price infors than we had before.
+        timestamp: Timestamp,
         amount: Uint128,
         /// The denom on the Nois chain. This cannot be used directly here.
         denom: String,

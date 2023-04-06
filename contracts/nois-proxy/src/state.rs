@@ -29,6 +29,8 @@ pub struct Config {
     pub unois_denom: IbcDenom,
     /// The amount of tokens the proxy sends for each randomness request to the Nois chain
     pub nois_beacon_price: Uint128,
+    /// The time (on the Nois chain) the price info was created
+    pub nois_beacon_price_updated: Timestamp,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

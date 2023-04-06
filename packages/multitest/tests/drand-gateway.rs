@@ -1,6 +1,8 @@
 // Testing nois-drand and nois-gateway interaction
 
-use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Uint128, Validator};
+use cosmwasm_std::{
+    testing::mock_env, Addr, Coin, Decimal, HexBinary, Timestamp, Uint128, Validator,
+};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{first_attr, mint_native, payment_initial, query_balance_native};
 use nois_proxy::state::IbcDenom;
@@ -229,11 +231,12 @@ fn integration_test() {
                 test_mode: false,
                 callback_gas_limit: 500_000,
                 payment: None,
-                nois_beacon_price: Uint128::zero(),
                 unois_denom: IbcDenom {
                     ics20_channel: "channel-5321".to_string(),
                     denom: "ibc/ABABAB".to_string(),
                 },
+                nois_beacon_price: Uint128::zero(),
+                nois_beacon_price_updated: Timestamp::from_seconds(0),
             },
         }
     );
