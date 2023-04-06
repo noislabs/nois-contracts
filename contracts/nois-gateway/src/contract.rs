@@ -355,20 +355,29 @@ fn receive_request_beacon(
 fn receive_beacon_price(
     deps: DepsMut,
     env: Env,
-    _channel_id: String,
+    channel_id: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // It should be good enough to send an ack instead of a whole new message
     let Coin { amount, denom } = config.price;
-    let ack = to_binary(&InPacketAck::BeaconPrice {
-        timestamp: env.block.time,
-        amount,
-        denom,
-    })?;
+    let beacon_price = IbcMsg::SendPacket {
+        channel_id,
+        data: to_binary(&OutPacket::BeaconPrice {
+            timestamp: env.block.time,
+            amount,
+            denom,
+        })?,
+        timeout: env
+            .block
+            .time
+            .plus_seconds(BEACON_PRICE_PACKET_LIFETIME)
+            .into(),
+    };
 
+    let ack = to_binary(&InPacketAck::BeaconPrice {})?;
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
+        .add_message(beacon_price)
         .add_attribute("action", "receive_beacon_price"))
 }
 

@@ -32,15 +32,7 @@ pub enum InPacketAck {
         source_id: String,
     },
     /// The price per beacon for this channel
-    BeaconPrice {
-        /// The time of this price info. Since packages are not ordered, we use this to only save
-        /// more recent price infos than we had before.
-        timestamp: Timestamp,
-        /// The amount in `denom`
-        amount: Uint128,
-        /// The denom on the Nois chain. This cannot be used directly here.
-        denom: String,
-    },
+    BeaconPrice {},
 }
 
 /// This is the message we send over the IBC channel from nois-gateway to nois-proxy.
