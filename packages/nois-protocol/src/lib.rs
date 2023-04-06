@@ -20,4 +20,5 @@ pub const BAD_APP_ORDER: IbcOrder = IbcOrder::Ordered;
 // timeouts due to relayer downtime, we set the lifetime to 100 days.
 pub const REQUEST_BEACON_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
 pub const DELIVER_BEACON_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds
+pub const TRANSFER_PACKET_LIFETIME: u64 = 1 * 24 * 3600; // seconds
 pub const WELCOME_PACKET_LIFETIME: u64 = 100 * 24 * 3600; // seconds

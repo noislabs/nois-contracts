@@ -11,6 +11,7 @@ use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
     check_order, check_version, DeliverBeaconPacketAck, InPacket, OutPacket,
     RequestBeaconPacketAck, StdAck, WelcomePacketAck, REQUEST_BEACON_PACKET_LIFETIME,
+    TRANSFER_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -125,11 +126,7 @@ fn execute_get_next_randomness(
                     channel_id: price.ics20_channel,
                     to_address: payment_contract,
                     amount: price.amount,
-                    timeout: env
-                        .block
-                        .time
-                        .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
-                        .into(),
+                    timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
                 }
                 .into(),
             );
@@ -180,11 +177,7 @@ fn execute_get_randomness_after(
                     channel_id: price.ics20_channel,
                     to_address: payment_contract,
                     amount: price.amount,
-                    timeout: env
-                        .block
-                        .time
-                        .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
-                        .into(),
+                    timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
                 }
                 .into(),
             );
