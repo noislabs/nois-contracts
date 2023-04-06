@@ -4,9 +4,7 @@ mod ibc_msg;
 use cosmwasm_std::IbcOrder;
 
 pub use checks::{check_order, check_version, ChannelError};
-pub use ibc_msg::{
-    DeliverBeaconPacketAck, InPacket, InPacketAck, OutPacket, StdAck, WelcomePacketAck,
-};
+pub use ibc_msg::{InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck};
 
 pub const IBC_APP_VERSION: &str = "nois-v6";
 pub const APP_ORDER: IbcOrder = IbcOrder::Unordered;

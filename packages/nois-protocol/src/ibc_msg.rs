@@ -34,8 +34,9 @@ pub enum InPacketAck {
     /// The price per beacon for this channel
     BeaconPrice {
         /// The time of this price info. Since packages are not ordered, we use this to only save
-        /// newer price infors than we had before.
+        /// more recent price infos than we had before.
         timestamp: Timestamp,
+        /// The amount in `denom`
         amount: Uint128,
         /// The denom on the Nois chain. This cannot be used directly here.
         denom: String,
@@ -57,22 +58,33 @@ pub enum OutPacket {
         /// Payment address on the Nois blockchain
         payment: String,
     },
+    /// Proactively sends an update of the beacon price to the proxy.
+    /// This is done together with the Welcome packet but can also happen any
+    /// time later if pricing changes.
+    BeaconPrice {
+        /// The time of this price info. Since packages are not ordered, we use this to only save
+        /// more recent price infos than we had before.
+        timestamp: Timestamp,
+        /// The amount in `denom`
+        amount: Uint128,
+        /// The denom on the Nois chain. This cannot be used directly here.
+        denom: String,
+    },
 }
 
-/// The ack the proxy must send when receiving a `OutPacket::DeliverBeacon`.
-///
-/// This is a lighweight structure as the gateway does not do anything other than
-/// simple logging of the beacon delivery ack.
-#[non_exhaustive]
 #[cw_serde]
-#[derive(Default)]
-pub struct DeliverBeaconPacketAck {}
-
-/// The ack the proxy must send when receiving a `OutPacket::Welcome`.
 #[non_exhaustive]
-#[cw_serde]
-#[derive(Default)]
-pub struct WelcomePacketAck {}
+pub enum OutPacketAck {
+    /// The ack the proxy must send when receiving a `OutPacket::DeliverBeacon`.
+    ///
+    /// This is a lighweight structure as the gateway does not do anything other than
+    /// simple logging of the beacon delivery ack.
+    DeliverBeacon {},
+    /// The ack the proxy must send when receiving a `OutPacket::Welcome`.
+    Welcome {},
+    /// The ack the proxy must send when receiving a `OutPacket::BeaconPrice`.
+    BeaconPrice {},
+}
 
 /// This is a generic ICS acknowledgement format.
 /// Proto defined here: https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147

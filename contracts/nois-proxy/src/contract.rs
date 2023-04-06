@@ -9,9 +9,8 @@ use cosmwasm_std::{
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, InPacket, InPacketAck, OutPacket, StdAck,
-    WelcomePacketAck, BEACON_PRICE_PACKET_LIFETIME, REQUEST_BEACON_PACKET_LIFETIME,
-    TRANSFER_PACKET_LIFETIME,
+    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
+    BEACON_PRICE_PACKET_LIFETIME, REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -388,6 +387,11 @@ pub fn ibc_packet_receive(
             OutPacket::Welcome { payment } => {
                 receive_welcome(deps, env, packet.dest.channel_id, payment)
             }
+            OutPacket::BeaconPrice {
+                timestamp,
+                amount,
+                denom,
+            } => receive_beacon_price(deps, env, timestamp, amount, denom),
             _ => Err(ContractError::UnsupportedPacketType),
         }
     })()
@@ -433,7 +437,7 @@ fn receive_deliver_beacon(
     )
     .with_gas_limit(callback_gas_limit);
 
-    let ack = StdAck::success(DeliverBeaconPacketAck::default());
+    let ack = StdAck::success(OutPacketAck::DeliverBeacon {});
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
         .add_attribute("action", "acknowledge_ibc_query")
@@ -462,8 +466,20 @@ fn receive_welcome(
             .into(),
     };
 
-    let ack = StdAck::success(WelcomePacketAck::default());
+    let ack = StdAck::success(OutPacketAck::Welcome {});
     Ok(IbcReceiveResponse::new().set_ack(ack).add_message(msg))
+}
+
+fn receive_beacon_price(
+    deps: DepsMut,
+    _env: Env,
+    timestamp: Timestamp,
+    amount: Uint128,
+    denom: String,
+) -> Result<IbcReceiveResponse, ContractError> {
+    update_nois_beacon_price(deps, timestamp, amount, denom)?;
+    let ack = StdAck::success(OutPacketAck::BeaconPrice {});
+    Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
