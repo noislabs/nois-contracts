@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{from_slice, to_binary, Binary, HexBinary, Timestamp};
+use cosmwasm_std::{from_slice, to_binary, Binary, HexBinary, Timestamp, Uint128};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -13,19 +13,29 @@ pub enum InPacket {
         /// The origin data set by the proxy in a proxy specific format.
         origin: Binary,
     },
+    /// Requests the current price per beacon. This can change over time and potentially
+    /// change per channel ID.
+    BeaconPrice {},
 }
 
 #[cw_serde]
-pub enum RequestBeaconPacketAck {
+#[non_exhaustive]
+pub enum InPacketAck {
     /// Beacon already exists and this request can be processed immediately.
-    Processed {
+    RequestProcessed {
         /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
         source_id: String,
     },
     /// Beacon does not yet exist. This request is queued for later.
-    Queued {
+    RequestQueued {
         /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
         source_id: String,
+    },
+    /// The price per beacon for this channel
+    BeaconPrice {
+        amount: Uint128,
+        /// The denom on the Nois chain. This cannot be used directly here.
+        denom: String,
     },
 }
 

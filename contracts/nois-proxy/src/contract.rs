@@ -9,9 +9,8 @@ use cosmwasm_std::{
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, InPacket, OutPacket,
-    RequestBeaconPacketAck, StdAck, WelcomePacketAck, REQUEST_BEACON_PACKET_LIFETIME,
-    TRANSFER_PACKET_LIFETIME,
+    check_order, check_version, DeliverBeaconPacketAck, InPacket, InPacketAck, OutPacket, StdAck,
+    WelcomePacketAck, REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -450,10 +449,18 @@ pub fn ibc_packet_ack(
     match ack {
         StdAck::Result(data) => {
             is_error = false;
-            let response: RequestBeaconPacketAck = from_binary(&data)?;
+            let response: InPacketAck = from_binary(&data)?;
             let ack_type: String = match response {
-                RequestBeaconPacketAck::Processed { source_id: _ } => "processed".to_string(),
-                RequestBeaconPacketAck::Queued { source_id: _ } => "queued".to_string(),
+                InPacketAck::RequestProcessed { source_id: _ } => "request_processed".to_string(),
+                InPacketAck::RequestQueued { source_id: _ } => "request_queued".to_string(),
+                InPacketAck::BeaconPrice {
+                    amount: _,
+                    denom: _,
+                } => {
+                    // TODO: update price
+                    "beacon_price".to_string()
+                }
+                _ => "other".to_string(),
             };
             attributes.push(attr("ack_type", ack_type));
         }
@@ -495,7 +502,7 @@ mod tests {
         },
         CosmosMsg, IbcAcknowledgement, OwnedDeps, ReplyOn, Uint128,
     };
-    use nois_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
+    use nois_protocol::{InPacketAck, APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
 
     const CREATOR: &str = "creator";
 
@@ -823,7 +830,7 @@ mod tests {
         };
 
         // Success ack (processed)
-        let ack = StdAck::success(RequestBeaconPacketAck::Processed {
+        let ack = StdAck::success(InPacketAck::RequestProcessed {
             source_id: "backend:123:456".to_string(),
         });
         let msg = mock_ibc_packet_ack(
@@ -840,7 +847,7 @@ mod tests {
         assert_eq!(first_attr(&attributes, "ack_type").unwrap(), "processed");
 
         // Success ack (queued)
-        let ack = StdAck::success(RequestBeaconPacketAck::Queued {
+        let ack = StdAck::success(InPacketAck::RequestQueued {
             source_id: "backend:123:456".to_string(),
         });
         let msg = mock_ibc_packet_ack(

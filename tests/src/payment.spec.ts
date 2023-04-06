@@ -91,7 +91,7 @@ test.serial("payment works", async (t) => {
     assertPacketsFromA(info, 1, true);
     const ack1 = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(ack1.result), {
-      processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
+      request_processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
     const total2 = parseInt((await totalSupply(noisClient.sign)).amount, 10);
     const reduction = total1 - total2;
@@ -145,7 +145,7 @@ test.serial("payment works", async (t) => {
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
     const total2 = parseInt((await totalSupply(noisClient.sign)).amount, 10);
     const reduction = total1 - total2;

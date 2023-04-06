@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
 };
 use drand_common::{valid_round_after, DRAND_CHAIN_HASH};
-use nois_protocol::{OutPacket, RequestBeaconPacketAck, StdAck, DELIVER_BEACON_PACKET_LIFETIME};
+use nois_protocol::{InPacketAck, OutPacket, StdAck, DELIVER_BEACON_PACKET_LIFETIME};
 
 use crate::{
     drand_archive::{archive_lookup, archive_store},
@@ -77,10 +77,10 @@ impl RequestRouter {
             increment_processed_drand_jobs(deps.storage, round)?;
             let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness)?;
             msgs.push(msg.into());
-            StdAck::success(&RequestBeaconPacketAck::Processed { source_id })
+            StdAck::success(&InPacketAck::RequestProcessed { source_id })
         } else {
             unprocessed_drand_jobs_enqueue(deps.storage, round, &job)?;
-            StdAck::success(&RequestBeaconPacketAck::Queued { source_id })
+            StdAck::success(&InPacketAck::RequestQueued { source_id })
         };
 
         Ok(RoutingReceipt {
