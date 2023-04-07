@@ -387,11 +387,11 @@ pub fn ibc_packet_receive(
             OutPacket::Welcome { payment } => {
                 receive_welcome(deps, env, packet.dest.channel_id, payment)
             }
-            OutPacket::BeaconPrice {
+            OutPacket::PushBeaconPrice {
                 timestamp,
                 amount,
                 denom,
-            } => receive_beacon_price(deps, env, timestamp, amount, denom),
+            } => receive_push_beacon_price(deps, env, timestamp, amount, denom),
             _ => Err(ContractError::UnsupportedPacketType),
         }
     })()
@@ -458,7 +458,7 @@ fn receive_welcome(
     // Now query the price
     let msg = IbcMsg::SendPacket {
         channel_id,
-        data: to_binary(&InPacket::BeaconPrice {})?,
+        data: to_binary(&InPacket::PullBeaconPrice {})?,
         timeout: env
             .block
             .time
@@ -470,7 +470,7 @@ fn receive_welcome(
     Ok(IbcReceiveResponse::new().set_ack(ack).add_message(msg))
 }
 
-fn receive_beacon_price(
+fn receive_push_beacon_price(
     deps: DepsMut,
     _env: Env,
     timestamp: Timestamp,
@@ -478,13 +478,13 @@ fn receive_beacon_price(
     denom: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     update_nois_beacon_price(deps, timestamp, amount, denom)?;
-    let ack = StdAck::success(OutPacketAck::BeaconPrice {});
+    let ack = StdAck::success(OutPacketAck::PushBeaconPrice {});
     Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
@@ -499,7 +499,14 @@ pub fn ibc_packet_ack(
             let ack_type: String = match response {
                 InPacketAck::RequestProcessed { source_id: _ } => "request_processed".to_string(),
                 InPacketAck::RequestQueued { source_id: _ } => "request_queued".to_string(),
-                InPacketAck::BeaconPrice {} => "beacon_price".to_string(),
+                InPacketAck::PullBeaconPrice {
+                    timestamp,
+                    amount,
+                    denom,
+                } => {
+                    update_nois_beacon_price(deps, timestamp, amount, denom)?;
+                    "beacon_price".to_string()
+                }
                 _ => "other".to_string(),
             };
             attributes.push(attr("ack_type", ack_type));

@@ -238,7 +238,7 @@ pub fn ibc_channel_connect(
     };
     let beacon_price = IbcMsg::SendPacket {
         channel_id: chan_id.clone(),
-        data: to_binary(&OutPacket::BeaconPrice {
+        data: to_binary(&OutPacket::PushBeaconPrice {
             timestamp: env.block.time,
             amount: config.price.amount,
             denom: config.price.denom,
@@ -293,7 +293,7 @@ pub fn ibc_packet_receive(
             InPacket::RequestBeacon { after, origin } => {
                 receive_request_beacon(deps, env, channel_id, relayer, after, origin)
             }
-            InPacket::BeaconPrice {} => receive_beacon_price(deps, env, channel_id),
+            InPacket::PullBeaconPrice {} => receive_pull_beacon_price(deps, env),
             _ => Err(ContractError::UnsupportedPacketType),
         }
     })()
@@ -352,33 +352,18 @@ fn receive_request_beacon(
         .add_attribute("action", "receive_request_beacon"))
 }
 
-fn receive_beacon_price(
-    deps: DepsMut,
-    env: Env,
-    channel_id: String,
-) -> Result<IbcReceiveResponse, ContractError> {
+fn receive_pull_beacon_price(deps: DepsMut, env: Env) -> Result<IbcReceiveResponse, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
     let Coin { amount, denom } = config.price;
-    let beacon_price = IbcMsg::SendPacket {
-        channel_id,
-        data: to_binary(&OutPacket::BeaconPrice {
-            timestamp: env.block.time,
-            amount,
-            denom,
-        })?,
-        timeout: env
-            .block
-            .time
-            .plus_seconds(BEACON_PRICE_PACKET_LIFETIME)
-            .into(),
-    };
-
-    let ack = to_binary(&InPacketAck::BeaconPrice {})?;
+    let ack = to_binary(&InPacketAck::PullBeaconPrice {
+        timestamp: env.block.time,
+        amount,
+        denom,
+    })?;
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
-        .add_message(beacon_price)
-        .add_attribute("action", "receive_beacon_price"))
+        .add_attribute("action", "receive_pull_beacon_price"))
 }
 
 #[entry_point]
