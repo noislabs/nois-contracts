@@ -1,7 +1,8 @@
 import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/relayer";
 import { ChainDefinition } from "@confio/relayer/build/lib/helpers";
 import { fromBinary, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import { fromUtf8 } from "@cosmjs/encoding";
+import { Random, sha256 } from "@cosmjs/crypto";
+import { fromUtf8, toAscii, toBech32, toHex } from "@cosmjs/encoding";
 import {
   Coin,
   decodeCosmosSdkDecFromProto,
@@ -155,4 +156,13 @@ export function parseIbcPacketAckMsg(m: IbcPacketAckMsg): any {
   const result = stdAck.result;
   assert(typeof result === "string");
   return fromBinary(result);
+}
+
+export function randomAddress(prefix: string): string {
+  const random = Random.getBytes(20);
+  return toBech32(prefix, random);
+}
+
+export function ibcDenom(sourceChannel: string, originalDenom: string): string {
+  return "ibc/" + toHex(sha256(toAscii(`transfer/${sourceChannel}/${originalDenom}`))).toUpperCase();
 }
