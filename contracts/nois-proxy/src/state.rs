@@ -9,7 +9,7 @@ use cw_storage_plus::Item;
 pub struct IbcDenom {
     /// The ICS-20 channel ID of the NOIS token on the consummer chain
     pub ics20_channel: String,
-    /// The ibc/* denomin for the token
+    /// The ibc/* denom for the token
     pub denom: String,
 }
 
