@@ -142,7 +142,7 @@ export async function instantiateAndConnectIbc(
     noisChannelId: info.dest.channelId,
   };
   const info2 = await link.relayAll();
-  assertPacketsFromB(info2, 1, true); // Welcome packet
+  assertPacketsFromB(info2, 2, true); // Welcome+PushBeaconPrice packet
 
   // Instantiate demo app
   let noisDemoAddress: string | undefined;

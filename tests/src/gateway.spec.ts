@@ -1,6 +1,7 @@
 import { Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
-import { ExecuteInstruction } from "@cosmjs/cosmwasm-stargate";
+import { ExecuteInstruction, fromBinary } from "@cosmjs/cosmwasm-stargate";
+import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
@@ -96,7 +97,12 @@ test.serial("set up nois channel", async (t) => {
 
   await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
   const info2 = await link.relayAll();
-  assertPacketsFromB(info2, 1, true); // Welcome packet
+  // Welcome+PushBeaconPrice packet
+  assertPacketsFromB(info2, 2, true);
+  const ackWelcome = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
+  t.deepEqual(fromBinary(ackWelcome.result), { welcome: {} });
+  const ackPushBeaconPrice = JSON.parse(fromUtf8(info2.acksFromA[1].acknowledgement));
+  t.deepEqual(fromBinary(ackPushBeaconPrice.result), { push_beacon_price: {} });
 });
 
 test.before(async (t) => {
