@@ -18,13 +18,14 @@ interface TestContext {
 test.before(async (t) => {
   const noisClient = await setupNoisClient();
   t.log("Upload contracts ...");
-  const noisCodeIds = await uploadContracts(t, noisClient, noisContracts, ["drand", "sink"]);
+  const noisCodeIds = await uploadContracts(t, noisClient, noisContracts, ["icecube"]);
   const context: TestContext = { noisCodeIds };
   t.context = context;
   t.pass();
 });
 
 test.serial("icecube works", async (t) => {
+  const context = t.context as TestContext;
   const noisClient = await setupNoisClient();
 
   const msg: IcecubeInstantiateMsg = {
@@ -32,7 +33,7 @@ test.serial("icecube works", async (t) => {
   };
   const { contractAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
-    (t.context as TestContext).noisCodeIds.icecube,
+    context.noisCodeIds.icecube,
     msg,
     "Icecube instance",
     "auto"

@@ -11,13 +11,14 @@ interface TestContext {
 test.before(async (t) => {
   const noisClient = await setupNoisClient();
   t.log("Upload contracts ...");
-  const noisCodeIds = await uploadContracts(t, noisClient, noisContracts);
+  const noisCodeIds = await uploadContracts(t, noisClient, noisContracts, ["drand"]);
   const context: TestContext = { noisCodeIds };
   t.context = context;
   t.pass();
 });
 
 test.serial("drand: bot can submit", async (t) => {
+  const context = t.context as TestContext;
   // Instantiate Drand on Nois
   const noisClient = await setupNoisClient();
 
@@ -29,7 +30,7 @@ test.serial("drand: bot can submit", async (t) => {
   };
   const { contractAddress: drandAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
-    (t.context as TestContext).noisCodeIds.drand,
+    context.noisCodeIds.drand,
     msg,
     "Drand instance",
     "auto"

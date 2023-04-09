@@ -116,13 +116,12 @@ export async function uploadContracts(
   t: ExecutionContext,
   cosmwasm: CosmWasmSigner,
   contracts: WasmdContractPaths | NoisContractPaths,
-  disable: (keyof WasmdContractPaths | keyof NoisContractPaths)[] = []
+  enable: (keyof WasmdContractPaths | keyof NoisContractPaths)[]
 ): Promise<Record<string, number>> {
   const results: Record<string, number> = {};
 
   for (const [name, path] of Object.entries(contracts)) {
-    if ((disable as string[]).includes(name)) {
-      t.log(`Skipping disabled ${name}`);
+    if (!(enable as string[]).includes(name)) {
       results[name] = Number.NaN;
       continue;
     }
