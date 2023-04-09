@@ -25,17 +25,19 @@ test.serial("set up ICS20 channel and transfer NOIS", async (t) => {
 
   const wallet = await DirectSecp256k1HdWallet.fromMnemonic(nois.faucet.mnemonic, { prefix: nois.prefix });
   const address = (await wallet.getAccounts())[0].address;
-  const client = await SigningStargateClient.connectWithSigner(nois.tendermintUrlHttp, wallet, {
+  const noisClient = await SigningStargateClient.connectWithSigner(nois.tendermintUrlHttp, wallet, {
     gasPrice: GasPrice.fromString(nois.minFee),
   });
+
+  const wasmClient = await setupWasmClient();
   const recipient = randomAddress(wasmd.prefix);
-  const res = await client.sendIbcTokens(
+  const res = await noisClient.sendIbcTokens(
     address,
     recipient,
     coin(123, "unois"),
     nois.ics20Port,
     ics20Channel.noisChannelId,
-    { revisionHeight: Long.fromNumber((await client.getHeight()) + 1000), revisionNumber: Long.UONE },
+    { revisionHeight: Long.fromNumber((await wasmClient.sign.getHeight()) + 100), revisionNumber: Long.UONE },
     undefined,
     "auto",
     "funds to the other chain"
@@ -45,12 +47,11 @@ test.serial("set up ICS20 channel and transfer NOIS", async (t) => {
   const transferInfo = await link.relayAll();
   assertPacketsFromB(transferInfo, 1, true);
 
-  const wasmClient = await setupWasmClient();
   const balance = await wasmClient.sign.getBalance(recipient, unoisOnWasm);
   t.deepEqual(balance, {
     amount: "123",
     denom: unoisOnWasm,
   });
 
-  client.disconnect();
+  noisClient.disconnect();
 });
