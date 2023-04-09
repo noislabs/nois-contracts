@@ -25,8 +25,8 @@ test.before(async (t) => {
   const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
   t.log("Upload contracts ...");
   const [wasmCodeIds, noisCodeIds] = await Promise.all([
-    uploadContracts(t, wasmClient, wasmContracts),
-    uploadContracts(t, noisClient, noisContracts, ["sink"]),
+    uploadContracts(t, wasmClient, wasmContracts, ["demo", "proxy"]),
+    uploadContracts(t, noisClient, noisContracts, ["drand", "gateway", "payment"]),
   ]);
   const context: TestContext = {
     wasmCodeIds,

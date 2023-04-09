@@ -11,7 +11,7 @@ interface TestContext {
 test.before(async (t) => {
   const noisClient = await setupNoisClient();
   t.log("Upload contracts ...");
-  const noisCodeIds = await uploadContracts(t, noisClient, noisContracts);
+  const noisCodeIds = await uploadContracts(t, noisClient, noisContracts, ["drand"]);
   const context: TestContext = { noisCodeIds };
   t.context = context;
   t.pass();
