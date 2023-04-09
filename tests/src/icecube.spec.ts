@@ -25,6 +25,7 @@ test.before(async (t) => {
 });
 
 test.serial("icecube works", async (t) => {
+  const context = t.context as TestContext;
   const noisClient = await setupNoisClient();
 
   const msg: IcecubeInstantiateMsg = {
@@ -32,7 +33,7 @@ test.serial("icecube works", async (t) => {
   };
   const { contractAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
-    (t.context as TestContext).noisCodeIds.icecube,
+    context.noisCodeIds.icecube,
     msg,
     "Icecube instance",
     "auto"

@@ -18,6 +18,7 @@ test.before(async (t) => {
 });
 
 test.serial("drand: bot can submit", async (t) => {
+  const context = t.context as TestContext;
   // Instantiate Drand on Nois
   const noisClient = await setupNoisClient();
 
@@ -29,7 +30,7 @@ test.serial("drand: bot can submit", async (t) => {
   };
   const { contractAddress: drandAddress } = await noisClient.sign.instantiate(
     noisClient.senderAddress,
-    (t.context as TestContext).noisCodeIds.drand,
+    context.noisCodeIds.drand,
     msg,
     "Drand instance",
     "auto"
