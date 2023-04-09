@@ -79,15 +79,18 @@ export interface GatewayCustomerResponse {
   readonly customer: null | GatewayQueriedCustomer;
 }
 
+export interface IbcDenom {
+  readonly ics20_channel: string;
+  /** The ibc/* denom for the token */
+  readonly denom: string;
+}
+
 export interface ProxyInstantiateMsg {
   readonly prices: Array<Coin>;
   readonly withdrawal_address: string;
   readonly test_mode: boolean;
   readonly callback_gas_limit: number;
-  readonly randomness_price?: null | {
-    readonly ics20_channel: string;
-    readonly amount: Coin;
-  };
+  readonly unois_denom: IbcDenom;
 }
 
 export interface WasmdContractPaths {
