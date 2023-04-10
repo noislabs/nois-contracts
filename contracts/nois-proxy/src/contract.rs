@@ -89,11 +89,7 @@ fn execute_get_next_randomness(
     info: MessageInfo,
     job_id: String,
 ) -> Result<Response, ContractError> {
-    validate_job_id(&job_id)?;
-
     let config = CONFIG.load(deps.storage)?;
-
-    validate_payment(&config.prices, &info.funds)?;
 
     let mode = if config.test_mode {
         AfterMode::Test
@@ -102,46 +98,15 @@ fn execute_get_next_randomness(
     };
     let after = calculate_after(deps.storage, mode)?;
 
-    let packet = InPacket::RequestBeacon {
+    execute_get_randomness_impl(
+        deps,
+        env,
+        info,
+        config,
         after,
-        origin: to_binary(&RequestBeaconOrigin {
-            sender: info.sender.into(),
-            job_id,
-        })?,
-    };
-    let channel_id = get_gateway_channel(deps.storage)?;
-    let mut msgs: Vec<CosmosMsg> = vec![IbcMsg::SendPacket {
-        channel_id,
-        data: to_binary(&packet)?,
-        timeout: env
-            .block
-            .time
-            .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
-            .into(),
-    }
-    .into()];
-
-    if let Some(payment_contract) = config.payment {
-        if !config.nois_beacon_price.is_zero() {
-            msgs.push(
-                IbcMsg::Transfer {
-                    channel_id: config.unois_denom.ics20_channel,
-                    to_address: payment_contract,
-                    amount: Coin {
-                        amount: config.nois_beacon_price,
-                        denom: config.unois_denom.denom,
-                    },
-                    timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
-                }
-                .into(),
-            );
-        }
-    }
-
-    let res = Response::new()
-        .add_messages(msgs)
-        .add_attribute("action", "execute_get_next_randomness");
-    Ok(res)
+        job_id,
+        "execute_get_next_randomness",
+    )
 }
 
 fn execute_get_randomness_after(
@@ -151,8 +116,28 @@ fn execute_get_randomness_after(
     after: Timestamp,
     job_id: String,
 ) -> Result<Response, ContractError> {
-    validate_job_id(&job_id)?;
     let config = CONFIG.load(deps.storage)?;
+    execute_get_randomness_impl(
+        deps,
+        env,
+        info,
+        config,
+        after,
+        job_id,
+        "execute_get_randomness_after",
+    )
+}
+
+pub fn execute_get_randomness_impl(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: Config,
+    after: Timestamp,
+    job_id: String,
+    action: &str,
+) -> Result<Response, ContractError> {
+    validate_job_id(&job_id)?;
     validate_payment(&config.prices, &info.funds)?;
 
     let packet = InPacket::RequestBeacon {
@@ -194,7 +179,7 @@ fn execute_get_randomness_after(
 
     let res = Response::new()
         .add_messages(msgs)
-        .add_attribute("action", "execute_get_randomness_after");
+        .add_attribute("action", action);
     Ok(res)
 }
 
