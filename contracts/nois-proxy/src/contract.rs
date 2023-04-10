@@ -10,7 +10,7 @@ use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
     check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
-    BEACON_PRICE_PACKET_LIFETIME, REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
+    REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -384,9 +384,7 @@ pub fn ibc_packet_receive(
                 randomness,
                 origin,
             } => receive_deliver_beacon(deps, randomness, origin),
-            OutPacket::Welcome { payment } => {
-                receive_welcome(deps, env, packet.dest.channel_id, payment)
-            }
+            OutPacket::Welcome { payment } => receive_welcome(deps, env, payment),
             OutPacket::PushBeaconPrice {
                 timestamp,
                 amount,
@@ -447,27 +445,14 @@ fn receive_deliver_beacon(
 
 fn receive_welcome(
     deps: DepsMut,
-    env: Env,
-    channel_id: String,
+    _env: Env,
     payment: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
     config.payment = Some(payment);
     CONFIG.save(deps.storage, &config)?;
-
-    // Now query the price
-    let msg = IbcMsg::SendPacket {
-        channel_id,
-        data: to_binary(&InPacket::PullBeaconPrice {})?,
-        timeout: env
-            .block
-            .time
-            .plus_seconds(BEACON_PRICE_PACKET_LIFETIME)
-            .into(),
-    };
-
     let ack = StdAck::success(OutPacketAck::Welcome {});
-    Ok(IbcReceiveResponse::new().set_ack(ack).add_message(msg))
+    Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 fn receive_push_beacon_price(
