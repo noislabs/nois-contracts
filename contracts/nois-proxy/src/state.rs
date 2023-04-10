@@ -13,6 +13,21 @@ pub struct IbcDenom {
     pub denom: String,
 }
 
+/// Defines how the proxy handles payment of its randomness requests. This only affects
+/// the proxy-Nois side. Users of the proxy always have to pay the amount set in `prices`.
+#[cw_serde]
+#[non_exhaustive]
+pub enum OperationalMode {
+    /// Someone fills the payment contract of the proxy on behalf of the proxy.
+    /// This can happen onchain or offchain, automated or manually.
+    Funded {},
+    /// Proxy contract sends IBCed NOIS to the gateway for each beacon request.
+    IbcPay {
+        /// The denom of the IBCed unois token
+        unois_denom: IbcDenom,
+    },
+}
+
 #[cw_serde]
 pub struct Config {
     /// The prices of a randomness. List is to be interpreted as oneof,
@@ -25,12 +40,11 @@ pub struct Config {
     pub callback_gas_limit: u64,
     /// Address of the payment contract (on the other chain)
     pub payment: Option<String>,
-    /// The denom if the IBCed unois token
-    pub unois_denom: IbcDenom,
     /// The amount of tokens the proxy sends for each randomness request to the Nois chain
     pub nois_beacon_price: Uint128,
     /// The time (on the Nois chain) the price info was created
     pub nois_beacon_price_updated: Timestamp,
+    pub mode: OperationalMode,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

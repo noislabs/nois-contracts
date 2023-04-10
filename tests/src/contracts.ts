@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-empty-interface */
 import { readFileSync } from "fs";
 
@@ -90,7 +91,12 @@ export interface ProxyInstantiateMsg {
   readonly withdrawal_address: string;
   readonly test_mode: boolean;
   readonly callback_gas_limit: number;
-  readonly unois_denom: IbcDenom;
+  readonly mode: {
+    readonly funded?: {};
+    readonly ibc_pay?: {
+      readonly unois_denom: IbcDenom;
+    };
+  };
 }
 
 export interface WasmdContractPaths {

@@ -123,7 +123,7 @@ test.serial("payment works", async (t) => {
     const info2 = await link.relayAll();
     assertPacketsFromB(info2, 1, true);
     const ack2 = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(ack2.result), {});
+    t.deepEqual(fromBinary(ack2.result), { deliver_beacon: {} });
   }
 
   t.log("Executing get_next_randomness for a round that does not yet exists");

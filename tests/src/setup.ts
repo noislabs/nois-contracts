@@ -12,7 +12,7 @@ import {
   SinkInstantiateMsg,
   WasmdContractPaths,
 } from "./contracts";
-import { assertPacketsFromB, ibcDenom, nois, NoisProtocolIbcVersion, setupNoisClient, setupWasmClient } from "./utils";
+import { assertPacketsFromB, nois, NoisProtocolIbcVersion, setupNoisClient, setupWasmClient } from "./utils";
 
 const { setup, wasmd, fundAccount } = testutils;
 
@@ -69,7 +69,6 @@ export async function instantiateAndConnectIbc(
     wasmChannelId: ics20Info.src.channelId,
     noisChannelId: ics20Info.dest.channelId,
   };
-  const unoisOnWasm = ibcDenom(ics20Channel.wasmChannelId, "unois");
 
   // Instantiate proxy on appchain
   const proxyMsg: ProxyInstantiateMsg = {
@@ -77,10 +76,7 @@ export async function instantiateAndConnectIbc(
     withdrawal_address: wasmClient.senderAddress,
     test_mode: options.testMode ?? true,
     callback_gas_limit: options.callback_gas_limit ?? 500_000,
-    unois_denom: {
-      ics20_channel: ics20Channel.wasmChannelId,
-      denom: unoisOnWasm,
-    },
+    mode: { funded: {} },
   };
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,

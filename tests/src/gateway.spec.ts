@@ -12,7 +12,6 @@ import { instantiateAndConnectIbc, TestContext } from "./setup";
 import {
   assertPacketsFromA,
   assertPacketsFromB,
-  ibcDenom,
   nois,
   NoisProtocolIbcVersion,
   setupNoisClient,
@@ -42,14 +41,6 @@ test.serial("set up nois channel", async (t) => {
   const [src, dest] = await setup(wasmd, nois);
   const link = await Link.createWithNewConnections(src, dest);
 
-  // Create an ics20 channel
-  const ics20Info = await link.createChannel("A", wasmd.ics20Port, nois.ics20Port, Order.ORDER_UNORDERED, "ics20-1");
-  const ics20Channel = {
-    wasmChannelId: ics20Info.src.channelId,
-    noisChannelId: ics20Info.dest.channelId,
-  };
-  const unoisOnWasm = ibcDenom(ics20Channel.wasmChannelId, "unois");
-
   // Instantiate proxy on appchain
   const wasmClient = await setupWasmClient();
   const proxyMsg: ProxyInstantiateMsg = {
@@ -57,9 +48,8 @@ test.serial("set up nois channel", async (t) => {
     withdrawal_address: wasmClient.senderAddress,
     test_mode: true,
     callback_gas_limit: 500_000,
-    unois_denom: {
-      ics20_channel: ics20Channel.wasmChannelId,
-      denom: unoisOnWasm,
+    mode: {
+      funded: {},
     },
   };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(

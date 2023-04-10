@@ -20,7 +20,7 @@ use crate::msg::{
     PricesResponse, QueryMsg, RequestBeaconOrigin,
 };
 use crate::publish_time::{calculate_after, AfterMode};
-use crate::state::{Config, CONFIG, GATEWAY_CHANNEL};
+use crate::state::{Config, OperationalMode, CONFIG, GATEWAY_CHANNEL};
 
 pub const CALLBACK_ID: u64 = 456;
 
@@ -36,7 +36,7 @@ pub fn instantiate(
         withdrawal_address,
         test_mode,
         callback_gas_limit,
-        unois_denom,
+        mode,
     } = msg;
     let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
     let config = Config {
@@ -45,10 +45,10 @@ pub fn instantiate(
         test_mode,
         callback_gas_limit,
         payment: None,
-        unois_denom,
         // We query the current price from IBC. As long as we don't have it, we pay nothing.
         nois_beacon_price: Uint128::zero(),
         nois_beacon_price_updated: Timestamp::from_seconds(0),
+        mode,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -160,20 +160,22 @@ pub fn execute_get_randomness_impl(
     }
     .into()];
 
-    if let Some(payment_contract) = config.payment {
-        if !config.nois_beacon_price.is_zero() {
-            msgs.push(
-                IbcMsg::Transfer {
-                    channel_id: config.unois_denom.ics20_channel,
-                    to_address: payment_contract,
-                    amount: Coin {
-                        amount: config.nois_beacon_price,
-                        denom: config.unois_denom.denom,
-                    },
-                    timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
-                }
-                .into(),
-            );
+    if let OperationalMode::IbcPay { unois_denom } = config.mode {
+        if let Some(payment_contract) = config.payment {
+            if !config.nois_beacon_price.is_zero() {
+                msgs.push(
+                    IbcMsg::Transfer {
+                        channel_id: unois_denom.ics20_channel,
+                        to_address: payment_contract,
+                        amount: Coin {
+                            amount: config.nois_beacon_price,
+                            denom: unois_denom.denom,
+                        },
+                        timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
+                    }
+                    .into(),
+                );
+            }
         }
     }
 
@@ -530,7 +532,7 @@ pub fn ibc_packet_timeout(
 
 #[cfg(test)]
 mod tests {
-    use crate::state::IbcDenom;
+    use crate::state::OperationalMode;
 
     use super::*;
     use cosmwasm_std::{
@@ -562,10 +564,7 @@ mod tests {
             withdrawal_address: CREATOR.to_string(),
             test_mode: true,
             callback_gas_limit: 500_000,
-            unois_denom: IbcDenom {
-                ics20_channel: "channel-5321".to_string(),
-                denom: "ibc/ABABAB".to_string(),
-            },
+            mode: OperationalMode::Funded {},
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -600,10 +599,7 @@ mod tests {
             withdrawal_address: "foo".to_string(),
             test_mode: false,
             callback_gas_limit: 500_000,
-            unois_denom: IbcDenom {
-                ics20_channel: "channel-5321".to_string(),
-                denom: "ibc/ABABAB".to_string(),
-            },
+            mode: OperationalMode::Funded {},
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();

@@ -2,7 +2,7 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Coin, Timestamp, Uint128};
 use nois::ProxyExecuteMsg;
 
-use crate::state::{Config, IbcDenom};
+use crate::state::{Config, OperationalMode};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -14,8 +14,7 @@ pub struct InstantiateMsg {
     pub test_mode: bool,
     /// The amount of gas that the callback to the dapp can consume
     pub callback_gas_limit: u64,
-    /// The denom if the IBCed unois token
-    pub unois_denom: IbcDenom,
+    pub mode: OperationalMode,
 }
 
 #[cw_serde]
