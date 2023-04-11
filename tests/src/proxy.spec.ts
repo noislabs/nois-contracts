@@ -1,5 +1,5 @@
 import { coin } from "@cosmjs/amino";
-import { fromBinary, toBinary } from "@cosmjs/cosmwasm-stargate";
+import { fromBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
@@ -265,10 +265,8 @@ test.serial("demo contract can be used", async (t) => {
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, {
-      result: toBinary({
-        request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
-      }),
+    t.deepEqual(fromBinary(stdAck.result), {
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
 
     // DeliverBeacon packet not yet
