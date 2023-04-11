@@ -1,10 +1,11 @@
 //! The request router module decides which randomness backend is used
 
 use cosmwasm_std::{
-    to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
+    to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, JsonAck, StdError, StdResult,
+    Timestamp,
 };
 use drand_common::{valid_round_after, DRAND_CHAIN_HASH};
-use nois_protocol::{InPacketAck, OutPacket, StdAck, DELIVER_BEACON_PACKET_LIFETIME};
+use nois_protocol::{InPacketAck, OutPacket, DELIVER_BEACON_PACKET_LIFETIME};
 
 use crate::{
     drand_archive::{archive_lookup, archive_store},
@@ -23,7 +24,7 @@ const MAX_JOBS_PER_SUBMISSION_WITH_VERIFICATION: u32 = 2;
 const MAX_JOBS_PER_SUBMISSION_WITHOUT_VERIFICATION: u32 = 14;
 
 pub struct RoutingReceipt {
-    pub acknowledgement: StdAck,
+    pub acknowledgement: JsonAck<InPacketAck>,
     pub msgs: Vec<CosmosMsg>,
 }
 
@@ -77,10 +78,10 @@ impl RequestRouter {
             increment_processed_drand_jobs(deps.storage, round)?;
             let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness)?;
             msgs.push(msg.into());
-            StdAck::success(&InPacketAck::RequestProcessed { source_id })
+            JsonAck::success(InPacketAck::RequestProcessed { source_id })
         } else {
             unprocessed_drand_jobs_enqueue(deps.storage, round, &job)?;
-            StdAck::success(&InPacketAck::RequestQueued { source_id })
+            JsonAck::success(InPacketAck::RequestQueued { source_id })
         };
 
         Ok(RoutingReceipt {

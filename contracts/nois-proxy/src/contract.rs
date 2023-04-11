@@ -2,14 +2,14 @@ use cosmwasm_std::{
     attr, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg, Deps,
     DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response,
-    StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, Uint128, WasmMsg,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, JsonAck, MessageInfo, Never, QueryResponse, Reply,
+    Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, Uint128, WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
+    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck,
     REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
 };
 
@@ -383,9 +383,9 @@ pub fn ibc_packet_receive(
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
         // acknowledgement packets that contain an error code.
-        let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
+        let acknowledgement = JsonAck::<Empty>::error(format!("Error processing packet: {e}"));
         Ok(IbcReceiveResponse::new()
-            .set_ack(acknowledgement)
+            .set_ack(acknowledgement.to_binary().unwrap())
             .add_event(Event::new("ibc").add_attribute("packet", "receive")))
     })
 }
@@ -422,9 +422,9 @@ fn receive_deliver_beacon(
     )
     .with_gas_limit(callback_gas_limit);
 
-    let ack = StdAck::success(OutPacketAck::DeliverBeacon {});
+    let ack = JsonAck::success(OutPacketAck::DeliverBeacon {});
     Ok(IbcReceiveResponse::new()
-        .set_ack(ack)
+        .set_ack(ack.to_binary()?)
         .add_attribute("action", "acknowledge_ibc_query")
         .add_attribute("job_id", job_id)
         .add_submessage(msg))
@@ -438,8 +438,8 @@ fn receive_welcome(
     let mut config = CONFIG.load(deps.storage)?;
     config.payment = Some(payment);
     CONFIG.save(deps.storage, &config)?;
-    let ack = StdAck::success(OutPacketAck::Welcome {});
-    Ok(IbcReceiveResponse::new().set_ack(ack))
+    let ack = JsonAck::success(OutPacketAck::Welcome {});
+    Ok(IbcReceiveResponse::new().set_ack(ack.to_binary()?))
 }
 
 fn receive_push_beacon_price(
@@ -450,8 +450,8 @@ fn receive_push_beacon_price(
     denom: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     update_nois_beacon_price(deps, timestamp, amount, denom)?;
-    let ack = StdAck::success(OutPacketAck::PushBeaconPrice {});
-    Ok(IbcReceiveResponse::new().set_ack(ack))
+    let ack = JsonAck::success(OutPacketAck::PushBeaconPrice {});
+    Ok(IbcReceiveResponse::new().set_ack(ack.to_binary()?))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -462,12 +462,11 @@ pub fn ibc_packet_ack(
 ) -> Result<IbcBasicResponse, ContractError> {
     let mut attributes = Vec::<Attribute>::new();
     attributes.push(attr("action", "ack"));
-    let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
+    let ack: JsonAck<InPacketAck> = from_binary(&msg.acknowledgement.data)?;
     let is_error: bool;
     match ack {
-        StdAck::Result(data) => {
+        JsonAck::Result(response) => {
             is_error = false;
-            let response: InPacketAck = from_binary(&data)?;
             let ack_type: String = match response {
                 InPacketAck::RequestProcessed { source_id: _ } => "request_processed".to_string(),
                 InPacketAck::RequestQueued { source_id: _ } => "request_queued".to_string(),
@@ -483,7 +482,7 @@ pub fn ibc_packet_ack(
             };
             attributes.push(attr("ack_type", ack_type));
         }
-        StdAck::Error(err) => {
+        JsonAck::Error(err) => {
             // The Request Beacon IBC packet failed, e.g. because the requested round
             // is too old. Here we should send the dapp an error callback as the randomness
             // will never come. Unfortunately we cannot map this packet to the job because
@@ -874,7 +873,7 @@ mod tests {
         };
 
         // Success ack (processed)
-        let ack = StdAck::success(InPacketAck::RequestProcessed {
+        let ack = JsonAck::success(InPacketAck::RequestProcessed {
             source_id: "backend:123:456".to_string(),
         });
         let msg = mock_ibc_packet_ack(
@@ -894,7 +893,7 @@ mod tests {
         );
 
         // Success ack (queued)
-        let ack = StdAck::success(InPacketAck::RequestQueued {
+        let ack = JsonAck::success(InPacketAck::RequestQueued {
             source_id: "backend:123:456".to_string(),
         });
         let msg = mock_ibc_packet_ack(
@@ -914,7 +913,7 @@ mod tests {
         );
 
         // Error ack
-        let ack = StdAck::error("kaputt");
+        let ack = JsonAck::<Empty>::error("kaputt");
         let msg = mock_ibc_packet_ack(
             "channel-12",
             &packet,

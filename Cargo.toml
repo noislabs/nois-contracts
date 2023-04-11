@@ -5,6 +5,9 @@ resolver = "2"
 [workspace.dependencies]
 nois = "0.6.0"
 
+[patch.crates-io]
+cosmwasm-std = { git = "https://github.com/CosmWasm/cosmwasm", branch = "create-jsonack" }
+
 [profile.release.package.nois-protocol]
 codegen-units = 1
 incremental = false

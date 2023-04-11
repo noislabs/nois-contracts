@@ -1,6 +1,6 @@
 import { Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
-import { ExecuteInstruction, fromBinary } from "@cosmjs/cosmwasm-stargate";
+import { ExecuteInstruction } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
@@ -90,9 +90,9 @@ test.serial("set up nois channel", async (t) => {
   // Welcome+PushBeaconPrice packet
   assertPacketsFromB(info2, 2, true);
   const ackWelcome = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
-  t.deepEqual(fromBinary(ackWelcome.result), { welcome: {} });
+  t.deepEqual(ackWelcome.result, { welcome: {} });
   const ackPushBeaconPrice = JSON.parse(fromUtf8(info2.acksFromA[1].acknowledgement));
-  t.deepEqual(fromBinary(ackPushBeaconPrice.result), { push_beacon_price: {} });
+  t.deepEqual(ackPushBeaconPrice.result, { push_beacon_price: {} });
 });
 
 test.before(async (t) => {

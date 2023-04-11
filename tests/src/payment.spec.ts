@@ -1,5 +1,4 @@
 import { coin } from "@cosmjs/amino";
-import { fromBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
@@ -90,7 +89,7 @@ test.serial("payment works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const ack1 = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(fromBinary(ack1.result), {
+    t.deepEqual(ack1.result, {
       request_processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
     const total2 = parseInt((await totalSupply(noisClient.sign)).amount, 10);
@@ -123,7 +122,7 @@ test.serial("payment works", async (t) => {
     const info2 = await link.relayAll();
     assertPacketsFromB(info2, 1, true);
     const ack2 = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(ack2.result), { deliver_beacon: {} });
+    t.deepEqual(ack2.result, { deliver_beacon: {} });
   }
 
   t.log("Executing get_next_randomness for a round that does not yet exists");
@@ -144,7 +143,7 @@ test.serial("payment works", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
-    t.deepEqual(fromBinary(stdAck.result), {
+    t.deepEqual(stdAck.result, {
       request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
     const total2 = parseInt((await totalSupply(noisClient.sign)).amount, 10);

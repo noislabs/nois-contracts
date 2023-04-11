@@ -3,13 +3,13 @@ use cosmwasm_std::{
     Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order, QueryRequest,
+    IbcPacketTimeoutMsg, IbcReceiveResponse, JsonAck, MessageInfo, Never, Order, QueryRequest,
     QueryResponse, Response, StdError, StdResult, SystemError, SystemResult, Timestamp, WasmMsg,
     WasmQuery,
 };
 use cw_storage_plus::Bound;
 use nois_protocol::{
-    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
+    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck,
     BEACON_PRICE_PACKET_LIFETIME, IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
 };
 use sha2::{Digest, Sha256};
@@ -300,9 +300,9 @@ pub fn ibc_packet_receive(
     .or_else(|e| {
         // we try to capture all app-level errors and convert them into
         // acknowledgement packets that contain an error code.
-        let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
+        let acknowledgement = JsonAck::<Empty>::error(format!("Error processing packet: {e}"));
         Ok(IbcReceiveResponse::new()
-            .set_ack(acknowledgement)
+            .set_ack(acknowledgement.to_binary().unwrap())
             .add_event(Event::new("ibc").add_attribute("packet", "receive")))
     })
 }
@@ -347,7 +347,7 @@ fn receive_request_beacon(
     msgs.push(msg.into());
 
     Ok(IbcReceiveResponse::new()
-        .set_ack(acknowledgement)
+        .set_ack(acknowledgement.to_binary().unwrap())
         .add_messages(msgs)
         .add_attribute("action", "receive_request_beacon"))
 }
@@ -356,13 +356,13 @@ fn receive_pull_beacon_price(deps: DepsMut, env: Env) -> Result<IbcReceiveRespon
     let config = CONFIG.load(deps.storage)?;
 
     let Coin { amount, denom } = config.price;
-    let ack = StdAck::success(&InPacketAck::PullBeaconPrice {
+    let ack = JsonAck::success(InPacketAck::PullBeaconPrice {
         timestamp: env.block.time,
         amount,
         denom,
     });
     Ok(IbcReceiveResponse::new()
-        .set_ack(ack)
+        .set_ack(ack.to_binary().unwrap())
         .add_attribute("action", "receive_pull_beacon_price"))
 }
 
@@ -374,14 +374,13 @@ pub fn ibc_packet_ack(
 ) -> Result<IbcBasicResponse, ContractError> {
     let mut attributes = Vec::<Attribute>::new();
     attributes.push(attr("action", "ack"));
-    let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
+    let ack: JsonAck<OutPacketAck> = from_binary(&msg.acknowledgement.data)?;
     let is_error: bool;
     match ack {
-        StdAck::Result(data) => {
+        JsonAck::Result(_response) => {
             is_error = false;
-            let _response: OutPacketAck = from_binary(&data)?;
         }
-        StdAck::Error(err) => {
+        JsonAck::Error(err) => {
             is_error = true;
             attributes.push(attr("error", err));
         }
@@ -1308,7 +1307,7 @@ mod tests {
         };
 
         // Success ack (delivered)
-        let ack = StdAck::success(OutPacketAck::DeliverBeacon {});
+        let ack = JsonAck::success(OutPacketAck::DeliverBeacon {});
         let msg = mock_ibc_packet_ack(
             "channel-12",
             &packet,
@@ -1322,7 +1321,7 @@ mod tests {
         assert_eq!(first_attr(&attributes, "error"), None);
 
         // Error ack
-        let ack = StdAck::error("kaputt");
+        let ack = JsonAck::<Empty>::error("kaputt");
         let msg = mock_ibc_packet_ack(
             "channel-12",
             &packet,
