@@ -13,4 +13,6 @@ sleep 1
 "$SCRIPT_DIR"/nois/start.sh > /dev/null &
 "$SCRIPT_DIR"/wasmd/start.sh > /dev/null &
 
-watch docker ps
+# Wait a bit for things to start and log processes
+sleep 2
+docker ps

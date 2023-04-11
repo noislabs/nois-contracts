@@ -1,6 +1,32 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin, Timestamp};
+use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
 use cw_storage_plus::Item;
+
+/// The denom information required to send a MsgTransfer.
+/// Ideally we could just query the ICS-20 channel ID and did not have to store it,
+/// but CosmWasm currently does not provide the query for it.
+#[cw_serde]
+pub struct IbcDenom {
+    /// The ICS-20 channel ID of the NOIS token on the consummer chain
+    pub ics20_channel: String,
+    /// The ibc/* denom for the token
+    pub denom: String,
+}
+
+/// Defines how the proxy handles payment of its randomness requests. This only affects
+/// the proxy-Nois side. Users of the proxy always have to pay the amount set in `prices`.
+#[cw_serde]
+#[non_exhaustive]
+pub enum OperationalMode {
+    /// Someone fills the payment contract of the proxy on behalf of the proxy.
+    /// This can happen onchain or offchain, automated or manually.
+    Funded {},
+    /// Proxy contract sends IBCed NOIS to the gateway for each beacon request.
+    IbcPay {
+        /// The denom of the IBCed unois token
+        unois_denom: IbcDenom,
+    },
+}
 
 #[cw_serde]
 pub struct Config {
@@ -14,6 +40,11 @@ pub struct Config {
     pub callback_gas_limit: u64,
     /// Address of the payment contract (on the other chain)
     pub payment: Option<String>,
+    /// The amount of tokens the proxy sends for each randomness request to the Nois chain
+    pub nois_beacon_price: Uint128,
+    /// The time (on the Nois chain) the price info was created
+    pub nois_beacon_price_updated: Timestamp,
+    pub mode: OperationalMode,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

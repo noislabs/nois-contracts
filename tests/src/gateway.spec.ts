@@ -1,6 +1,7 @@
 import { Link, testutils } from "@confio/relayer";
 import { coin, coins } from "@cosmjs/amino";
-import { ExecuteInstruction } from "@cosmjs/cosmwasm-stargate";
+import { ExecuteInstruction, fromBinary } from "@cosmjs/cosmwasm-stargate";
+import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
@@ -37,6 +38,9 @@ test.before(async (t) => {
 test.serial("set up nois channel", async (t) => {
   const context = t.context as TestContext;
 
+  const [src, dest] = await setup(wasmd, nois);
+  const link = await Link.createWithNewConnections(src, dest);
+
   // Instantiate proxy on appchain
   const wasmClient = await setupWasmClient();
   const proxyMsg: ProxyInstantiateMsg = {
@@ -44,6 +48,9 @@ test.serial("set up nois channel", async (t) => {
     withdrawal_address: wasmClient.senderAddress,
     test_mode: true,
     callback_gas_limit: 500_000,
+    mode: {
+      funded: {},
+    },
   };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
@@ -78,11 +85,14 @@ test.serial("set up nois channel", async (t) => {
   t.log(`Gateway port: ${gatewayPort}`);
   assert(gatewayPort);
 
-  const [src, dest] = await setup(wasmd, nois);
-  const link = await Link.createWithNewConnections(src, dest);
   await link.createChannel("A", proxyPort, gatewayPort, Order.ORDER_UNORDERED, NoisProtocolIbcVersion);
   const info2 = await link.relayAll();
-  assertPacketsFromB(info2, 1, true); // Welcome packet
+  // Welcome+PushBeaconPrice packet
+  assertPacketsFromB(info2, 2, true);
+  const ackWelcome = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
+  t.deepEqual(fromBinary(ackWelcome.result), { welcome: {} });
+  const ackPushBeaconPrice = JSON.parse(fromUtf8(info2.acksFromA[1].acknowledgement));
+  t.deepEqual(fromBinary(ackPushBeaconPrice.result), { push_beacon_price: {} });
 });
 
 test.before(async (t) => {

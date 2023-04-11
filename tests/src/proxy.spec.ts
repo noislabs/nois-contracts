@@ -1,5 +1,5 @@
 import { coin } from "@cosmjs/amino";
-import { fromBinary, toBinary } from "@cosmjs/cosmwasm-stargate";
+import { fromBinary } from "@cosmjs/cosmwasm-stargate";
 import { fromUtf8 } from "@cosmjs/encoding";
 import { assert } from "@cosmjs/utils";
 import test from "ava";
@@ -57,14 +57,14 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info1, 1, true);
     const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(ack1.result), {
-      processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
+      request_processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
 
     t.log("Relaying DeliverBeacon");
     const info2 = await link.relayAll();
     assertPacketsFromB(info2, 1, true);
     const ack2 = JSON.parse(fromUtf8(info2.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(ack2.result), {});
+    t.deepEqual(fromBinary(ack2.result), { deliver_beacon: {} });
   }
 
   t.log("Executing get_next_randomness for a round that does not yet exists");
@@ -83,7 +83,7 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
   }
 
@@ -106,7 +106,7 @@ test.serial("proxy works", async (t) => {
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
       // Expected round: (1680674828-1677685200) / 3 = 996542.6666666666
-      queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:996550" },
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:996550" },
     });
   }
 });
@@ -140,7 +140,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     assertPacketsFromB(info, 0, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:830" },
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:830" },
     });
   }
 
@@ -161,7 +161,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     assertPacketsFromB(info, 0, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
   }
 
@@ -178,7 +178,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromB(info, 1, true);
     const ack = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
-    t.deepEqual(ack, { result: toBinary({}) });
+    t.deepEqual(fromBinary(ack.result), { deliver_beacon: {} });
   }
 
   {
@@ -194,7 +194,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     const info = await link.relayAll();
     assertPacketsFromB(info, 1, true);
     const ack = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
-    t.deepEqual(ack, { result: toBinary({}) });
+    t.deepEqual(fromBinary(ack.result), { deliver_beacon: {} });
   }
 });
 
@@ -230,14 +230,14 @@ test.serial("demo contract can be used", async (t) => {
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
+      request_processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
 
     // DeliverBeacon packet
     const infoB2A = await link.relayAll();
     assertPacketsFromB(infoB2A, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(stdAckDeliver.result), {});
+    t.deepEqual(fromBinary(stdAckDeliver.result), { deliver_beacon: {} });
 
     const myResult = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       result: { job_id: jobId },
@@ -265,10 +265,8 @@ test.serial("demo contract can be used", async (t) => {
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, {
-      result: toBinary({
-        queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
-      }),
+    t.deepEqual(fromBinary(stdAck.result), {
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
 
     // DeliverBeacon packet not yet
@@ -290,7 +288,7 @@ test.serial("demo contract can be used", async (t) => {
     const infoB2A2 = await link.relayAll();
     assertPacketsFromB(infoB2A2, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(stdAckDeliver.result), {});
+    t.deepEqual(fromBinary(stdAckDeliver.result), { deliver_beacon: {} });
 
     const myResult2 = await wasmClient.sign.queryContractSmart(noisDemoAddress, {
       result: { job_id: jobId },
@@ -338,14 +336,14 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     assertPacketsFromA(infoA2B, 1, true);
     const stdAckRequest = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAckRequest.result), {
-      processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
+      request_processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
     });
 
     // DeliverBeacon packet (check ack and transaction of the ack)
     const infoB2A = await link.relayAll();
     assertPacketsFromB(infoB2A, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(stdAckDeliver.result), {});
+    t.deepEqual(fromBinary(stdAckDeliver.result), { deliver_beacon: {} });
 
     const callbackEvent = infoB2A.acksFromA[0].txEvents.find((e) => e.type.startsWith("wasm-nois-callback"));
     t.deepEqual(callbackEvent?.attributes, [
@@ -380,10 +378,8 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const infoA2B = await link.relayAll();
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
-    t.deepEqual(stdAck, {
-      result: toBinary({
-        queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
-      }),
+    t.deepEqual(fromBinary(stdAck.result), {
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
     });
 
     // DeliverBeacon packet not yet
@@ -397,7 +393,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     const infoB2A2 = await link.relayAll();
     assertPacketsFromB(infoB2A2, 1, true);
     const stdAckDeliver = JSON.parse(fromUtf8(infoB2A2.acksFromA[0].acknowledgement));
-    t.deepEqual(fromBinary(stdAckDeliver.result), {});
+    t.deepEqual(fromBinary(stdAckDeliver.result), { deliver_beacon: {} });
 
     const callbackEvent = infoB2A2.acksFromA[0].txEvents.find((e) => e.type.startsWith("wasm-nois-callback"));
     t.deepEqual(callbackEvent?.attributes, [

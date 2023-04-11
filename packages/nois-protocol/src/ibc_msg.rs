@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{from_slice, to_binary, Binary, HexBinary, Timestamp};
+use cosmwasm_std::{from_slice, to_binary, Binary, HexBinary, Timestamp, Uint128};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -13,19 +13,34 @@ pub enum InPacket {
         /// The origin data set by the proxy in a proxy specific format.
         origin: Binary,
     },
+    /// Requests the current price per beacon. This can change over time and potentially
+    /// change per channel ID.
+    /// The proxy can pull the beacon price but should also expect price updates to get pushed.
+    PullBeaconPrice {},
 }
 
 #[cw_serde]
-pub enum RequestBeaconPacketAck {
+#[non_exhaustive]
+pub enum InPacketAck {
     /// Beacon already exists and this request can be processed immediately.
-    Processed {
+    RequestProcessed {
         /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
         source_id: String,
     },
     /// Beacon does not yet exist. This request is queued for later.
-    Queued {
+    RequestQueued {
         /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
         source_id: String,
+    },
+    /// The response of the PullBeaconPrice packet.
+    PullBeaconPrice {
+        /// The time of this price info. Since packages are not ordered, we use this to only save
+        /// more recent price infos than we had before.
+        timestamp: Timestamp,
+        /// The amount in `denom`
+        amount: Uint128,
+        /// The denom on the Nois chain. This cannot be used directly here.
+        denom: String,
     },
 }
 
@@ -44,22 +59,33 @@ pub enum OutPacket {
         /// Payment address on the Nois blockchain
         payment: String,
     },
+    /// Proactively sends an update of the beacon price to the proxy.
+    /// This is done together with the Welcome packet but can also happen any
+    /// time later if pricing changes.
+    PushBeaconPrice {
+        /// The time of this price info. Since packages are not ordered, we use this to only save
+        /// more recent price infos than we had before.
+        timestamp: Timestamp,
+        /// The amount in `denom`
+        amount: Uint128,
+        /// The denom on the Nois chain. This cannot be used directly here.
+        denom: String,
+    },
 }
 
-/// The ack the proxy must send when receiving a `OutPacket::DeliverBeacon`.
-///
-/// This is a lighweight structure as the gateway does not do anything other than
-/// simple logging of the beacon delivery ack.
-#[non_exhaustive]
 #[cw_serde]
-#[derive(Default)]
-pub struct DeliverBeaconPacketAck {}
-
-/// The ack the proxy must send when receiving a `OutPacket::Welcome`.
 #[non_exhaustive]
-#[cw_serde]
-#[derive(Default)]
-pub struct WelcomePacketAck {}
+pub enum OutPacketAck {
+    /// The ack the proxy must send when receiving a `OutPacket::DeliverBeacon`.
+    ///
+    /// This is a lighweight structure as the gateway does not do anything other than
+    /// simple logging of the beacon delivery ack.
+    DeliverBeacon {},
+    /// The ack the proxy must send when receiving a `OutPacket::Welcome`.
+    Welcome {},
+    /// The ack the proxy must send when receiving a `OutPacket::PushBeaconPrice`.
+    PushBeaconPrice {},
+}
 
 /// This is a generic ICS acknowledgement format.
 /// Proto defined here: https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147

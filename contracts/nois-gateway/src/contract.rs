@@ -9,8 +9,8 @@ use cosmwasm_std::{
 };
 use cw_storage_plus::Bound;
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, InPacket, OutPacket, StdAck,
-    IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
+    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
+    BEACON_PRICE_PACKET_LIFETIME, IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
 };
 use sha2::{Digest, Sha256};
 
@@ -217,7 +217,7 @@ pub fn ibc_channel_connect(
     } else {
         vec![]
     };
-    let msg = WasmMsg::Instantiate2 {
+    let instantiate_payment = WasmMsg::Instantiate2 {
         admin: Some(env.contract.address.into()), // Only gateway can update the contracts it created
         code_id: config.payment_code_id,
         label: format!("For {chan_id}"),
@@ -228,18 +228,32 @@ pub fn ibc_channel_connect(
         salt,
     };
 
-    // Send info to proxy
-    let packet = IbcMsg::SendPacket {
+    // Send Welcome and BeaconPrice to proxy
+    let welcome = IbcMsg::SendPacket {
         channel_id: chan_id.clone(),
         data: to_binary(&OutPacket::Welcome {
             payment: customer.payment.into(),
         })?,
         timeout: env.block.time.plus_seconds(WELCOME_PACKET_LIFETIME).into(),
     };
+    let beacon_price = IbcMsg::SendPacket {
+        channel_id: chan_id.clone(),
+        data: to_binary(&OutPacket::PushBeaconPrice {
+            timestamp: env.block.time,
+            amount: config.price.amount,
+            denom: config.price.denom,
+        })?,
+        timeout: env
+            .block
+            .time
+            .plus_seconds(BEACON_PRICE_PACKET_LIFETIME)
+            .into(),
+    };
 
     Ok(IbcBasicResponse::new()
-        .add_message(msg)
-        .add_message(packet)
+        .add_message(instantiate_payment)
+        .add_message(welcome)
+        .add_message(beacon_price)
         .add_attribute("action", "ibc_connect")
         .add_attribute("channel_id", chan_id)
         .add_event(Event::new("ibc").add_attribute("channel", "connect")))
@@ -279,6 +293,7 @@ pub fn ibc_packet_receive(
             InPacket::RequestBeacon { after, origin } => {
                 receive_request_beacon(deps, env, channel_id, relayer, after, origin)
             }
+            InPacket::PullBeaconPrice {} => receive_pull_beacon_price(deps, env),
             _ => Err(ContractError::UnsupportedPacketType),
         }
     })()
@@ -337,6 +352,20 @@ fn receive_request_beacon(
         .add_attribute("action", "receive_request_beacon"))
 }
 
+fn receive_pull_beacon_price(deps: DepsMut, env: Env) -> Result<IbcReceiveResponse, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
+    let Coin { amount, denom } = config.price;
+    let ack = StdAck::success(&InPacketAck::PullBeaconPrice {
+        timestamp: env.block.time,
+        amount,
+        denom,
+    });
+    Ok(IbcReceiveResponse::new()
+        .set_ack(ack)
+        .add_attribute("action", "receive_pull_beacon_price"))
+}
+
 #[entry_point]
 pub fn ibc_packet_ack(
     _deps: DepsMut,
@@ -350,7 +379,7 @@ pub fn ibc_packet_ack(
     match ack {
         StdAck::Result(data) => {
             is_error = false;
-            let _response: DeliverBeaconPacketAck = from_binary(&data)?;
+            let _response: OutPacketAck = from_binary(&data)?;
         }
         StdAck::Error(err) => {
             is_error = true;
@@ -475,7 +504,6 @@ fn hash_channel(channel_id: &str) -> Binary {
 
 #[cfg(test)]
 mod tests {
-
     use crate::msg::ExecuteMsg;
 
     use super::*;
@@ -667,7 +695,16 @@ mod tests {
         let handshake_connect =
             mock_ibc_channel_connect_confirm(channel_id, APP_ORDER, IBC_APP_VERSION);
         let res = ibc_channel_connect(deps.branch(), mock_env(), handshake_connect).unwrap();
-        assert_eq!(res.messages.len(), 2);
+        assert_eq!(res.messages.len(), 3);
+        assert!(matches!(res.messages[0].msg, CosmosMsg::Wasm(_)));
+        assert!(matches!(
+            res.messages[1].msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+        assert!(matches!(
+            res.messages[2].msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
         assert_eq!(res.events.len(), 1);
         assert_eq!(
             res.events[0],
@@ -1271,7 +1308,7 @@ mod tests {
         };
 
         // Success ack (delivered)
-        let ack = StdAck::success(DeliverBeaconPacketAck::default());
+        let ack = StdAck::success(OutPacketAck::DeliverBeacon {});
         let msg = mock_ibc_packet_ack(
             "channel-12",
             &packet,

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-empty-interface */
 import { readFileSync } from "fs";
 
@@ -79,11 +80,25 @@ export interface GatewayCustomerResponse {
   readonly customer: null | GatewayQueriedCustomer;
 }
 
+export interface IbcDenom {
+  readonly ics20_channel: string;
+  /** The ibc/* denom for the token */
+  readonly denom: string;
+}
+
+export interface ProxyOperationalMode {
+  readonly funded?: {};
+  readonly ibc_pay?: {
+    readonly unois_denom: IbcDenom;
+  };
+}
+
 export interface ProxyInstantiateMsg {
   readonly prices: Array<Coin>;
   readonly withdrawal_address: string;
   readonly test_mode: boolean;
   readonly callback_gas_limit: number;
+  readonly mode: ProxyOperationalMode;
 }
 
 export interface WasmdContractPaths {

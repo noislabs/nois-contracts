@@ -1,4 +1,6 @@
-use cosmwasm_std::{testing::mock_env, Addr, Coin, Decimal, HexBinary, Validator};
+use cosmwasm_std::{
+    testing::mock_env, Addr, Coin, Decimal, HexBinary, Timestamp, Uint128, Validator,
+};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{mint_native, payment_initial};
 
@@ -132,6 +134,7 @@ fn integration_test() {
                 withdrawal_address: "dao_dao_dao_dao_dao".to_string(),
                 test_mode: false,
                 callback_gas_limit: 500_000,
+                mode: nois_proxy::state::OperationalMode::Funded {},
             },
             &[],
             "Nois-Proxy",
@@ -152,6 +155,9 @@ fn integration_test() {
                 test_mode: false,
                 callback_gas_limit: 500_000,
                 payment: None,
+                nois_beacon_price: Uint128::zero(),
+                nois_beacon_price_updated: Timestamp::from_seconds(0),
+                mode: nois_proxy::state::OperationalMode::Funded {}
             },
         }
     );

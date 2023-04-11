@@ -1,16 +1,16 @@
 use cosmwasm_std::{
-    attr, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin, Deps, DepsMut, Env,
-    Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
+    attr, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg, Deps,
+    DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
     IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response,
-    StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, WasmMsg,
+    StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, Uint128, WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, DeliverBeaconPacketAck, InPacket, OutPacket,
-    RequestBeaconPacketAck, StdAck, WelcomePacketAck, REQUEST_BEACON_PACKET_LIFETIME,
+    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
+    REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
 };
 
 use crate::error::ContractError;
@@ -20,7 +20,7 @@ use crate::msg::{
     PricesResponse, QueryMsg, RequestBeaconOrigin,
 };
 use crate::publish_time::{calculate_after, AfterMode};
-use crate::state::{Config, CONFIG, GATEWAY_CHANNEL};
+use crate::state::{Config, OperationalMode, CONFIG, GATEWAY_CHANNEL};
 
 pub const CALLBACK_ID: u64 = 456;
 
@@ -36,6 +36,7 @@ pub fn instantiate(
         withdrawal_address,
         test_mode,
         callback_gas_limit,
+        mode,
     } = msg;
     let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
     let config = Config {
@@ -44,6 +45,10 @@ pub fn instantiate(
         test_mode,
         callback_gas_limit,
         payment: None,
+        // We query the current price from IBC. As long as we don't have it, we pay nothing.
+        nois_beacon_price: Uint128::zero(),
+        nois_beacon_price_updated: Timestamp::from_seconds(0),
+        mode,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -84,11 +89,7 @@ fn execute_get_next_randomness(
     info: MessageInfo,
     job_id: String,
 ) -> Result<Response, ContractError> {
-    validate_job_id(&job_id)?;
-
     let config = CONFIG.load(deps.storage)?;
-
-    validate_payment(&config.prices, &info.funds)?;
 
     let mode = if config.test_mode {
         AfterMode::Test
@@ -97,28 +98,15 @@ fn execute_get_next_randomness(
     };
     let after = calculate_after(deps.storage, mode)?;
 
-    let packet = InPacket::RequestBeacon {
+    execute_get_randomness_impl(
+        deps,
+        env,
+        info,
+        config,
         after,
-        origin: to_binary(&RequestBeaconOrigin {
-            sender: info.sender.into(),
-            job_id,
-        })?,
-    };
-    let channel_id = get_gateway_channel(deps.storage)?;
-    let msg = IbcMsg::SendPacket {
-        channel_id,
-        data: to_binary(&packet)?,
-        timeout: env
-            .block
-            .time
-            .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
-            .into(),
-    };
-
-    let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "execute_get_next_randomness");
-    Ok(res)
+        job_id,
+        "execute_get_next_randomness",
+    )
 }
 
 fn execute_get_randomness_after(
@@ -128,8 +116,28 @@ fn execute_get_randomness_after(
     after: Timestamp,
     job_id: String,
 ) -> Result<Response, ContractError> {
-    validate_job_id(&job_id)?;
     let config = CONFIG.load(deps.storage)?;
+    execute_get_randomness_impl(
+        deps,
+        env,
+        info,
+        config,
+        after,
+        job_id,
+        "execute_get_randomness_after",
+    )
+}
+
+pub fn execute_get_randomness_impl(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    config: Config,
+    after: Timestamp,
+    job_id: String,
+    action: &str,
+) -> Result<Response, ContractError> {
+    validate_job_id(&job_id)?;
     validate_payment(&config.prices, &info.funds)?;
 
     let packet = InPacket::RequestBeacon {
@@ -140,19 +148,45 @@ fn execute_get_randomness_after(
         })?,
     };
     let channel_id = get_gateway_channel(deps.storage)?;
-    let msg = IbcMsg::SendPacket {
-        channel_id,
-        data: to_binary(&packet)?,
-        timeout: env
-            .block
-            .time
-            .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
-            .into(),
-    };
+
+    let mut msgs: Vec<CosmosMsg> = Vec::with_capacity(2);
+
+    // Add payment frist such that (at least in integration tests) the funds arrive in time
+    if let OperationalMode::IbcPay { unois_denom } = config.mode {
+        if let Some(payment_contract) = config.payment {
+            if !config.nois_beacon_price.is_zero() {
+                msgs.push(
+                    IbcMsg::Transfer {
+                        channel_id: unois_denom.ics20_channel,
+                        to_address: payment_contract,
+                        amount: Coin {
+                            amount: config.nois_beacon_price,
+                            denom: unois_denom.denom,
+                        },
+                        timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
+                    }
+                    .into(),
+                );
+            }
+        }
+    }
+
+    msgs.push(
+        IbcMsg::SendPacket {
+            channel_id,
+            data: to_binary(&packet)?,
+            timeout: env
+                .block
+                .time
+                .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
+                .into(),
+        }
+        .into(),
+    );
 
     let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "execute_get_randomness_after");
+        .add_messages(msgs)
+        .add_attribute("action", action);
     Ok(res)
 }
 
@@ -329,19 +363,25 @@ pub fn ibc_channel_close(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_receive(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, Never> {
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
-        let op: OutPacket = from_binary(&msg.packet.data)?;
+        let IbcPacketReceiveMsg { packet, .. } = msg;
+        let op: OutPacket = from_binary(&packet.data)?;
         match op {
             OutPacket::DeliverBeacon {
                 source_id: _,
                 randomness,
                 origin,
             } => receive_deliver_beacon(deps, randomness, origin),
-            OutPacket::Welcome { payment } => receive_welcome(deps, payment),
+            OutPacket::Welcome { payment } => receive_welcome(deps, env, payment),
+            OutPacket::PushBeaconPrice {
+                timestamp,
+                amount,
+                denom,
+            } => receive_push_beacon_price(deps, env, timestamp, amount, denom),
             _ => Err(ContractError::UnsupportedPacketType),
         }
     })()
@@ -387,7 +427,7 @@ fn receive_deliver_beacon(
     )
     .with_gas_limit(callback_gas_limit);
 
-    let ack = StdAck::success(DeliverBeaconPacketAck::default());
+    let ack = StdAck::success(OutPacketAck::DeliverBeacon {});
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
         .add_attribute("action", "acknowledge_ibc_query")
@@ -395,17 +435,33 @@ fn receive_deliver_beacon(
         .add_submessage(msg))
 }
 
-fn receive_welcome(deps: DepsMut, payment: String) -> Result<IbcReceiveResponse, ContractError> {
+fn receive_welcome(
+    deps: DepsMut,
+    _env: Env,
+    payment: String,
+) -> Result<IbcReceiveResponse, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
     config.payment = Some(payment);
     CONFIG.save(deps.storage, &config)?;
-    let ack = StdAck::success(WelcomePacketAck::default());
+    let ack = StdAck::success(OutPacketAck::Welcome {});
+    Ok(IbcReceiveResponse::new().set_ack(ack))
+}
+
+fn receive_push_beacon_price(
+    deps: DepsMut,
+    _env: Env,
+    timestamp: Timestamp,
+    amount: Uint128,
+    denom: String,
+) -> Result<IbcReceiveResponse, ContractError> {
+    update_nois_beacon_price(deps, timestamp, amount, denom)?;
+    let ack = StdAck::success(OutPacketAck::PushBeaconPrice {});
     Ok(IbcReceiveResponse::new().set_ack(ack))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn ibc_packet_ack(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
@@ -416,10 +472,19 @@ pub fn ibc_packet_ack(
     match ack {
         StdAck::Result(data) => {
             is_error = false;
-            let response: RequestBeaconPacketAck = from_binary(&data)?;
+            let response: InPacketAck = from_binary(&data)?;
             let ack_type: String = match response {
-                RequestBeaconPacketAck::Processed { source_id: _ } => "processed".to_string(),
-                RequestBeaconPacketAck::Queued { source_id: _ } => "queued".to_string(),
+                InPacketAck::RequestProcessed { source_id: _ } => "request_processed".to_string(),
+                InPacketAck::RequestQueued { source_id: _ } => "request_queued".to_string(),
+                InPacketAck::PullBeaconPrice {
+                    timestamp,
+                    amount,
+                    denom,
+                } => {
+                    update_nois_beacon_price(deps, timestamp, amount, denom)?;
+                    "beacon_price".to_string()
+                }
+                _ => "other".to_string(),
             };
             attributes.push(attr("ack_type", ack_type));
         }
@@ -437,6 +502,29 @@ pub fn ibc_packet_ack(
     Ok(IbcBasicResponse::new().add_attributes(attributes))
 }
 
+fn update_nois_beacon_price(
+    deps: DepsMut,
+    timestamp: Timestamp,
+    new_price: Uint128,
+    denom: String,
+) -> Result<(), ContractError> {
+    if denom != "unois" {
+        // We don't understand the denom of this price. Ignore the price info.
+        return Ok(());
+    }
+
+    let mut config = CONFIG.load(deps.storage)?;
+    if config.nois_beacon_price_updated > timestamp {
+        // We just got an older information than we already have
+        return Ok(());
+    }
+
+    config.nois_beacon_price = new_price;
+    config.nois_beacon_price_updated = timestamp;
+    CONFIG.save(deps.storage, &config)?;
+    Ok(())
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 /// we just ignore these now. shall we store some info?
 pub fn ibc_packet_timeout(
@@ -449,6 +537,8 @@ pub fn ibc_packet_timeout(
 
 #[cfg(test)]
 mod tests {
+    use crate::state::OperationalMode;
+
     use super::*;
     use cosmwasm_std::{
         coins,
@@ -461,7 +551,7 @@ mod tests {
         },
         CosmosMsg, IbcAcknowledgement, OwnedDeps, ReplyOn, Uint128,
     };
-    use nois_protocol::{APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
+    use nois_protocol::{InPacketAck, APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
 
     const CREATOR: &str = "creator";
 
@@ -479,6 +569,7 @@ mod tests {
             withdrawal_address: CREATOR.to_string(),
             test_mode: true,
             callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -513,6 +604,7 @@ mod tests {
             withdrawal_address: "foo".to_string(),
             test_mode: false,
             callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -787,7 +879,7 @@ mod tests {
         };
 
         // Success ack (processed)
-        let ack = StdAck::success(RequestBeaconPacketAck::Processed {
+        let ack = StdAck::success(InPacketAck::RequestProcessed {
             source_id: "backend:123:456".to_string(),
         });
         let msg = mock_ibc_packet_ack(
@@ -801,10 +893,13 @@ mod tests {
         assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "false");
         assert_eq!(first_attr(&attributes, "error"), None);
-        assert_eq!(first_attr(&attributes, "ack_type").unwrap(), "processed");
+        assert_eq!(
+            first_attr(&attributes, "ack_type").unwrap(),
+            "request_processed"
+        );
 
         // Success ack (queued)
-        let ack = StdAck::success(RequestBeaconPacketAck::Queued {
+        let ack = StdAck::success(InPacketAck::RequestQueued {
             source_id: "backend:123:456".to_string(),
         });
         let msg = mock_ibc_packet_ack(
@@ -818,7 +913,10 @@ mod tests {
         assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "false");
         assert_eq!(first_attr(&attributes, "error"), None);
-        assert_eq!(first_attr(&attributes, "ack_type").unwrap(), "queued");
+        assert_eq!(
+            first_attr(&attributes, "ack_type").unwrap(),
+            "request_queued"
+        );
 
         // Error ack
         let ack = StdAck::error("kaputt");
