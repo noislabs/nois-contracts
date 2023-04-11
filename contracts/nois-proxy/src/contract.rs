@@ -149,17 +149,9 @@ pub fn execute_get_randomness_impl(
     };
     let channel_id = get_gateway_channel(deps.storage)?;
 
-    let mut msgs: Vec<CosmosMsg> = vec![IbcMsg::SendPacket {
-        channel_id,
-        data: to_binary(&packet)?,
-        timeout: env
-            .block
-            .time
-            .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
-            .into(),
-    }
-    .into()];
+    let mut msgs: Vec<CosmosMsg> = Vec::with_capacity(2);
 
+    // Add payment frist such that (at least in integration tests) the funds arrive in time
     if let OperationalMode::IbcPay { unois_denom } = config.mode {
         if let Some(payment_contract) = config.payment {
             if !config.nois_beacon_price.is_zero() {
@@ -178,6 +170,19 @@ pub fn execute_get_randomness_impl(
             }
         }
     }
+
+    msgs.push(
+        IbcMsg::SendPacket {
+            channel_id,
+            data: to_binary(&packet)?,
+            timeout: env
+                .block
+                .time
+                .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
+                .into(),
+        }
+        .into(),
+    );
 
     let res = Response::new()
         .add_messages(msgs)

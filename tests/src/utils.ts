@@ -2,7 +2,7 @@ import { AckWithMetadata, CosmWasmSigner, RelayInfo, testutils } from "@confio/r
 import { ChainDefinition } from "@confio/relayer/build/lib/helpers";
 import { fromBinary, SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { Random, sha256 } from "@cosmjs/crypto";
-import { fromUtf8, toAscii, toBech32, toHex } from "@cosmjs/encoding";
+import { fromBase64, fromUtf8, toAscii, toBech32, toHex } from "@cosmjs/encoding";
 import {
   Coin,
   decodeCosmosSdkDecFromProto,
@@ -156,6 +156,20 @@ export function parseIbcPacketAckMsg(m: IbcPacketAckMsg): any {
   const result = stdAck.result;
   assert(typeof result === "string");
   return fromBinary(result);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function successAckToJson(acknowledgement: Uint8Array): any {
+  const data = successAckToData(acknowledgement);
+  return JSON.parse(fromUtf8(data));
+}
+
+export function successAckToData(acknowledgement: Uint8Array): Uint8Array {
+  const stdAck = JSON.parse(fromUtf8(acknowledgement));
+  const result = stdAck.result;
+  assert(typeof result === "string");
+  assert(result.length !== 0, "Result data must not be empty");
+  return fromBase64(result);
 }
 
 export function randomAddress(prefix: string): string {
