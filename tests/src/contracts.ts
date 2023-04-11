@@ -86,17 +86,19 @@ export interface IbcDenom {
   readonly denom: string;
 }
 
+export interface ProxyOperationalMode {
+  readonly funded?: {};
+  readonly ibc_pay?: {
+    readonly unois_denom: IbcDenom;
+  };
+}
+
 export interface ProxyInstantiateMsg {
   readonly prices: Array<Coin>;
   readonly withdrawal_address: string;
   readonly test_mode: boolean;
   readonly callback_gas_limit: number;
-  readonly mode: {
-    readonly funded?: {};
-    readonly ibc_pay?: {
-      readonly unois_denom: IbcDenom;
-    };
-  };
+  readonly mode: ProxyOperationalMode;
 }
 
 export interface WasmdContractPaths {
