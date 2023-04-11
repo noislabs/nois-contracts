@@ -25,12 +25,13 @@ ssh -t "$REMOTE" "apt install -y jq net-tools git docker.io cowsay"
 
 echo "Copying scripts folder …"
 ssh -t "$REMOTE" "mkdir -p ~/ci-scripts"
-scp -r ./ci-scripts/* "$REMOTE:~/ci-scripts"
+# scp -r ./ci-scripts/* "$REMOTE:~/ci-scripts"
+rsync -a ./ci-scripts/ "$REMOTE:~/ci-scripts"
 ssh "$REMOTE" "ls -lA ~/ci-scripts"
 
 echo "Starting/restarting chains …"
-ssh -t "$REMOTE" "bash -c './ci-scripts/nois/start.sh &'"
-ssh -t "$REMOTE" "bash -c './ci-scripts/wasmd/start.sh &'"
+# shellcheck disable=SC2088
+ssh -t "$REMOTE" "~/ci-scripts/restart.sh"
 
 echo "Start port forwarding …"
 # Local Port Forwarding, see https://help.ubuntu.com/community/SSH/OpenSSH/PortForwarding#Local_Port_Forwarding
