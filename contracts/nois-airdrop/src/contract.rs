@@ -10,7 +10,7 @@ use crate::msg::{
 };
 use crate::state::{Config, CLAIM, CONFIG, MERKLE_ROOT};
 
-// The staking, unbonding, redelegating, claim denom. It can be the same as the incentive denom
+// The airdrop Denom, probably gonna be some IBCed Nois something like IBC/hashhashhashhashhashhash
 const AIRDROP_DENOM: &str = "unois";
 
 #[entry_point]
