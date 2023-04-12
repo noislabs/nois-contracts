@@ -252,7 +252,7 @@ mod tests {
         let _res = instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
 
         // it worked, let's query the state
-        let res = query(deps.as_ref(), env.clone(), QueryMsg::Config {}).unwrap();
+        let res = query(deps.as_ref(), env, QueryMsg::Config {}).unwrap();
         let config: ConfigResponse = from_binary(&res).unwrap();
         assert_eq!("manager1", config.manager.unwrap().as_str());
     }
@@ -425,13 +425,13 @@ mod tests {
         let env = mock_env();
         let info = mock_info("random_person_who_hates_airdrops", &[]);
         let msg = ExecuteMsg::WithdawAll {};
-        let err = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap_err();
+        let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
 
         let env = mock_env();
         let info = mock_info("manager1", &[]);
         let msg = ExecuteMsg::WithdawAll {};
-        let res = execute(deps.as_mut(), env.clone(), info.clone(), msg.clone()).unwrap();
+        let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         let expected = SubMsg::new(BankMsg::Send {
             to_address: "withdraw_address".to_string(),
