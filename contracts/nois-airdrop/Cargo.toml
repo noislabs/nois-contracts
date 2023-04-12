@@ -1,0 +1,27 @@
+[package]
+name = "nois-airdrop"
+version = "0.11.0"
+authors = []
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for quicker tests, cargo test --lib
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["cosmwasm-std/backtraces"]
+
+[dependencies]
+cosmwasm-std = { version = "1.2.3" }
+cosmwasm-schema = { version = "1.2.3" }
+cw-storage-plus = { version = "1.0.0" }
+serde = { version = "1.0.103", default-features = false, features = ["derive"] }
+thiserror = { version = "1.0.23" }
+hex = { version = "0.4" }
+sha2 = { version = "0.10.6", default-features = false }
+
