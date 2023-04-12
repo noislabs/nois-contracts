@@ -8,6 +8,29 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade Rust to 1.68.2 and workspace-optimizer to 0.12.13 to use sparse
+  protocol for Cargo.
+- Gateway: Instantiate payment contracts.
+- Gateway: Start customers database.
+- Payment: Replace `community_pool` address config with `Anything`
+  implementation to send `MsgFundCommunityPool`s via CosmosMsg::Stargate.
+
+**IBC protocol**
+
+- Convert IBC packets into enums InPacket/OutPacket for extensibility.
+- Ensure IBC connection is established in the one direction (user chain to
+  Nois).
+- Create Welcome packet after establishing a connection.
+- Bump protocol version to `nois-v6`.
+- Allow proxy to pay its randomness via IBC.
+
+**Testing**
+
+- Improve file structure of test files to better allow for individual execution
+  and general maintainability.
+
 ## [0.11.0] - 2023-03-26
 
 ### Changed
