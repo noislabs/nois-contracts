@@ -164,12 +164,14 @@ fn execute_claim(
     }
     let merkle_root = MERKLE_ROOT.load(deps.storage)?;
 
+    // "nois1blabla...chksum4500000" -> hash
     let user_input = format!("{}{}", info.sender, amount);
     let hash = sha2::Sha256::digest(user_input.as_bytes())
         .as_slice()
         .try_into()
         .map_err(|_| ContractError::WrongLength {})?;
 
+    // hash all the way up the merkle tree until reaching the top root.
     let hash = proof.into_iter().try_fold(hash, |hash, p| {
         let mut proof_buf = [0; 32];
         hex::decode_to_slice(p, &mut proof_buf)?;
@@ -181,6 +183,7 @@ fn execute_claim(
             .map_err(|_| ContractError::WrongLength {})
     })?;
 
+    // Check the overall cumulated proof hashes along the merkle tree ended up having the same hash as the registered Merkle root
     let mut root_buf: [u8; 32] = [0; 32];
     hex::decode_to_slice(merkle_root, &mut root_buf)?;
     if root_buf != hash {
