@@ -12,8 +12,8 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig {
-        /// Newmanager if non sent, contract gets locked. Recipients can receive airdrops
-        /// but manager cannot register new stages.
+        /// New manager if non set, contract gets locked/frozen. Recipients can receive airdrops
+        /// but manager cannot withdraw or set a new manager anymore
         new_manager: Option<String>,
     },
     RegisterMerkleRoot {
@@ -26,7 +26,7 @@ pub enum ExecuteMsg {
         /// Proof is hex-encoded merkle proof.
         proof: Vec<String>,
     },
-    // Withdraw all available balance of this token to the withdrawal address
+    // Withdraw all available balance of the AIRDROP DENOM to the withdrawal address
     WithdawAll {},
 }
 
