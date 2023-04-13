@@ -1,6 +1,6 @@
 [package]
 name = "nois-demo"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Simon Warta <webmaster128@users.noreply.github.com>"]
 edition = "2021"
 publish = false
