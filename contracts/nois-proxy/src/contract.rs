@@ -1,9 +1,10 @@
 use cosmwasm_std::{
-    attr, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response,
-    StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, Uint128, WasmMsg,
+    attr, ensure_eq, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin,
+    CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never,
+    QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
+    Uint128, WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
@@ -16,7 +17,7 @@ use nois_protocol::{
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
+    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, NewConfig, PriceResponse,
     PricesResponse, QueryMsg, RequestBeaconOrigin,
 };
 use crate::publish_time::{calculate_after, AfterMode};
@@ -33,14 +34,17 @@ pub fn instantiate(
 ) -> StdResult<Response> {
     let InstantiateMsg {
         prices,
+        manager,
         withdrawal_address,
         test_mode,
         callback_gas_limit,
         mode,
     } = msg;
     let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
+    let manager = deps.api.addr_validate(&manager)?;
     let config = Config {
         prices,
+        manager,
         withdrawal_address,
         test_mode,
         callback_gas_limit,
@@ -75,6 +79,7 @@ pub fn execute(
         ExecuteMsg::GetNextRandomness { job_id } => {
             execute_get_next_randomness(deps, env, info, job_id)
         }
+        ExecuteMsg::SetConfig { new_config } => execute_set_config(deps, info, env, new_config),
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
         }
@@ -190,13 +195,73 @@ pub fn execute_get_randomness_impl(
     Ok(res)
 }
 
+fn execute_set_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    env: Env,
+    new_config: NewConfig,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
+    // check the calling address is the authorised multisig
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
+
+    let NewConfig {
+        manager,
+        prices,
+        withdrawal_address,
+        payment,
+        nois_beacon_price,
+        mode,
+    } = new_config;
+
+    let manager = match manager {
+        Some(ma) => deps.api.addr_validate(&ma)?,
+        None => config.manager,
+    };
+    let prices = prices.unwrap_or(config.prices);
+
+    let withdrawal_address = match withdrawal_address {
+        Some(wa) => deps.api.addr_validate(&wa)?,
+        None => config.withdrawal_address,
+    };
+    let test_mode = config.test_mode;
+    let callback_gas_limit = config.callback_gas_limit;
+    let payment = match payment {
+        Some(pa) => Some(pa),
+        None => config.payment,
+    };
+    let (nois_beacon_price, nois_beacon_price_updated) = match nois_beacon_price {
+        Some(bp) => (bp, env.block.time),
+        None => (config.nois_beacon_price, config.nois_beacon_price_updated),
+    };
+    let mode = mode.unwrap_or(config.mode);
+
+    let new_config = Config {
+        manager,
+        prices,
+        withdrawal_address,
+        test_mode,
+        callback_gas_limit,
+        payment,
+        nois_beacon_price,
+        nois_beacon_price_updated,
+        mode,
+    };
+
+    CONFIG.save(deps.storage, &new_config)?;
+
+    Ok(Response::default())
+}
+
 fn execute_withdraw_all(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     denom: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
     let amount = deps.querier.query_balance(env.contract.address, denom)?;
     let msg = BankMsg::Send {
         to_address: config.withdrawal_address.into(),
@@ -211,10 +276,11 @@ fn execute_withdraw_all(
 fn execute_withdraw(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     amount: Coin,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
     let msg = BankMsg::Send {
         to_address: config.withdrawal_address.into(),
         amount: vec![amount],
@@ -565,6 +631,7 @@ mod tests {
         ];
         let mut deps = mock_dependencies_with_balance(&initial_funds);
         let msg = InstantiateMsg {
+            manager: CREATOR.to_string(),
             prices: vec![Coin::new(1_000000, "unoisx")],
             withdrawal_address: CREATOR.to_string(),
             test_mode: true,
@@ -600,6 +667,7 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
+            manager: CREATOR.to_string(),
             prices: vec![Coin::new(1_000000, "unoisx")],
             withdrawal_address: "foo".to_string(),
             test_mode: false,
@@ -696,7 +764,15 @@ mod tests {
         let msg = ExecuteMsg::Withdaw {
             amount: Coin::new(12, "unoisx"),
         };
-        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("dapp", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+        let res = execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(
             res.messages[0].msg,
@@ -714,7 +790,17 @@ mod tests {
         let msg = ExecuteMsg::WithdawAll {
             denom: "unoisx".to_string(),
         };
-        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("dapp", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+        let res = execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+
         assert_eq!(res.messages.len(), 1);
         assert_eq!(
             res.messages[0].msg,

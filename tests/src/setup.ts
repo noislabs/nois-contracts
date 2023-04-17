@@ -82,6 +82,7 @@ export async function instantiateAndConnectIbc(
 
   // Instantiate proxy on appchain
   const proxyMsg: ProxyInstantiateMsg = {
+    manager: wasmClient.senderAddress,
     prices: coins(1_000_000, "ucosm"),
     withdrawal_address: wasmClient.senderAddress,
     test_mode: options.testMode ?? true,

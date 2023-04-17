@@ -9,6 +9,7 @@ pub struct InstantiateMsg {
     /// The prices of a randomness. List is to be interpreted as oneof,
     /// i.e. payment must be paid in one of those denominations.
     pub prices: Vec<Coin>,
+    pub manager: String,
     pub withdrawal_address: String,
     /// In test mode the min publish time calculation is detached from the clock.
     pub test_mode: bool,
@@ -20,14 +21,26 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     // KEEP IN SYNC WITH ProxyExecuteMsg::GetNextRandomness
-    GetNextRandomness { job_id: String },
+    GetNextRandomness {
+        job_id: String,
+    },
     // KEEP IN SYNC WITH ProxyExecuteMsg::GetRandomnessAfter
-    GetRandomnessAfter { after: Timestamp, job_id: String },
-
+    GetRandomnessAfter {
+        after: Timestamp,
+        job_id: String,
+    },
+    /// Set the config
+    SetConfig {
+        new_config: NewConfig,
+    },
     // Withdraw the given amount to the withdrawal address
-    Withdaw { amount: Coin },
+    Withdaw {
+        amount: Coin,
+    },
     // Withdraw all available balance of this token to the withdrawal address
-    WithdawAll { denom: String },
+    WithdawAll {
+        denom: String,
+    },
 }
 
 // Unused from implementation to bring up compiler errors when the
@@ -62,6 +75,21 @@ pub enum QueryMsg {
     /// the channel is created. Once created, the value does not change anymore.
     #[returns(GatewayChannelResponse)]
     GatewayChannel {},
+}
+
+#[cw_serde]
+pub struct NewConfig {
+    pub manager: Option<String>,
+    /// The prices of a randomness. List is to be interpreted as oneof,
+    /// i.e. payment must be paid in one of those denominations.
+    pub prices: Option<Vec<Coin>>,
+    // The address to which withdrawals will be made
+    pub withdrawal_address: Option<String>,
+    /// Address of the payment contract (on the other chain)
+    pub payment: Option<String>,
+    /// The amount of tokens the proxy sends for each randomness request to the Nois chain
+    pub nois_beacon_price: Option<Uint128>,
+    pub mode: Option<OperationalMode>,
 }
 
 #[cw_serde]

@@ -33,6 +33,8 @@ pub struct Config {
     /// The prices of a randomness. List is to be interpreted as oneof,
     /// i.e. payment must be paid in one of those denominations.
     pub prices: Vec<Coin>,
+    /// Manager to set the config
+    pub manager: Addr,
     // The address to which withdrawals will be made
     pub withdrawal_address: Addr,
     pub test_mode: bool,

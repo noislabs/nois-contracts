@@ -94,6 +94,7 @@ export interface ProxyOperationalMode {
 }
 
 export interface ProxyInstantiateMsg {
+  readonly manager: string;
   readonly prices: Array<Coin>;
   readonly withdrawal_address: string;
   readonly test_mode: boolean;
