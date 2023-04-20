@@ -555,6 +555,7 @@ dependencies = [
  "cosmwasm-std",
  "cw-storage-plus",
  "hex",
+ "nois",
  "serde",
  "sha2 0.10.6",
  "thiserror",
