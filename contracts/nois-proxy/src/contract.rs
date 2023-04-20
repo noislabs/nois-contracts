@@ -17,7 +17,7 @@ use nois_protocol::{
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, NewConfig, PriceResponse,
+    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
     PricesResponse, QueryMsg, RequestBeaconOrigin,
 };
 use crate::publish_time::{calculate_after, AfterMode};
@@ -79,7 +79,24 @@ pub fn execute(
         ExecuteMsg::GetNextRandomness { job_id } => {
             execute_get_next_randomness(deps, env, info, job_id)
         }
-        ExecuteMsg::SetConfig { new_config } => execute_set_config(deps, info, env, new_config),
+        ExecuteMsg::SetConfig {
+            manager,
+            mode,
+            nois_beacon_price,
+            payment,
+            prices,
+            withdrawal_address,
+        } => execute_set_config(
+            deps,
+            info,
+            env,
+            manager,
+            prices,
+            withdrawal_address,
+            payment,
+            nois_beacon_price,
+            mode,
+        ),
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
         }
@@ -195,25 +212,22 @@ pub fn execute_get_randomness_impl(
     Ok(res)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn execute_set_config(
     deps: DepsMut,
     info: MessageInfo,
     env: Env,
-    new_config: NewConfig,
+    manager: Option<String>,
+    prices: Option<Vec<Coin>>,
+    withdrawal_address: Option<String>,
+    payment: Option<String>,
+    nois_beacon_price: Option<Uint128>,
+    mode: Option<OperationalMode>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
     // check the calling address is the authorised multisig
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
-
-    let NewConfig {
-        manager,
-        prices,
-        withdrawal_address,
-        payment,
-        nois_beacon_price,
-        mode,
-    } = new_config;
 
     let manager = match manager {
         Some(ma) => deps.api.addr_validate(&ma)?,

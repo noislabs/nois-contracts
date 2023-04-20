@@ -31,7 +31,17 @@ pub enum ExecuteMsg {
     },
     /// Set the config
     SetConfig {
-        new_config: NewConfig,
+        manager: Option<String>,
+        /// The prices of a randomness. List is to be interpreted as oneof,
+        /// i.e. payment must be paid in one of those denominations.
+        prices: Option<Vec<Coin>>,
+        // The address to which withdrawals will be made
+        withdrawal_address: Option<String>,
+        /// Address of the payment contract (on the other chain)
+        payment: Option<String>,
+        /// The amount of tokens the proxy sends for each randomness request to the Nois chain
+        nois_beacon_price: Option<Uint128>,
+        mode: Option<OperationalMode>,
     },
     // Withdraw the given amount to the withdrawal address
     Withdaw {
@@ -75,21 +85,6 @@ pub enum QueryMsg {
     /// the channel is created. Once created, the value does not change anymore.
     #[returns(GatewayChannelResponse)]
     GatewayChannel {},
-}
-
-#[cw_serde]
-pub struct NewConfig {
-    pub manager: Option<String>,
-    /// The prices of a randomness. List is to be interpreted as oneof,
-    /// i.e. payment must be paid in one of those denominations.
-    pub prices: Option<Vec<Coin>>,
-    // The address to which withdrawals will be made
-    pub withdrawal_address: Option<String>,
-    /// Address of the payment contract (on the other chain)
-    pub payment: Option<String>,
-    /// The amount of tokens the proxy sends for each randomness request to the Nois chain
-    pub nois_beacon_price: Option<Uint128>,
-    pub mode: Option<OperationalMode>,
 }
 
 #[cw_serde]
