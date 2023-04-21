@@ -84,7 +84,6 @@ export async function instantiateAndConnectIbc(
   const proxyMsg: ProxyInstantiateMsg = {
     manager: wasmClient.senderAddress,
     prices: coins(1_000_000, "ucosm"),
-    withdrawal_address: wasmClient.senderAddress,
     test_mode: options.testMode ?? true,
     callback_gas_limit: options.callback_gas_limit ?? 500_000,
     mode,
