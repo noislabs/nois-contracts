@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- nois-proxy: the config parameters can be changed. And it is possible to add a
+  manager (optional)
+
 ## [0.12.0] - 2023-04-13
 
 ### Changed
