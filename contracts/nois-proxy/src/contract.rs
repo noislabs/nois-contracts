@@ -787,9 +787,8 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
     }
-
     #[test]
-    fn withdraw_works() {
+    fn when_manager_is_not_set_manager_permissions_are_unathorised() {
         // Check that if manager not set, a random person cannot execute manager-like operations.
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
@@ -801,13 +800,36 @@ mod tests {
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        // withdraw
         let msg = ExecuteMsg::Withdaw {
             amount: Coin::new(12, "unoisx"),
             address: "some-address".to_string(),
         };
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
+        // withdraw all
+        let msg = ExecuteMsg::WithdawAll {
+            denom: "unoisx".to_string(),
+            address: "some-address".to_string(),
+        };
 
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+        // Edit config
+        let msg = ExecuteMsg::SetConfig {
+            manager: Some("some-manager".to_string()),
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            mode: None,
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+    }
+
+    #[test]
+    fn withdraw_works() {
         let mut deps = setup();
 
         let msg = ExecuteMsg::Withdaw {
