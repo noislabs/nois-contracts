@@ -33,7 +33,7 @@ pub struct Config {
     /// The prices of a randomness. List is to be interpreted as oneof,
     /// i.e. payment must be paid in one of those denominations.
     pub prices: Vec<Coin>,
-    /// Manager to set the config
+    /// Manager to set the config and withdraw funds
     pub manager: Option<Addr>,
     pub test_mode: bool,
     /// The amount of gas that the callback to the dapp can consume
