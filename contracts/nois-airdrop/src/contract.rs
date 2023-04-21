@@ -242,7 +242,7 @@ fn is_randomly_eligible(addr: &Addr, randomness: [u8; 32]) -> bool {
     let outcome = hash[0] % AIRDROP_ODDS;
 
     // returns true if the address is eligible
-    matches!(outcome, 0)
+    outcome == 0
 }
 
 fn execute_register_merkle_root(
