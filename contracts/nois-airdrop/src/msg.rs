@@ -1,13 +1,11 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Timestamp, Uint128};
+use cosmwasm_std::{HexBinary, Timestamp, Uint128};
 use nois::NoisCallback;
 
 #[cw_serde]
 pub struct InstantiateMsg {
     /// manager if none set to info.sender.
-    pub manager: Option<String>,
-    /// For unclaimed tokens
-    pub withdrawal_address: String,
+    pub manager: String,
     /// Address of the Nois proxy contract
     pub nois_proxy: String,
 }
@@ -15,13 +13,11 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     UpdateConfig {
-        /// New manager if non set, contract gets locked/frozen. Recipients can receive airdrops
-        /// but manager cannot withdraw or set a new manager anymore
-        new_manager: Option<String>,
+        manager: Option<String>,
     },
     RegisterMerkleRoot {
         /// MerkleRoot is hex-encoded merkle root.
-        merkle_root: String,
+        merkle_root: HexBinary,
     },
     // This will trigger fetching the unpredictable random beacon that will serve to give the randdrop to only a subset of accounts
     RandDrop {
@@ -39,7 +35,9 @@ pub enum ExecuteMsg {
         proof: Vec<String>,
     },
     // Withdraw all available balance of the AIRDROP DENOM to the withdrawal address
-    WithdawAll {},
+    WithdawAll {
+        address: String,
+    },
 }
 
 #[cw_serde]
@@ -59,7 +57,7 @@ pub enum QueryMsg {
 
 #[cw_serde]
 pub struct ConfigResponse {
-    pub manager: Option<String>,
+    pub manager: String,
 }
 
 #[cw_serde]
@@ -70,7 +68,7 @@ pub struct IsLuckyResponse {
 #[cw_serde]
 pub struct MerkleRootResponse {
     /// MerkleRoot is hex-encoded merkle root.
-    pub merkle_root: String,
+    pub merkle_root: HexBinary,
 }
 
 #[cw_serde]
