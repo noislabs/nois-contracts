@@ -246,7 +246,7 @@ mod tests {
             manager: MANAGER.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
-        let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // check manager operations work
 
@@ -343,7 +343,7 @@ mod tests {
             manager: MANAGER.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
-        let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // A random addr cannot set a new manager
         let info = mock_info("some_random_person", &[]);
