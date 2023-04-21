@@ -130,9 +130,8 @@ fn integration_test() {
             code_id_nois_proxy,
             Addr::unchecked("owner"),
             &nois_proxy::msg::InstantiateMsg {
-                manager: "manager".to_string(),
+                manager: Some("manager".to_string()),
                 prices: vec![Coin::new(1_000_000, "unoisx")],
-                withdrawal_address: "dao_dao_dao_dao_dao".to_string(),
                 test_mode: false,
                 callback_gas_limit: 500_000,
                 mode: nois_proxy::state::OperationalMode::Funded {},
@@ -151,9 +150,8 @@ fn integration_test() {
         resp,
         nois_proxy::msg::ConfigResponse {
             config: nois_proxy::state::Config {
-                manager: Addr::unchecked("manager"),
+                manager: Some(Addr::unchecked("manager")),
                 prices: vec![Coin::new(1_000_000, "unoisx")],
-                withdrawal_address: Addr::unchecked("dao_dao_dao_dao_dao"),
                 test_mode: false,
                 callback_gas_limit: 500_000,
                 payment: None,

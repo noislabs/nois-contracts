@@ -34,9 +34,7 @@ pub struct Config {
     /// i.e. payment must be paid in one of those denominations.
     pub prices: Vec<Coin>,
     /// Manager to set the config
-    pub manager: Addr,
-    // The address to which withdrawals will be made
-    pub withdrawal_address: Addr,
+    pub manager: Option<Addr>,
     pub test_mode: bool,
     /// The amount of gas that the callback to the dapp can consume
     pub callback_gas_limit: u64,

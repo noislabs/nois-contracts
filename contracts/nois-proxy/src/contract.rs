@@ -35,17 +35,17 @@ pub fn instantiate(
     let InstantiateMsg {
         prices,
         manager,
-        withdrawal_address,
         test_mode,
         callback_gas_limit,
         mode,
     } = msg;
-    let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
-    let manager = deps.api.addr_validate(&manager)?;
+    let manager = match manager {
+        Some(ma) => Some(deps.api.addr_validate(&ma)?),
+        None => None,
+    };
     let config = Config {
         prices,
         manager,
-        withdrawal_address,
         test_mode,
         callback_gas_limit,
         payment: None,
@@ -85,14 +85,12 @@ pub fn execute(
             nois_beacon_price,
             payment,
             prices,
-            withdrawal_address,
         } => execute_set_config(
             deps,
             info,
             env,
             manager,
             prices,
-            withdrawal_address,
             payment,
             nois_beacon_price,
             mode,
@@ -100,8 +98,12 @@ pub fn execute(
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
         }
-        ExecuteMsg::Withdaw { amount } => execute_withdraw(deps, env, info, amount),
-        ExecuteMsg::WithdawAll { denom } => execute_withdraw_all(deps, env, info, denom),
+        ExecuteMsg::Withdaw { amount, address } => {
+            execute_withdraw(deps, env, info, amount, address)
+        }
+        ExecuteMsg::WithdawAll { denom, address } => {
+            execute_withdraw_all(deps, env, info, denom, address)
+        }
     }
 }
 
@@ -219,26 +221,23 @@ fn execute_set_config(
     env: Env,
     manager: Option<String>,
     prices: Option<Vec<Coin>>,
-    withdrawal_address: Option<String>,
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
     mode: Option<OperationalMode>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
-    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
+    // check if manager set, the calling address is the authorised multisig
+    if let Some(manager) = config.manager.clone() {
+        ensure_eq!(info.sender, manager, ContractError::Unauthorized)
+    }
 
     let manager = match manager {
-        Some(ma) => deps.api.addr_validate(&ma)?,
+        Some(ma) => Some(deps.api.addr_validate(&ma)?),
         None => config.manager,
     };
     let prices = prices.unwrap_or(config.prices);
 
-    let withdrawal_address = match withdrawal_address {
-        Some(wa) => deps.api.addr_validate(&wa)?,
-        None => config.withdrawal_address,
-    };
     let test_mode = config.test_mode;
     let callback_gas_limit = config.callback_gas_limit;
     let payment = match payment {
@@ -254,7 +253,6 @@ fn execute_set_config(
     let new_config = Config {
         manager,
         prices,
-        withdrawal_address,
         test_mode,
         callback_gas_limit,
         payment,
@@ -273,12 +271,17 @@ fn execute_withdraw_all(
     env: Env,
     info: MessageInfo,
     denom: String,
+    address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
+    // check if manager set, the calling address is the authorised multisig
+    if let Some(manager) = config.manager {
+        ensure_eq!(info.sender, manager, ContractError::Unauthorized)
+    }
+    let address = deps.api.addr_validate(&address)?;
     let amount = deps.querier.query_balance(env.contract.address, denom)?;
     let msg = BankMsg::Send {
-        to_address: config.withdrawal_address.into(),
+        to_address: address.into(),
         amount: vec![amount],
     };
     let res = Response::new()
@@ -292,11 +295,18 @@ fn execute_withdraw(
     _env: Env,
     info: MessageInfo,
     amount: Coin,
+    address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
+    // check if manager set, the calling address is the authorised multisig
+    if let Some(manager) = config.manager {
+        ensure_eq!(info.sender, manager, ContractError::Unauthorized)
+    }
+
+    let address = deps.api.addr_validate(&address)?;
+
     let msg = BankMsg::Send {
-        to_address: config.withdrawal_address.into(),
+        to_address: address.into(),
         amount: vec![amount],
     };
     let res = Response::new()
@@ -645,9 +655,8 @@ mod tests {
         ];
         let mut deps = mock_dependencies_with_balance(&initial_funds);
         let msg = InstantiateMsg {
-            manager: CREATOR.to_string(),
+            manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            withdrawal_address: CREATOR.to_string(),
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -681,9 +690,8 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            manager: CREATOR.to_string(),
+            manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            withdrawal_address: "foo".to_string(),
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -777,6 +785,7 @@ mod tests {
 
         let msg = ExecuteMsg::Withdaw {
             amount: Coin::new(12, "unoisx"),
+            address: "some-address".to_string(),
         };
         let err = execute(
             deps.as_mut(),
@@ -791,7 +800,7 @@ mod tests {
         assert_eq!(
             res.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: CREATOR.to_string(),
+                to_address: "some-address".to_string(),
                 amount: coins(12, "unoisx"),
             })
         );
@@ -803,6 +812,7 @@ mod tests {
 
         let msg = ExecuteMsg::WithdawAll {
             denom: "unoisx".to_string(),
+            address: "some-address".to_string(),
         };
 
         let err = execute(
@@ -819,7 +829,7 @@ mod tests {
         assert_eq!(
             res.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: CREATOR.to_string(),
+                to_address: "some-address".to_string(),
                 amount: coins(22334455, "unoisx"),
             })
         );
