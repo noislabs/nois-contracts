@@ -787,6 +787,7 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
     }
+
     #[test]
     fn when_manager_is_not_set_manager_permissions_are_unathorised() {
         // Check that if manager not set, a random person cannot execute manager-like operations.
