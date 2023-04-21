@@ -58,10 +58,10 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     Ok(response)
 }
 
-/// This function will send incentive coins to incentivize a bot
-/// The bot is normally incentivised for bringing randomness on chain
+/// This function will send incentive coins to incentivize bots.
+/// Bots are normally incentivised for bringing randomness on chain
 /// But could also be incentivised for executing extra things
-/// like callback jobs
+/// like callback jobs.
 fn execute_send_funds_to_drand(
     deps: DepsMut,
     _env: Env,
@@ -89,7 +89,7 @@ fn execute_delegate(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     Ok(Response::new().add_message(StakingMsg::Delegate {
@@ -100,6 +100,7 @@ fn execute_delegate(
         },
     }))
 }
+
 /// This function will undelegate staked coins
 /// from one validator with the addr address
 fn execute_undelegate(
@@ -110,7 +111,7 @@ fn execute_undelegate(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     Ok(Response::new().add_message(StakingMsg::Undelegate {
@@ -121,6 +122,7 @@ fn execute_undelegate(
         },
     }))
 }
+
 /// This function will make this contract move the bonded stakes
 /// from one validator (src_addr) to another validator (dest_addr)
 fn execute_redelegate(
@@ -132,7 +134,7 @@ fn execute_redelegate(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     Ok(Response::new().add_message(StakingMsg::Redelegate {
@@ -165,7 +167,7 @@ fn execute_set_drand_addr(
 ) -> Result<Response, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     // ensure immutability
@@ -189,7 +191,7 @@ fn execute_set_manager_addr(
 ) -> Result<Response, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     let manager_addr = deps.api.addr_validate(&manager)?;
