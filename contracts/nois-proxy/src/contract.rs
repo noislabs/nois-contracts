@@ -227,7 +227,7 @@ fn execute_set_config(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // check if manager set, the calling address is the authorised multisig
+    // if manager set, check the calling address is the authorised multisig
     if let Some(manager) = config.manager.clone() {
         ensure_eq!(info.sender, manager, ContractError::Unauthorized)
     }
@@ -274,10 +274,12 @@ fn execute_withdraw_all(
     address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    // check if manager set, the calling address is the authorised multisig
+
+    // if manager set, check the calling address is the authorised multisig
     if let Some(manager) = config.manager {
         ensure_eq!(info.sender, manager, ContractError::Unauthorized)
     }
+
     let address = deps.api.addr_validate(&address)?;
     let amount = deps.querier.query_balance(env.contract.address, denom)?;
     let msg = BankMsg::Send {
@@ -298,7 +300,8 @@ fn execute_withdraw(
     address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    // check if manager set, the calling address is the authorised multisig
+
+    // if manager set, check the calling address is the authorised multisig
     if let Some(manager) = config.manager {
         ensure_eq!(info.sender, manager, ContractError::Unauthorized)
     }
