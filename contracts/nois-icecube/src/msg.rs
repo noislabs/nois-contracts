@@ -33,6 +33,8 @@ pub enum ExecuteMsg {
         /// The amount in unois
         amount: Uint128,
     },
+    /// Claim staking rewards.
+    /// This can be executed by any address in case the drand contract runs dry.
     ClaimRewards {
         /// The validator address
         addr: String,
@@ -41,6 +43,8 @@ pub enum ExecuteMsg {
         /// New address of the nois-drand contract
         addr: String,
     },
+    /// Sends funds from the icecube to the drand contract.
+    /// This can be executed by any address in case the drand contract runs dry.
     SendFundsToDrand {
         funds: Coin,
     },

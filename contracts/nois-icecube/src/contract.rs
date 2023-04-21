@@ -213,8 +213,8 @@ mod tests {
     use super::*;
     use cosmwasm_std::{
         from_binary,
-        testing::{mock_dependencies, mock_env, mock_info},
-        Addr, CosmosMsg, Uint128,
+        testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
+        Addr, CosmosMsg, Empty, OwnedDeps, Uint128,
     };
 
     const CREATOR: &str = "creator";
@@ -239,6 +239,56 @@ mod tests {
             }
         );
     }
+
+    fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+        };
+        let info = mock_info(CREATOR, &[]);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let msg = ExecuteMsg::SetDrandAddr {
+            addr: "the-drand-address".to_string(),
+        };
+
+        let info = mock_info(MANAGER, &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        deps
+    }
+
+    #[test]
+    fn anyone_can_claim_rewards() {
+        let mut deps = setup();
+
+        let msg = ExecuteMsg::ClaimRewards {
+            addr: "valoper123".to_string(),
+        };
+        let info = mock_info("some_random_person", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(response.messages.len(), 1);
+        assert!(matches!(
+            response.messages[0].msg,
+            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { .. })
+        ));
+    }
+
+    #[test]
+    fn anyone_can_send_to_drand() {
+        let mut deps = setup();
+
+        let msg = ExecuteMsg::SendFundsToDrand {
+            funds: Coin::new(123, "foocoin"),
+        };
+        let info = mock_info("some_random_person", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(response.messages.len(), 1);
+        assert!(matches!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send { .. })
+        ));
+    }
+
     #[test]
     fn only_manager_can_delegate_undelegate_redelegate() {
         let mut deps = mock_dependencies();
