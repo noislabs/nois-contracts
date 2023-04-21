@@ -49,8 +49,14 @@ pub enum InPacketAck {
 #[non_exhaustive]
 pub enum OutPacket {
     DeliverBeacon {
-        /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
+        /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`.
+        /// Please note that the source of randomness can change any time and users should not
+        /// rely on the contents of this string.
         source_id: String,
+        /// The point in time when the randomness was first published. This information is provided
+        /// by the randomness provider. This is not the time when the randomness was processed on chain.
+        published: Timestamp,
+        /// The randomness. This is guaranteed to be 32 bytes long.
         randomness: HexBinary,
         /// The origin data set by the proxy in a proxy specific format.
         origin: Binary,

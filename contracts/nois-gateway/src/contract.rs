@@ -1303,7 +1303,11 @@ mod tests {
         // The gateway -> proxy packet we get the acknowledgement for
         let packet = OutPacket::DeliverBeacon {
             source_id: "backend:123:456".to_string(),
-            randomness: HexBinary::from_hex("aabbccdd").unwrap(),
+            published: Timestamp::from_seconds(1682086395),
+            randomness: HexBinary::from_hex(
+                "aabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccddaabbccdd",
+            )
+            .unwrap(),
             origin: origin(1),
         };
 

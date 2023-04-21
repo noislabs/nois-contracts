@@ -472,9 +472,10 @@ pub fn ibc_packet_receive(
         match op {
             OutPacket::DeliverBeacon {
                 source_id: _,
+                published,
                 randomness,
                 origin,
-            } => receive_deliver_beacon(deps, randomness, origin),
+            } => receive_deliver_beacon(deps, published, randomness, origin),
             OutPacket::Welcome { payment } => receive_welcome(deps, env, payment),
             OutPacket::PushBeaconPrice {
                 timestamp,
@@ -496,6 +497,7 @@ pub fn ibc_packet_receive(
 
 fn receive_deliver_beacon(
     deps: DepsMut,
+    published: Timestamp,
     randomness: HexBinary,
     origin: Binary,
 ) -> Result<IbcReceiveResponse, ContractError> {
@@ -517,6 +519,7 @@ fn receive_deliver_beacon(
             msg: to_binary(&ReceiverExecuteMsg::NoisReceive {
                 callback: NoisCallback {
                     job_id: job_id.clone(),
+                    published,
                     randomness,
                 },
             })?,

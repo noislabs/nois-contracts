@@ -3,7 +3,7 @@
 use cosmwasm_std::{
     to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
 };
-use drand_common::{valid_round_after, DRAND_CHAIN_HASH};
+use drand_common::{time_of_round, valid_round_after, DRAND_CHAIN_HASH};
 use nois_protocol::{InPacketAck, OutPacket, StdAck, DELIVER_BEACON_PACKET_LIFETIME};
 
 use crate::{
@@ -75,7 +75,9 @@ impl RequestRouter {
         let acknowledgement = if let Some(randomness) = existing_randomness {
             //If the drand round already exists we send it
             increment_processed_drand_jobs(deps.storage, round)?;
-            let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness)?;
+            let published = time_of_round(round);
+            let msg =
+                create_deliver_beacon_ibc_message(env.block.time, job, published, randomness)?;
             msgs.push(msg.into());
             StdAck::success(&InPacketAck::RequestProcessed { source_id })
         } else {
@@ -110,8 +112,14 @@ impl RequestRouter {
         // let max_jobs_per_submission
         while let Some(job) = unprocessed_drand_jobs_dequeue(deps.storage, round)? {
             increment_processed_drand_jobs(deps.storage, round)?;
+            let published = time_of_round(round);
             // Use IbcMsg::SendPacket to send packages to the proxies.
-            let msg = create_deliver_beacon_ibc_message(env.block.time, job, randomness.clone())?;
+            let msg = create_deliver_beacon_ibc_message(
+                env.block.time,
+                job,
+                published,
+                randomness.clone(),
+            )?;
             msgs.push(msg.into());
             jobs_processed += 1;
             if jobs_processed >= max_jobs_per_submission {
@@ -131,10 +139,12 @@ impl RequestRouter {
 fn create_deliver_beacon_ibc_message(
     blocktime: Timestamp,
     job: Job,
+    published: Timestamp,
     randomness: HexBinary,
 ) -> Result<IbcMsg, StdError> {
     let packet = OutPacket::DeliverBeacon {
         randomness,
+        published,
         source_id: job.source_id,
         origin: job.origin,
     };

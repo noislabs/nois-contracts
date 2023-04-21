@@ -63,7 +63,9 @@ pub fn execute_receive(
     let proxy = NOIS_PROXY.load(deps.storage)?;
     ensure_eq!(info.sender, proxy, ContractError::UnauthorizedReceive);
 
-    let NoisCallback { job_id, randomness } = callback;
+    let NoisCallback {
+        job_id, randomness, ..
+    } = callback;
     let randomness: [u8; 32] = randomness
         .to_array()
         .map_err(|_| ContractError::InvalidRandomness)?;
@@ -122,7 +124,7 @@ mod tests {
     use super::*;
     use cosmwasm_std::{
         testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-        Empty, HexBinary, OwnedDeps,
+        Empty, HexBinary, OwnedDeps, Timestamp,
     };
 
     const CREATOR: &str = "creator";
@@ -178,6 +180,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
@@ -195,6 +198,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )

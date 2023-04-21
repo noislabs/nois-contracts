@@ -171,11 +171,10 @@ fn query_history(deps: Deps) -> StdResult<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cosmwasm_std::coins;
     use cosmwasm_std::testing::{
         mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
     };
-    use cosmwasm_std::{Empty, HexBinary, OwnedDeps};
+    use cosmwasm_std::{coins, Empty, HexBinary, OwnedDeps, Timestamp};
 
     const CREATOR: &str = "creator";
     const PROXY_ADDRESS: &str = "the proxy of choice";
@@ -240,6 +239,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "round_1".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
@@ -252,6 +252,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "round_1".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 )
@@ -273,6 +274,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "round_1".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex("ffffffff").unwrap(),
             },
         };
@@ -294,6 +296,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "111".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
@@ -320,6 +323,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
@@ -343,6 +347,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
