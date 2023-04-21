@@ -1,6 +1,6 @@
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, Deps, DepsMut, Env,
-    MessageInfo, QueryResponse, Response, StdResult, Timestamp, Uint128, WasmMsg,
+    HexBinary, MessageInfo, QueryResponse, Response, StdResult, Timestamp, Uint128, WasmMsg,
 };
 use nois::{NoisCallback, ProxyExecuteMsg};
 use sha2::{Digest, Sha256};
@@ -20,13 +20,10 @@ const AIRDROP_ODDS: u8 = 3;
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
-    info: MessageInfo,
+    _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
-    let withdrawal_address = deps.api.addr_validate(&msg.withdrawal_address)?;
-    let manager = msg
-        .manager
-        .map_or(Ok(info.sender), |o| deps.api.addr_validate(&o))?;
+    let manager = deps.api.addr_validate(&msg.manager)?;
     let nois_proxy = deps
         .api
         .addr_validate(&msg.nois_proxy)
@@ -41,10 +38,7 @@ pub fn instantiate(
         },
     )?;
 
-    let config = Config {
-        manager: Some(manager),
-        withdrawal_address,
-    };
+    let config = Config { manager };
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::default())
@@ -58,9 +52,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::UpdateConfig { new_manager } => {
-            execute_update_config(deps, env, info, new_manager)
-        }
+        ExecuteMsg::UpdateConfig { manager } => execute_update_config(deps, env, info, manager),
         ExecuteMsg::RegisterMerkleRoot { merkle_root } => {
             execute_register_merkle_root(deps, env, info, merkle_root)
         }
@@ -71,7 +63,7 @@ pub fn execute(
         //NoisReceive should be called by the proxy contract. The proxy is forwarding the randomness from the nois chain to this contract.
         ExecuteMsg::NoisReceive { callback } => execute_receive(deps, env, info, callback),
         ExecuteMsg::Claim { amount, proof } => execute_claim(deps, env, info, amount, proof),
-        ExecuteMsg::WithdawAll {} => execute_withdraw_all(deps, env, info),
+        ExecuteMsg::WithdawAll { address } => execute_withdraw_all(deps, env, info, address),
     }
 }
 
@@ -90,25 +82,18 @@ fn execute_update_config(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    new_manager: Option<String>,
+    manager: Option<String>,
 ) -> Result<Response, ContractError> {
-    // authorize manager
-    let cfg = CONFIG.load(deps.storage)?;
-    let manager = cfg.manager.ok_or(ContractError::Unauthorized {})?;
-    if info.sender != manager {
-        return Err(ContractError::Unauthorized {});
-    }
+    let config = CONFIG.load(deps.storage)?;
+    // check the calling address is the authorised multisig
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
-    // if manager some validated to addr, otherwise set to none
-    let mut tmp_manager = None;
-    if let Some(addr) = new_manager {
-        tmp_manager = Some(deps.api.addr_validate(&addr)?)
-    }
+    let manager = match manager {
+        Some(ma) => deps.api.addr_validate(&ma)?,
+        None => config.manager,
+    };
 
-    CONFIG.update(deps.storage, |mut exists| -> StdResult<_> {
-        exists.manager = tmp_manager;
-        Ok(exists)
-    })?;
+    CONFIG.save(deps.storage, &Config { manager })?;
 
     Ok(Response::new().add_attribute("action", "update_config"))
 }
@@ -120,12 +105,9 @@ pub fn execute_rand_drop(
     info: MessageInfo,
     random_beacon_after: Timestamp,
 ) -> Result<Response, ContractError> {
-    // Make sure the manager is executing this function
     let config = CONFIG.load(deps.storage)?;
-    let manager = config.manager.ok_or(ContractError::Unauthorized {})?;
-    if info.sender != manager {
-        return Err(ContractError::Unauthorized {});
-    }
+    // check the calling address is the authorised multisig
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     // For full transparency make sure the merkle root has been registered before beacon request
     if MERKLE_ROOT.may_load(deps.storage)?.is_none() {
@@ -173,7 +155,7 @@ pub fn execute_receive(
 ) -> Result<Response, ContractError> {
     let RandomnessParams {
         nois_proxy,
-        nois_randomness: _,
+        nois_randomness,
         requested,
     } = NOIS_RANDOMNESS.load(deps.storage).unwrap();
 
@@ -186,7 +168,7 @@ pub fn execute_receive(
         .map_err(|_| ContractError::InvalidRandomness)?;
     // Make sure the randomness does not exist yet
 
-    match NOIS_RANDOMNESS.load(deps.storage).unwrap().nois_randomness {
+    match nois_randomness {
         None => NOIS_RANDOMNESS.save(
             deps.storage,
             &RandomnessParams {
@@ -205,22 +187,17 @@ fn execute_withdraw_all(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-
-    // check the calling address is the authorised addr
-
-    // if manager set validate, otherwise unauthorized
-    let manager = config.manager.ok_or(ContractError::Unauthorized {})?;
-    if info.sender != manager {
-        return Err(ContractError::Unauthorized {});
-    }
+    // check the calling address is the authorised multisig
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     let amount = deps
         .querier
         .query_balance(env.contract.address, AIRDROP_DENOM)?;
     let msg = BankMsg::Send {
-        to_address: config.withdrawal_address.into(),
+        to_address: address,
         amount: vec![amount],
     };
     let res = Response::new()
@@ -249,31 +226,23 @@ fn execute_register_merkle_root(
     deps: DepsMut,
     _env: Env,
     info: MessageInfo,
-    merkle_root: String,
+    merkle_root: HexBinary,
 ) -> Result<Response, ContractError> {
-    let cfg = CONFIG.load(deps.storage)?;
+    let config = CONFIG.load(deps.storage)?;
     let current_merkle_root = MERKLE_ROOT.may_load(deps.storage)?;
 
-    // if manager set validate, otherwise unauthorized
-    let manager = cfg.manager.ok_or(ContractError::Unauthorized {})?;
-    if info.sender != manager {
-        return Err(ContractError::Unauthorized {});
-    }
+    // check the calling address is the authorised multisig
+    ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     if current_merkle_root.is_some() {
         return Err(ContractError::MerkleImmutable {});
     }
 
-    // check merkle root length
-    let mut root_buf: [u8; 32] = [0; 32];
-
-    hex::decode_to_slice(merkle_root.clone(), &mut root_buf)?;
-
     MERKLE_ROOT.save(deps.storage, &merkle_root)?;
 
     Ok(Response::new().add_attributes(vec![
         Attribute::new("action", "register_merkle_root"),
-        Attribute::new("merkle_root", merkle_root),
+        Attribute::new("merkle_root", merkle_root.to_string()),
     ]))
 }
 
@@ -311,9 +280,7 @@ fn execute_claim(
     })?;
 
     // Check the overall cumulated proof hashes along the merkle tree ended up having the same hash as the registered Merkle root
-    let mut root_buf: [u8; 32] = [0; 32];
-    hex::decode_to_slice(merkle_root, &mut root_buf)?;
-    if root_buf != hash {
+    if merkle_root != hash {
         return Err(ContractError::VerificationFailed {});
     }
 
@@ -348,9 +315,9 @@ fn execute_claim(
 }
 
 fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
-    let cfg = CONFIG.load(deps.storage)?;
+    let config = CONFIG.load(deps.storage)?;
     Ok(ConfigResponse {
-        manager: cfg.manager.map(|o| o.to_string()),
+        manager: config.manager.to_string(),
     })
 }
 fn query_is_lucky(deps: Deps, address: String) -> StdResult<IsLuckyResponse> {
@@ -394,8 +361,7 @@ mod tests {
     fn instantiate_contract() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            manager: Some(MANAGER.to_string()),
-            withdrawal_address: "withdraw_address".to_string(),
+            manager: MANAGER.to_string(),
             nois_proxy: PROXY_ADDRESS.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
@@ -411,14 +377,13 @@ mod tests {
         // it worked, let's query the state
         let res = query(deps.as_ref(), env, QueryMsg::Config {}).unwrap();
         let config: ConfigResponse = from_binary(&res).unwrap();
-        assert_eq!(MANAGER, config.manager.unwrap().as_str());
+        assert_eq!(MANAGER, config.manager.as_str());
     }
     #[test]
     fn instantiate_fails_for_invalid_proxy_address() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            manager: Some(MANAGER.to_string()),
-            withdrawal_address: "withdraw_address".to_string(),
+            manager: MANAGER.to_string(),
             nois_proxy: "".to_string(),
         };
         let info = mock_info("CREATOR", &[]);
@@ -431,8 +396,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            manager: None,
-            withdrawal_address: "withdraw_address".to_string(),
+            manager: MANAGER.to_string(),
             nois_proxy: "nois_proxy".to_string(),
         };
 
@@ -444,7 +408,7 @@ mod tests {
         let env = mock_env();
         let info = mock_info(MANAGER, &[]);
         let msg = ExecuteMsg::UpdateConfig {
-            new_manager: Some("manager2".to_string()),
+            manager: Some("manager2".to_string()),
         };
 
         let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
@@ -453,12 +417,12 @@ mod tests {
         // it worked, let's query the state
         let res = query(deps.as_ref(), env, QueryMsg::Config {}).unwrap();
         let config: ConfigResponse = from_binary(&res).unwrap();
-        assert_eq!("manager2", config.manager.unwrap().as_str());
+        assert_eq!("manager2", config.manager.as_str());
 
         // Unauthorized err
         let env = mock_env();
         let info = mock_info(MANAGER, &[]);
-        let msg = ExecuteMsg::UpdateConfig { new_manager: None };
+        let msg = ExecuteMsg::UpdateConfig { manager: None };
 
         let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(res, ContractError::Unauthorized {});
@@ -472,8 +436,10 @@ mod tests {
         let env = mock_env();
         let info = mock_info(MANAGER, &[]);
         let msg = ExecuteMsg::RegisterMerkleRoot {
-            merkle_root: "634de21cde1044f41d90373733b0f0fb1c1c71f9652b905cdf159e73c4cf0d37"
-                .to_string(),
+            merkle_root: HexBinary::from_hex(
+                "634de21cde1044f41d90373733b0f0fb1c1c71f9652b905cdf159e73c4cf0d37",
+            )
+            .unwrap(),
         };
 
         let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
@@ -491,15 +457,18 @@ mod tests {
         let res = query(deps.as_ref(), env, QueryMsg::MerkleRoot {}).unwrap();
         let merkle_root: MerkleRootResponse = from_binary(&res).unwrap();
         assert_eq!(
-            "634de21cde1044f41d90373733b0f0fb1c1c71f9652b905cdf159e73c4cf0d37".to_string(),
+            HexBinary::from_hex("634de21cde1044f41d90373733b0f0fb1c1c71f9652b905cdf159e73c4cf0d37")
+                .unwrap(),
             merkle_root.merkle_root
         );
         // registering a new merkle root should fail
         let env = mock_env();
         let info = mock_info(MANAGER, &[]);
         let msg = ExecuteMsg::RegisterMerkleRoot {
-            merkle_root: "634de21cde1044f41d90373733b0f0fb1c1c71f9652b905cdf159e73c4cf0d37"
-                .to_string(),
+            merkle_root: HexBinary::from_hex(
+                "634de21cde1044f41d90373733b0f0fb1c1c71f9652b905cdf159e73c4cf0d37",
+            )
+            .unwrap(),
         };
         let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(res, ContractError::MerkleImmutable {});
@@ -514,7 +483,7 @@ mod tests {
     struct Encoded {
         account: String,
         amount: Uint128,
-        root: String,
+        root: HexBinary,
         proofs: Vec<String>,
     }
     #[derive(Deserialize, Debug)]
@@ -545,8 +514,10 @@ mod tests {
 
         let info = mock_info(MANAGER, &[]);
         let msg_merkle = ExecuteMsg::RegisterMerkleRoot {
-            merkle_root: "634de21cde1044f41d90373733b0f0fb1c1c71f9652b905cdf159e73c4cf0d37"
-                .to_string(),
+            merkle_root: HexBinary::from_hex(
+                "634de21cde1044f41d90373733b0f0fb1c1c71f9652b905cdf159e73c4cf0d37",
+            )
+            .unwrap(),
         };
         execute(deps.as_mut(), mock_env(), info, msg_merkle).unwrap();
 
@@ -656,13 +627,17 @@ mod tests {
         // Stop aridrop and Widhdraw funds
         let env = mock_env();
         let info = mock_info("random_person_who_hates_airdrops", &[]);
-        let msg = ExecuteMsg::WithdawAll {};
+        let msg = ExecuteMsg::WithdawAll {
+            address: "some-address".to_string(),
+        };
         let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(err, ContractError::Unauthorized {});
 
         let env = mock_env();
         let info = mock_info(MANAGER, &[]);
-        let msg = ExecuteMsg::WithdawAll {};
+        let msg = ExecuteMsg::WithdawAll {
+            address: "withdraw_address".to_string(),
+        };
         let res = execute(deps.as_mut(), env, info, msg).unwrap();
 
         let expected = SubMsg::new(BankMsg::Send {
@@ -724,67 +699,5 @@ mod tests {
             num_lucky,
             test_data.airdrop_list.len() / AIRDROP_ODDS as usize
         );
-    }
-
-    #[test]
-    fn manager_freeze() {
-        let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg {
-            manager: Some(MANAGER.to_string()),
-            withdrawal_address: "withdraw_address".to_string(),
-            nois_proxy: "nois_proxy".to_string(),
-        };
-
-        let env = mock_env();
-        let info = mock_info("addr-1", &[]);
-        let _res = instantiate(deps.as_mut(), env, info, msg).unwrap();
-
-        // can register merkle root
-        let env = mock_env();
-        let info = mock_info(MANAGER, &[]);
-        let msg = ExecuteMsg::RegisterMerkleRoot {
-            merkle_root: "5d4f48f147cb6cb742b376dce5626b2a036f69faec10cd73631c791780e150fc"
-                .to_string(),
-        };
-        let _res = execute(deps.as_mut(), env, info, msg).unwrap();
-
-        // can update manager
-        let env = mock_env();
-        let info = mock_info(MANAGER, &[]);
-        let msg = ExecuteMsg::UpdateConfig {
-            new_manager: Some("manager2".to_string()),
-        };
-
-        let res = execute(deps.as_mut(), env, info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // freeze contract
-        let env = mock_env();
-        let info = mock_info("manager2", &[]);
-        let msg = ExecuteMsg::UpdateConfig { new_manager: None };
-
-        let res = execute(deps.as_mut(), env, info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        // cannot register new drop
-        let env = mock_env();
-        let info = mock_info("manager2", &[]);
-        let msg = ExecuteMsg::RegisterMerkleRoot {
-            merkle_root: "ebaa83c7eaf7467c378d2f37b5e46752d904d2d17acd380b24b02e3b398b3e5a"
-                .to_string(),
-        };
-        let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
-        assert_eq!(res, ContractError::Unauthorized {});
-
-        // cannot update config
-        let env = mock_env();
-        let info = mock_info("manager2", &[]);
-        let msg = ExecuteMsg::RegisterMerkleRoot {
-            merkle_root: "ebaa83c7eaf7467c378d2f37b5e46752d904d2d17acd380b24b02e3b398b3e5a"
-                .to_string(),
-        };
-        let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
-        assert_eq!(res, ContractError::Unauthorized {});
     }
 }
