@@ -107,24 +107,31 @@ pub fn execute_receive(
     //callback should only be allowed to be called by the proxy contract
     //otherwise anyone can cut the randomness workflow and cheat the randomness by sending the randomness directly to this contract
     ensure_eq!(info.sender, proxy, ContractError::UnauthorizedReceive);
-    let randomness: [u8; 32] = callback
-        .randomness
+
+    let NoisCallback {
+        job_id,
+        published,
+        randomness,
+    } = callback;
+
+    let randomness: [u8; 32] = randomness
         .to_array()
         .map_err(|_| ContractError::InvalidRandomness)?;
     let dice_outcome = roll_dice(randomness);
 
     //Preserve the immutability of the previous rounds.
     //So that the player cannot retry and change history.
-    let response = match JOB_OUTCOMES.may_load(deps.storage, &callback.job_id)? {
+    let response = match JOB_OUTCOMES.may_load(deps.storage, &job_id)? {
         None => Response::default(),
         Some(_randomness) => return Err(ContractError::JobIdAlreadyPresent),
     };
-    JOB_OUTCOMES.save(deps.storage, &callback.job_id, &dice_outcome)?;
+    JOB_OUTCOMES.save(deps.storage, &job_id, &dice_outcome)?;
 
     JOB_DELIVERIES.save(
         deps.storage,
-        &callback.job_id,
+        &job_id,
         &JobLifecycleDelivery {
+            published,
             height: env.block.height,
             tx_index: env.transaction.map(|t| t.index),
         },

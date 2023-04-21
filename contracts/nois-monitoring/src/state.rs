@@ -19,6 +19,8 @@ pub struct JobLifecycleRequest {
 
 #[cw_serde]
 pub struct JobLifecycleDelivery {
+    // Publishing time of the delivered beacon. Must be > `after`.
+    pub published: Timestamp,
     pub height: u64,
     pub tx_index: Option<u32>,
 }
