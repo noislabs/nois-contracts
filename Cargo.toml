@@ -3,7 +3,8 @@ members = ["packages/*", "contracts/*"]
 resolver = "2"
 
 [workspace.dependencies]
-nois = "0.6.0"
+nois = { git = "https://github.com/noislabs/nois", branch = "add-published-time" }
+# nois = "0.6.0"
 
 [profile.release.package.nois-protocol]
 codegen-units = 1
