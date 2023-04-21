@@ -227,10 +227,12 @@ fn execute_set_config(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // if manager set, check the calling address is the authorised multisig
-    if let Some(manager) = config.manager.clone() {
-        ensure_eq!(info.sender, manager, ContractError::Unauthorized)
-    }
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    ensure_eq!(
+        &info.sender,                                                // &Addr
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        ContractError::Unauthorized
+    );
 
     let manager = match manager {
         Some(ma) => Some(deps.api.addr_validate(&ma)?),
@@ -275,10 +277,12 @@ fn execute_withdraw_all(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // if manager set, check the calling address is the authorised multisig
-    if let Some(manager) = config.manager {
-        ensure_eq!(info.sender, manager, ContractError::Unauthorized)
-    }
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    ensure_eq!(
+        &info.sender,                                                // &Addr
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        ContractError::Unauthorized
+    );
 
     let address = deps.api.addr_validate(&address)?;
     let amount = deps.querier.query_balance(env.contract.address, denom)?;
@@ -301,10 +305,12 @@ fn execute_withdraw(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // if manager set, check the calling address is the authorised multisig
-    if let Some(manager) = config.manager {
-        ensure_eq!(info.sender, manager, ContractError::Unauthorized)
-    }
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    ensure_eq!(
+        &info.sender,                                                // &Addr
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        ContractError::Unauthorized
+    );
 
     let address = deps.api.addr_validate(&address)?;
 
@@ -784,6 +790,24 @@ mod tests {
 
     #[test]
     fn withdraw_works() {
+        // Check that if manager not set, a random person cannot execute manager-like operations.
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            manager: None,
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: false,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+        };
+        let info = mock_info(CREATOR, &[]);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let msg = ExecuteMsg::Withdaw {
+            amount: Coin::new(12, "unoisx"),
+            address: "some-address".to_string(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+
         let mut deps = setup();
 
         let msg = ExecuteMsg::Withdaw {
