@@ -44,8 +44,8 @@ test.serial("set up nois channel", async (t) => {
   // Instantiate proxy on appchain
   const wasmClient = await setupWasmClient();
   const proxyMsg: ProxyInstantiateMsg = {
+    manager: wasmClient.senderAddress,
     prices: coins(1_000_000, "ucosm"),
-    withdrawal_address: wasmClient.senderAddress,
     test_mode: true,
     callback_gas_limit: 500_000,
     mode: {

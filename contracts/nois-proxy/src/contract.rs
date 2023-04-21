@@ -1,9 +1,10 @@
 use cosmwasm_std::{
-    attr, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin, CosmosMsg, Deps,
-    DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg,
-    IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
-    IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, QueryResponse, Reply, Response,
-    StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, Uint128, WasmMsg,
+    attr, ensure_eq, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin,
+    CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never,
+    QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
+    Uint128, WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
@@ -33,15 +34,18 @@ pub fn instantiate(
 ) -> StdResult<Response> {
     let InstantiateMsg {
         prices,
-        withdrawal_address,
+        manager,
         test_mode,
         callback_gas_limit,
         mode,
     } = msg;
-    let withdrawal_address = deps.api.addr_validate(&withdrawal_address)?;
+    let manager = match manager {
+        Some(ma) => Some(deps.api.addr_validate(&ma)?),
+        None => None,
+    };
     let config = Config {
         prices,
-        withdrawal_address,
+        manager,
         test_mode,
         callback_gas_limit,
         payment: None,
@@ -75,11 +79,31 @@ pub fn execute(
         ExecuteMsg::GetNextRandomness { job_id } => {
             execute_get_next_randomness(deps, env, info, job_id)
         }
+        ExecuteMsg::SetConfig {
+            manager,
+            mode,
+            nois_beacon_price,
+            payment,
+            prices,
+        } => execute_set_config(
+            deps,
+            info,
+            env,
+            manager,
+            prices,
+            payment,
+            nois_beacon_price,
+            mode,
+        ),
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
         }
-        ExecuteMsg::Withdaw { amount } => execute_withdraw(deps, env, info, amount),
-        ExecuteMsg::WithdawAll { denom } => execute_withdraw_all(deps, env, info, denom),
+        ExecuteMsg::Withdaw { amount, address } => {
+            execute_withdraw(deps, env, info, amount, address)
+        }
+        ExecuteMsg::WithdawAll { denom, address } => {
+            execute_withdraw_all(deps, env, info, denom, address)
+        }
     }
 }
 
@@ -190,16 +214,80 @@ pub fn execute_get_randomness_impl(
     Ok(res)
 }
 
+#[allow(clippy::too_many_arguments)]
+fn execute_set_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    env: Env,
+    manager: Option<String>,
+    prices: Option<Vec<Coin>>,
+    payment: Option<String>,
+    nois_beacon_price: Option<Uint128>,
+    mode: Option<OperationalMode>,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    ensure_eq!(
+        &info.sender,                                                // &Addr
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        ContractError::Unauthorized
+    );
+
+    let manager = match manager {
+        Some(ma) => Some(deps.api.addr_validate(&ma)?),
+        None => config.manager,
+    };
+    let prices = prices.unwrap_or(config.prices);
+
+    let test_mode = config.test_mode;
+    let callback_gas_limit = config.callback_gas_limit;
+    let payment = match payment {
+        Some(pa) => Some(pa),
+        None => config.payment,
+    };
+    let (nois_beacon_price, nois_beacon_price_updated) = match nois_beacon_price {
+        Some(bp) => (bp, env.block.time),
+        None => (config.nois_beacon_price, config.nois_beacon_price_updated),
+    };
+    let mode = mode.unwrap_or(config.mode);
+
+    let new_config = Config {
+        manager,
+        prices,
+        test_mode,
+        callback_gas_limit,
+        payment,
+        nois_beacon_price,
+        nois_beacon_price_updated,
+        mode,
+    };
+
+    CONFIG.save(deps.storage, &new_config)?;
+
+    Ok(Response::default())
+}
+
 fn execute_withdraw_all(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     denom: String,
+    address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    ensure_eq!(
+        &info.sender,                                                // &Addr
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        ContractError::Unauthorized
+    );
+
+    let address = deps.api.addr_validate(&address)?;
     let amount = deps.querier.query_balance(env.contract.address, denom)?;
     let msg = BankMsg::Send {
-        to_address: config.withdrawal_address.into(),
+        to_address: address.to_string(),
         amount: vec![amount],
     };
     let res = Response::new()
@@ -211,12 +299,23 @@ fn execute_withdraw_all(
 fn execute_withdraw(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     amount: Coin,
+    address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    ensure_eq!(
+        &info.sender,                                                // &Addr
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        ContractError::Unauthorized
+    );
+
+    let address = deps.api.addr_validate(&address)?;
+
     let msg = BankMsg::Send {
-        to_address: config.withdrawal_address.into(),
+        to_address: address.to_string(),
         amount: vec![amount],
     };
     let res = Response::new()
@@ -565,8 +664,8 @@ mod tests {
         ];
         let mut deps = mock_dependencies_with_balance(&initial_funds);
         let msg = InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            withdrawal_address: CREATOR.to_string(),
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -600,8 +699,8 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            withdrawal_address: "foo".to_string(),
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -690,18 +789,68 @@ mod tests {
     }
 
     #[test]
+    fn when_manager_is_not_set_manager_permissions_are_unathorised() {
+        // Check that if manager not set, a random person cannot execute manager-like operations.
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            manager: None,
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: false,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+        };
+        let info = mock_info(CREATOR, &[]);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        // withdraw
+        let msg = ExecuteMsg::Withdaw {
+            amount: Coin::new(12, "unoisx"),
+            address: "some-address".to_string(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+        // withdraw all
+        let msg = ExecuteMsg::WithdawAll {
+            denom: "unoisx".to_string(),
+            address: "some-address".to_string(),
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+        // Edit config
+        let msg = ExecuteMsg::SetConfig {
+            manager: Some("some-manager".to_string()),
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            mode: None,
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+    }
+
+    #[test]
     fn withdraw_works() {
         let mut deps = setup();
 
         let msg = ExecuteMsg::Withdaw {
             amount: Coin::new(12, "unoisx"),
+            address: "some-address".to_string(),
         };
-        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("dapp", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+        let res = execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(
             res.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: CREATOR.to_string(),
+                to_address: "some-address".to_string(),
                 amount: coins(12, "unoisx"),
             })
         );
@@ -713,13 +862,24 @@ mod tests {
 
         let msg = ExecuteMsg::WithdawAll {
             denom: "unoisx".to_string(),
+            address: "some-address".to_string(),
         };
-        let res = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("dapp", &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+        let res = execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+
         assert_eq!(res.messages.len(), 1);
         assert_eq!(
             res.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: CREATOR.to_string(),
+                to_address: "some-address".to_string(),
                 amount: coins(22334455, "unoisx"),
             })
         );

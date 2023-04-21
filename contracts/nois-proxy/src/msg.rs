@@ -9,7 +9,7 @@ pub struct InstantiateMsg {
     /// The prices of a randomness. List is to be interpreted as oneof,
     /// i.e. payment must be paid in one of those denominations.
     pub prices: Vec<Coin>,
-    pub withdrawal_address: String,
+    pub manager: Option<String>,
     /// In test mode the min publish time calculation is detached from the clock.
     pub test_mode: bool,
     /// The amount of gas that the callback to the dapp can consume
@@ -20,14 +20,36 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     // KEEP IN SYNC WITH ProxyExecuteMsg::GetNextRandomness
-    GetNextRandomness { job_id: String },
+    GetNextRandomness {
+        job_id: String,
+    },
     // KEEP IN SYNC WITH ProxyExecuteMsg::GetRandomnessAfter
-    GetRandomnessAfter { after: Timestamp, job_id: String },
-
+    GetRandomnessAfter {
+        after: Timestamp,
+        job_id: String,
+    },
+    /// Set the config
+    SetConfig {
+        manager: Option<String>,
+        /// The prices of a randomness. List is to be interpreted as oneof,
+        /// i.e. payment must be paid in one of those denominations.
+        prices: Option<Vec<Coin>>,
+        /// Address of the payment contract (on the other chain)
+        payment: Option<String>,
+        /// The amount of tokens the proxy sends for each randomness request to the Nois chain
+        nois_beacon_price: Option<Uint128>,
+        mode: Option<OperationalMode>,
+    },
     // Withdraw the given amount to the withdrawal address
-    Withdaw { amount: Coin },
+    Withdaw {
+        amount: Coin,
+        address: String,
+    },
     // Withdraw all available balance of this token to the withdrawal address
-    WithdawAll { denom: String },
+    WithdawAll {
+        denom: String,
+        address: String,
+    },
 }
 
 // Unused from implementation to bring up compiler errors when the
