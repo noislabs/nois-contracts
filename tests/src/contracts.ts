@@ -94,7 +94,7 @@ export interface ProxyOperationalMode {
 }
 
 export interface ProxyInstantiateMsg {
-  readonly manager: null | string;
+  readonly manager: null | string;
   readonly prices: Array<Coin>;
   readonly test_mode: boolean;
   readonly callback_gas_limit: number;
