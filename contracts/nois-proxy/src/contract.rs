@@ -287,7 +287,7 @@ fn execute_withdraw_all(
     let address = deps.api.addr_validate(&address)?;
     let amount = deps.querier.query_balance(env.contract.address, denom)?;
     let msg = BankMsg::Send {
-        to_address: address.into(),
+        to_address: address,
         amount: vec![amount],
     };
     let res = Response::new()
