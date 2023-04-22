@@ -67,7 +67,9 @@ fn execute_send_funds_to_drand(
     _env: Env,
     funds: Coin,
 ) -> Result<Response, ContractError> {
-    let Some(nois_drand_contract) = CONFIG.load(deps.storage)?.drand else {
+    let config = CONFIG.load(deps.storage)?;
+
+    let Some(nois_drand_contract) = config.drand else {
         return Err(ContractError::NoisDrandAddressUnset);
     };
 
