@@ -32,7 +32,7 @@ pub enum ExecuteMsg {
     Claim {
         amount: Uint128,
         /// Proof is hex-encoded merkle proof.
-        proof: Vec<String>,
+        proof: Vec<HexBinary>,
     },
     // Withdraw all available balance of the AIRDROP DENOM to the withdrawal address
     WithdawAll {
