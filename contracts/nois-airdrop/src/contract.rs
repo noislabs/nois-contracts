@@ -238,6 +238,10 @@ fn execute_register_merkle_root(
         return Err(ContractError::MerkleImmutable {});
     }
 
+    if merkle_root.len() != 32 {
+        return Err(ContractError::WrongLength {});
+    }
+
     MERKLE_ROOT.save(deps.storage, &merkle_root)?;
 
     Ok(Response::new().add_attributes(vec![
@@ -251,7 +255,7 @@ fn execute_claim(
     _env: Env,
     info: MessageInfo,
     amount: Uint128,
-    proof: Vec<String>,
+    proof: Vec<HexBinary>,
 ) -> Result<Response, ContractError> {
     // verify not claimed
     let claimed = CLAIM.may_load(deps.storage, info.sender.clone())?;
@@ -269,8 +273,8 @@ fn execute_claim(
 
     // hash all the way up the merkle tree until reaching the top root.
     let hash = proof.into_iter().try_fold(hash, |hash, p| {
-        let mut proof_buf = [0; 32];
-        hex::decode_to_slice(p, &mut proof_buf)?;
+        let proof_buf: [u8; 32] = p.to_array()?;
+
         let mut hashes = [hash, proof_buf];
         hashes.sort_unstable();
         sha2::Sha256::digest(hashes.concat())
@@ -436,6 +440,11 @@ mod tests {
         let env = mock_env();
         let info = mock_info(MANAGER, &[]);
         let msg = ExecuteMsg::RegisterMerkleRoot {
+            merkle_root: HexBinary::from_hex("634de21cde").unwrap(),
+        };
+        let err = execute(deps.as_mut(), env.clone(), info.clone(), msg).unwrap_err();
+        assert_eq!(err, ContractError::WrongLength {});
+        let msg = ExecuteMsg::RegisterMerkleRoot {
             merkle_root: HexBinary::from_hex(
                 "634de21cde1044f41d90373733b0f0fb1c1c71f9652b905cdf159e73c4cf0d37",
             )
@@ -470,8 +479,8 @@ mod tests {
             )
             .unwrap(),
         };
-        let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
-        assert_eq!(res, ContractError::MerkleImmutable {});
+        let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
+        assert_eq!(err, ContractError::MerkleImmutable {});
     }
 
     const TEST_DATA: &[u8] =
@@ -484,7 +493,7 @@ mod tests {
         account: String,
         amount: Uint128,
         root: HexBinary,
-        proofs: Vec<String>,
+        proofs: Vec<HexBinary>,
     }
     #[derive(Deserialize, Debug)]
     struct Account {
