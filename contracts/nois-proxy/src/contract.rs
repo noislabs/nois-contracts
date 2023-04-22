@@ -18,7 +18,7 @@ use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
     ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
-    PricesResponse, QueryMsg, RequestBeaconOrigin,
+    PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, OperationalMode, CONFIG, GATEWAY_CHANNEL};
@@ -276,7 +276,6 @@ fn execute_withdraw_all(
     address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
     ensure_eq!(
         &info.sender,                                                // &Addr
@@ -284,21 +283,12 @@ fn execute_withdraw_all(
         ContractError::Unauthorized
     );
 
-    let address = deps.api.addr_validate(&address)?;
-    let amount = deps.querier.query_balance(env.contract.address, denom)?;
-    let msg = BankMsg::Send {
-        to_address: address.to_string(),
-        amount: vec![amount],
-    };
-    let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "withdraw_all");
-    Ok(res)
+    withdraw_all_unchecked(deps, env, denom, address)
 }
 
 fn execute_withdraw(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     amount: Coin,
     address: String,
@@ -312,10 +302,46 @@ fn execute_withdraw(
         ContractError::Unauthorized
     );
 
+    withdraw_unchecked(deps, env, amount, address)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
+    match msg {
+        SudoMsg::Withdaw { amount, address } => withdraw_unchecked(deps, env, amount, address),
+        SudoMsg::WithdawAll { denom, address } => withdraw_all_unchecked(deps, env, denom, address),
+    }
+}
+
+fn withdraw_all_unchecked(
+    deps: DepsMut,
+    env: Env,
+    denom: String,
+    address: String,
+) -> Result<Response, ContractError> {
+    let address = deps.api.addr_validate(&address)?;
+    let amount = deps.querier.query_balance(env.contract.address, denom)?;
+
+    let msg = BankMsg::Send {
+        to_address: address.into(),
+        amount: vec![amount],
+    };
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "withdraw_all");
+    Ok(res)
+}
+
+fn withdraw_unchecked(
+    deps: DepsMut,
+    _env: Env,
+    amount: Coin,
+    address: String,
+) -> Result<Response, ContractError> {
     let address = deps.api.addr_validate(&address)?;
 
     let msg = BankMsg::Send {
-        to_address: address.to_string(),
+        to_address: address.into(),
         amount: vec![amount],
     };
     let res = Response::new()

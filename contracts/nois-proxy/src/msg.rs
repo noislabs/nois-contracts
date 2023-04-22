@@ -68,6 +68,14 @@ impl From<ProxyExecuteMsg> for ExecuteMsg {
 }
 
 #[cw_serde]
+pub enum SudoMsg {
+    /// Withdraw the given amount to the withdrawal address
+    Withdaw { amount: Coin, address: String },
+    /// Withdraw all available balance of this token to the withdrawal address
+    WithdawAll { denom: String, address: String },
+}
+
+#[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
     /// Get the config state
