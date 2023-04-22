@@ -58,16 +58,18 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     Ok(response)
 }
 
-/// This function will send incentive coins to incentivize a bot
-/// The bot is normally incentivised for bringing randomness on chain
+/// This function will send incentive coins to incentivize bots.
+/// Bots are normally incentivised for bringing randomness on chain
 /// But could also be incentivised for executing extra things
-/// like callback jobs
+/// like callback jobs.
 fn execute_send_funds_to_drand(
     deps: DepsMut,
     _env: Env,
     funds: Coin,
 ) -> Result<Response, ContractError> {
-    let Some(nois_drand_contract) = CONFIG.load(deps.storage)?.drand else {
+    let config = CONFIG.load(deps.storage)?;
+
+    let Some(nois_drand_contract) = config.drand else {
         return Err(ContractError::NoisDrandAddressUnset);
     };
 
@@ -89,7 +91,7 @@ fn execute_delegate(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     Ok(Response::new().add_message(StakingMsg::Delegate {
@@ -100,6 +102,7 @@ fn execute_delegate(
         },
     }))
 }
+
 /// This function will undelegate staked coins
 /// from one validator with the addr address
 fn execute_undelegate(
@@ -110,7 +113,7 @@ fn execute_undelegate(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     Ok(Response::new().add_message(StakingMsg::Undelegate {
@@ -121,6 +124,7 @@ fn execute_undelegate(
         },
     }))
 }
+
 /// This function will make this contract move the bonded stakes
 /// from one validator (src_addr) to another validator (dest_addr)
 fn execute_redelegate(
@@ -132,7 +136,7 @@ fn execute_redelegate(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     Ok(Response::new().add_message(StakingMsg::Redelegate {
@@ -165,7 +169,7 @@ fn execute_set_drand_addr(
 ) -> Result<Response, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     // ensure immutability
@@ -189,7 +193,7 @@ fn execute_set_manager_addr(
 ) -> Result<Response, ContractError> {
     let mut config = CONFIG.load(deps.storage)?;
 
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     let manager_addr = deps.api.addr_validate(&manager)?;
@@ -211,8 +215,8 @@ mod tests {
     use super::*;
     use cosmwasm_std::{
         from_binary,
-        testing::{mock_dependencies, mock_env, mock_info},
-        Addr, CosmosMsg, Uint128,
+        testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
+        Addr, CosmosMsg, Empty, OwnedDeps, Uint128,
     };
 
     const CREATOR: &str = "creator";
@@ -237,6 +241,56 @@ mod tests {
             }
         );
     }
+
+    fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+        };
+        let info = mock_info(CREATOR, &[]);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let msg = ExecuteMsg::SetDrandAddr {
+            addr: "the-drand-address".to_string(),
+        };
+
+        let info = mock_info(MANAGER, &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        deps
+    }
+
+    #[test]
+    fn anyone_can_claim_rewards() {
+        let mut deps = setup();
+
+        let msg = ExecuteMsg::ClaimRewards {
+            addr: "valoper123".to_string(),
+        };
+        let info = mock_info("some_random_person", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(response.messages.len(), 1);
+        assert!(matches!(
+            response.messages[0].msg,
+            CosmosMsg::Distribution(DistributionMsg::WithdrawDelegatorReward { .. })
+        ));
+    }
+
+    #[test]
+    fn anyone_can_send_to_drand() {
+        let mut deps = setup();
+
+        let msg = ExecuteMsg::SendFundsToDrand {
+            funds: Coin::new(123, "foocoin"),
+        };
+        let info = mock_info("some_random_person", &[]);
+        let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(response.messages.len(), 1);
+        assert!(matches!(
+            response.messages[0].msg,
+            CosmosMsg::Bank(BankMsg::Send { .. })
+        ));
+    }
+
     #[test]
     fn only_manager_can_delegate_undelegate_redelegate() {
         let mut deps = mock_dependencies();
@@ -244,7 +298,7 @@ mod tests {
             manager: MANAGER.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
-        let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // check manager operations work
 
@@ -341,7 +395,7 @@ mod tests {
             manager: MANAGER.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
-        let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // A random addr cannot set a new manager
         let info = mock_info("some_random_person", &[]);
