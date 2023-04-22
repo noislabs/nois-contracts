@@ -75,6 +75,12 @@ pub enum SudoMsg {
     /// Withdraw all available balance of this token to the withdrawal address
     #[cfg(feature = "governance_owned")]
     WithdawAll { denom: String, address: String },
+    /// Withdraw the given amount to the community pool
+    #[cfg(feature = "governance_owned")]
+    WithdrawToCommunityPool { amount: Coin },
+    /// Withdraw all available balance of this token to the community pool
+    #[cfg(feature = "governance_owned")]
+    WithdrawAllToCommunityPool { denom: String },
 }
 
 #[cw_serde]

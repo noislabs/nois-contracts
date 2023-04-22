@@ -1,5 +1,6 @@
+use anything::Anything;
 use cosmwasm_std::{
-    attr, ensure_eq, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin,
+    attr, ensure_eq, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never,
@@ -313,6 +314,14 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
         SudoMsg::Withdaw { amount, address } => withdraw_unchecked(deps, env, amount, address),
         #[cfg(feature = "governance_owned")]
         SudoMsg::WithdawAll { denom, address } => withdraw_all_unchecked(deps, env, denom, address),
+        #[cfg(feature = "governance_owned")]
+        SudoMsg::WithdrawToCommunityPool { amount } => {
+            withdraw_community_pool_unchecked(deps, env, amount)
+        }
+        #[cfg(feature = "governance_owned")]
+        SudoMsg::WithdrawAllToCommunityPool { denom } => {
+            withdraw_all_community_pool_unchecked(deps, env, denom)
+        }
     }
 }
 
@@ -353,12 +362,57 @@ fn withdraw_all_unchecked(
     Ok(res)
 }
 
+fn withdraw_community_pool_unchecked(
+    _deps: DepsMut,
+    env: Env,
+    amount: Coin,
+) -> Result<Response, ContractError> {
+    let msg = CosmosMsg::Stargate {
+        type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
+        value: encode_msg_fund_community_pool(&amount, &env.contract.address).into(),
+    };
+
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "withdraw_community_pool");
+    Ok(res)
+}
+
+fn withdraw_all_community_pool_unchecked(
+    deps: DepsMut,
+    env: Env,
+    denom: String,
+) -> Result<Response, ContractError> {
+    let amount = deps.querier.query_balance(&env.contract.address, denom)?;
+
+    let msg = CosmosMsg::Stargate {
+        type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
+        value: encode_msg_fund_community_pool(&amount, &env.contract.address).into(),
+    };
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "withdraw_all_community_pool");
+    Ok(res)
+}
+
 fn get_gateway_channel(storage: &dyn Storage) -> Result<String, ContractError> {
     let data = GATEWAY_CHANNEL.may_load(storage)?;
     match data {
         Some(d) => Ok(d),
         None => Err(ContractError::UnsetChannel),
     }
+}
+
+fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
+    // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
+    // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
+    let coin = Anything::new()
+        .append_bytes(1, &amount.denom)
+        .append_bytes(2, amount.amount.to_string());
+    Anything::new()
+        .append_message(1, &coin)
+        .append_bytes(2, depositor.as_bytes())
+        .into_vec()
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
