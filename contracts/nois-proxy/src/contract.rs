@@ -268,24 +268,6 @@ fn execute_set_config(
     Ok(Response::default())
 }
 
-fn execute_withdraw_all(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    denom: String,
-    address: String,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
-    ensure_eq!(
-        &info.sender,                                                // &Addr
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
-        ContractError::Unauthorized
-    );
-
-    withdraw_all_unchecked(deps, env, denom, address)
-}
-
 fn execute_withdraw(
     deps: DepsMut,
     env: Env,
@@ -305,6 +287,24 @@ fn execute_withdraw(
     withdraw_unchecked(deps, env, amount, address)
 }
 
+fn execute_withdraw_all(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    denom: String,
+    address: String,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    ensure_eq!(
+        &info.sender,                                                // &Addr
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        ContractError::Unauthorized
+    );
+
+    withdraw_all_unchecked(deps, env, denom, address)
+}
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 #[allow(unused)]
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
@@ -314,6 +314,24 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
         #[cfg(feature = "governance_owned")]
         SudoMsg::WithdawAll { denom, address } => withdraw_all_unchecked(deps, env, denom, address),
     }
+}
+
+fn withdraw_unchecked(
+    deps: DepsMut,
+    _env: Env,
+    amount: Coin,
+    address: String,
+) -> Result<Response, ContractError> {
+    let address = deps.api.addr_validate(&address)?;
+
+    let msg = BankMsg::Send {
+        to_address: address.into(),
+        amount: vec![amount],
+    };
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "withdraw");
+    Ok(res)
 }
 
 fn withdraw_all_unchecked(
@@ -332,24 +350,6 @@ fn withdraw_all_unchecked(
     let res = Response::new()
         .add_message(msg)
         .add_attribute("action", "withdraw_all");
-    Ok(res)
-}
-
-fn withdraw_unchecked(
-    deps: DepsMut,
-    _env: Env,
-    amount: Coin,
-    address: String,
-) -> Result<Response, ContractError> {
-    let address = deps.api.addr_validate(&address)?;
-
-    let msg = BankMsg::Send {
-        to_address: address.into(),
-        amount: vec![amount],
-    };
-    let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "withdraw");
     Ok(res)
 }
 
