@@ -70,8 +70,10 @@ impl From<ProxyExecuteMsg> for ExecuteMsg {
 #[cw_serde]
 pub enum SudoMsg {
     /// Withdraw the given amount to the withdrawal address
+    #[cfg(feature = "governance_owned")]
     Withdaw { amount: Coin, address: String },
     /// Withdraw all available balance of this token to the withdrawal address
+    #[cfg(feature = "governance_owned")]
     WithdawAll { denom: String, address: String },
 }
 

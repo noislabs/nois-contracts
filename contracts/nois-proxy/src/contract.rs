@@ -306,9 +306,12 @@ fn execute_withdraw(
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
+#[allow(unused)]
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
+        #[cfg(feature = "governance_owned")]
         SudoMsg::Withdaw { amount, address } => withdraw_unchecked(deps, env, amount, address),
+        #[cfg(feature = "governance_owned")]
         SudoMsg::WithdawAll { denom, address } => withdraw_all_unchecked(deps, env, denom, address),
     }
 }
