@@ -1,7 +1,7 @@
 use anything::Anything;
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    QueryResponse, Response, StdResult, WasmMsg,
+    ensure_eq, entry_point, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env,
+    MessageInfo, QueryResponse, Response, StdResult, WasmMsg,
 };
 
 use crate::error::ContractError;
@@ -113,8 +113,7 @@ fn execute_pay(
     if !community_pool.amount.is_zero() {
         out_msgs.push(CosmosMsg::Stargate {
             type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
-            value: encode_msg_fund_community_pool(&community_pool, env.contract.address.as_str())
-                .into(),
+            value: encode_msg_fund_community_pool(&community_pool, &env.contract.address).into(),
         });
     }
 
@@ -126,7 +125,7 @@ fn execute_pay(
         .add_attribute("sent_to_community_pool", community_pool.to_string()))
 }
 
-fn encode_msg_fund_community_pool(amount: &Coin, depositor: &str) -> Vec<u8> {
+fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
     // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
     // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
     let coin = Anything::new()
@@ -342,8 +341,8 @@ mod tests {
             799999999999,
             "ibc/0F181D9F5BB18A8496153C1666E934169515592C135E8E9FCCC355889858EAF9",
         );
-        let encoded =
-            encode_msg_fund_community_pool(&amount, "stars18xsp37zc65690hlq0zm3q5sxcu2rpm4mrtx6ec");
+        let depositor = Addr::unchecked("stars18xsp37zc65690hlq0zm3q5sxcu2rpm4mrtx6ec");
+        let encoded = encode_msg_fund_community_pool(&amount, &depositor);
         assert_eq!(encoded, hex::decode("0a540a446962632f30463138314439463542423138413834393631353343313636364539333431363935313535393243313335453845394643434333353538383938353845414639120c373939393939393939393939122c7374617273313878737033377a633635363930686c71307a6d337135737863753272706d346d727478366563").unwrap());
     }
 }
