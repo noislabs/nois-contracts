@@ -42,12 +42,10 @@ pub enum ExecuteMsg {
     },
     // Withdraw the given amount to the withdrawal address
     Withdaw {
-        amount: Coin,
-        address: String,
-    },
-    // Withdraw all available balance of this token to the withdrawal address
-    WithdawAll {
         denom: String,
+        /// The amount of tokens to withdraw.
+        /// If None, withdraw all available balance of the given denom.
+        amount: Option<Uint128>,
         address: String,
     },
 }
@@ -65,6 +63,40 @@ impl From<ProxyExecuteMsg> for ExecuteMsg {
             }
         }
     }
+}
+
+#[cw_serde]
+pub enum SudoMsg {
+    /// Withdraw the given amount to the withdrawal address
+    #[cfg(feature = "governance_owned")]
+    Withdaw {
+        denom: String,
+        /// The amount of tokens to withdraw.
+        /// If None, withdraw all available balance of the given denom.
+        amount: Option<Uint128>,
+        address: String,
+    },
+    /// Withdraw the given amount to the community pool
+    #[cfg(feature = "governance_owned")]
+    WithdrawToCommunityPool {
+        denom: String,
+        /// The amount of tokens to withdraw.
+        /// If None, withdraw all available balance of the given denom.
+        amount: Option<Uint128>,
+    },
+    /// Set the config
+    #[cfg(feature = "governance_owned")]
+    SetConfig {
+        manager: Option<String>,
+        /// The prices of a randomness. List is to be interpreted as oneof,
+        /// i.e. payment must be paid in one of those denominations.
+        prices: Option<Vec<Coin>>,
+        /// Address of the payment contract (on the other chain)
+        payment: Option<String>,
+        /// The amount of tokens the proxy sends for each randomness request to the Nois chain
+        nois_beacon_price: Option<Uint128>,
+        mode: Option<OperationalMode>,
+    },
 }
 
 #[cw_serde]

@@ -12,6 +12,8 @@ and this project adheres to
 
 - nois-proxy: the config parameters can be changed. And it is possible to add a
   manager (optional)
+- nois-proxy: add sudo messages to control the proxy when compile with
+  `governance_owned` enabled.
 - Upgrade the nois standard library to version 0.7.
 - Bump IBC protocol version to `nois-v7`. This bring the publication time as a
   field to DeliverBeacon and NoisCallback.

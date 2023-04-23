@@ -1,5 +1,6 @@
+use anything::Anything;
 use cosmwasm_std::{
-    attr, ensure_eq, from_binary, from_slice, to_binary, Attribute, BankMsg, Binary, Coin,
+    attr, ensure_eq, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never,
@@ -18,7 +19,7 @@ use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
     ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
-    PricesResponse, QueryMsg, RequestBeaconOrigin,
+    PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, OperationalMode, CONFIG, GATEWAY_CHANNEL};
@@ -81,10 +82,10 @@ pub fn execute(
         }
         ExecuteMsg::SetConfig {
             manager,
-            mode,
-            nois_beacon_price,
-            payment,
             prices,
+            payment,
+            nois_beacon_price,
+            mode,
         } => execute_set_config(
             deps,
             info,
@@ -98,12 +99,11 @@ pub fn execute(
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
         }
-        ExecuteMsg::Withdaw { amount, address } => {
-            execute_withdraw(deps, env, info, amount, address)
-        }
-        ExecuteMsg::WithdawAll { denom, address } => {
-            execute_withdraw_all(deps, env, info, denom, address)
-        }
+        ExecuteMsg::Withdaw {
+            denom,
+            amount,
+            address,
+        } => execute_withdraw(deps, env, info, denom, amount, address),
     }
 }
 
@@ -234,6 +234,115 @@ fn execute_set_config(
         ContractError::Unauthorized
     );
 
+    set_config_unchecked(deps, env, manager, prices, payment, nois_beacon_price, mode)
+}
+
+fn execute_withdraw(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    denom: String,
+    amount: Option<Uint128>,
+    address: String,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    ensure_eq!(
+        &info.sender,                                                // &Addr
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        ContractError::Unauthorized
+    );
+
+    withdraw_unchecked(deps, env, denom, amount, address)
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+#[allow(unused)]
+pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
+    match msg {
+        #[cfg(feature = "governance_owned")]
+        SudoMsg::Withdaw {
+            denom,
+            amount,
+            address,
+        } => withdraw_unchecked(deps, env, denom, amount, address),
+        #[cfg(feature = "governance_owned")]
+        SudoMsg::WithdrawToCommunityPool { denom, amount } => {
+            withdraw_community_pool_unchecked(deps, env, denom, amount)
+        }
+        #[cfg(feature = "governance_owned")]
+        SudoMsg::SetConfig {
+            manager,
+            prices,
+            payment,
+            nois_beacon_price,
+            mode,
+        } => set_config_unchecked(deps, env, manager, prices, payment, nois_beacon_price, mode),
+    }
+}
+
+fn withdraw_unchecked(
+    deps: DepsMut,
+    env: Env,
+    denom: String,
+    amount: Option<Uint128>,
+    address: String,
+) -> Result<Response, ContractError> {
+    let address = deps.api.addr_validate(&address)?;
+    let amount: Coin = match amount {
+        Some(amount) => Coin { denom, amount },
+        None => deps.querier.query_balance(env.contract.address, denom)?,
+    };
+
+    let msg = BankMsg::Send {
+        to_address: address.into(),
+        amount: vec![amount.clone()],
+    };
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "withdraw")
+        .add_attribute("amount", amount.to_string());
+    Ok(res)
+}
+
+#[allow(unused)]
+fn withdraw_community_pool_unchecked(
+    deps: DepsMut,
+    env: Env,
+    denom: String,
+    amount: Option<Uint128>,
+) -> Result<Response, ContractError> {
+    let amount: Coin = match amount {
+        Some(amount) => Coin { denom, amount },
+        None => deps
+            .querier
+            .query_balance(env.contract.address.clone(), denom)?,
+    };
+
+    let msg = CosmosMsg::Stargate {
+        type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
+        value: encode_msg_fund_community_pool(&amount, &env.contract.address).into(),
+    };
+
+    let res = Response::new()
+        .add_message(msg)
+        .add_attribute("action", "withdraw_community_pool")
+        .add_attribute("amount", amount.to_string());
+    Ok(res)
+}
+
+fn set_config_unchecked(
+    deps: DepsMut,
+    env: Env,
+    manager: Option<String>,
+    prices: Option<Vec<Coin>>,
+    payment: Option<String>,
+    nois_beacon_price: Option<Uint128>,
+    mode: Option<OperationalMode>,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
     let manager = match manager {
         Some(ma) => Some(deps.api.addr_validate(&ma)?),
         None => config.manager,
@@ -268,68 +377,25 @@ fn execute_set_config(
     Ok(Response::default())
 }
 
-fn execute_withdraw_all(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
-    denom: String,
-    address: String,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-
-    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
-    ensure_eq!(
-        &info.sender,                                                // &Addr
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
-        ContractError::Unauthorized
-    );
-
-    let address = deps.api.addr_validate(&address)?;
-    let amount = deps.querier.query_balance(env.contract.address, denom)?;
-    let msg = BankMsg::Send {
-        to_address: address.to_string(),
-        amount: vec![amount],
-    };
-    let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "withdraw_all");
-    Ok(res)
-}
-
-fn execute_withdraw(
-    deps: DepsMut,
-    _env: Env,
-    info: MessageInfo,
-    amount: Coin,
-    address: String,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-
-    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
-    ensure_eq!(
-        &info.sender,                                                // &Addr
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
-        ContractError::Unauthorized
-    );
-
-    let address = deps.api.addr_validate(&address)?;
-
-    let msg = BankMsg::Send {
-        to_address: address.to_string(),
-        amount: vec![amount],
-    };
-    let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "withdraw");
-    Ok(res)
-}
-
 fn get_gateway_channel(storage: &dyn Storage) -> Result<String, ContractError> {
     let data = GATEWAY_CHANNEL.may_load(storage)?;
     match data {
         Some(d) => Ok(d),
         None => Err(ContractError::UnsetChannel),
     }
+}
+
+#[allow(unused)]
+fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
+    // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
+    // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
+    let coin = Anything::new()
+        .append_bytes(1, &amount.denom)
+        .append_bytes(2, amount.amount.to_string());
+    Anything::new()
+        .append_message(1, &coin)
+        .append_bytes(2, depositor.as_bytes())
+        .into_vec()
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -806,14 +872,16 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         // withdraw
         let msg = ExecuteMsg::Withdaw {
-            amount: Coin::new(12, "unoisx"),
+            denom: "unoisx".to_string(),
+            amount: Some(Uint128::new(12)),
             address: "some-address".to_string(),
         };
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
         // withdraw all
-        let msg = ExecuteMsg::WithdawAll {
+        let msg = ExecuteMsg::Withdaw {
             denom: "unoisx".to_string(),
+            amount: None,
             address: "some-address".to_string(),
         };
 
@@ -837,7 +905,8 @@ mod tests {
         let mut deps = setup();
 
         let msg = ExecuteMsg::Withdaw {
-            amount: Coin::new(12, "unoisx"),
+            denom: "unoisx".to_string(),
+            amount: Some(Uint128::new(12)),
             address: "some-address".to_string(),
         };
         let err = execute(
@@ -863,8 +932,9 @@ mod tests {
     fn withdraw_all_works() {
         let mut deps = setup();
 
-        let msg = ExecuteMsg::WithdawAll {
+        let msg = ExecuteMsg::Withdaw {
             denom: "unoisx".to_string(),
+            amount: None,
             address: "some-address".to_string(),
         };
 
