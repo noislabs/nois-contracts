@@ -277,14 +277,12 @@ fn execute_withdraw(
     address: Option<String>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
     ensure_eq!(
         &info.sender,                                                // &Addr
         config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
         ContractError::Unauthorized
     );
-
     withdraw_unchecked(deps, env, denom, amount, address)
 }
 
@@ -317,7 +315,6 @@ fn withdraw_unchecked(
                 .amount
         }
     };
-
     let res = match address {
         Some(add) => {
             let add = deps.api.addr_validate(&add)?;
@@ -344,7 +341,6 @@ fn withdraw_unchecked(
                 .add_attribute("action", "withdraw-community")
         }
     };
-
     Ok(res)
 }
 
