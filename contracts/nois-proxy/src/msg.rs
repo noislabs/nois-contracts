@@ -47,6 +47,8 @@ pub enum ExecuteMsg {
         amount: Option<Uint128>,
         // If None then funds will be sent to the community pool
         address: Option<String>,
+        // Security check to avoid someone mistakenly sends to the community by ommitting the address
+        to_community_pool: bool,
     },
 }
 
@@ -75,6 +77,8 @@ pub enum SudoMsg {
         amount: Option<Uint128>,
         // If None then funds will be sent to the community pool
         address: Option<String>,
+        // Security check to avoid someone mistakenly sends to the community by ommitting the address
+        to_community_pool: bool,
     },
 }
 

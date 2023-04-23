@@ -18,6 +18,9 @@ pub enum ContractError {
     #[error("Insufficient payment.")]
     InsufficientPayment,
 
+    #[error("The to_community_pool safety bool and the address Option are not correctly set.")]
+    ToCommunityPoolAndAddressMismatch,
+
     //
     // IBC
     //

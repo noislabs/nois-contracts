@@ -103,7 +103,8 @@ pub fn execute(
             denom,
             amount,
             address,
-        } => execute_withdraw(deps, env, info, denom, amount, address),
+            to_community_pool,
+        } => execute_withdraw(deps, env, info, denom, amount, address, to_community_pool),
     }
 }
 
@@ -275,6 +276,7 @@ fn execute_withdraw(
     denom: String,
     amount: Option<Uint128>,
     address: Option<String>,
+    to_community_pool: bool,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
@@ -283,7 +285,7 @@ fn execute_withdraw(
         config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
         ContractError::Unauthorized
     );
-    withdraw_unchecked(deps, env, denom, amount, address)
+    withdraw_unchecked(deps, env, denom, amount, address, to_community_pool)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -295,7 +297,8 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             denom,
             amount,
             address,
-        } => withdraw_unchecked(deps, env, denom, amount, address),
+            to_community_pool,
+        } => withdraw_unchecked(deps, env, denom, amount, address, to_community_pool),
     }
 }
 
@@ -305,6 +308,7 @@ fn withdraw_unchecked(
     denom: String,
     amount: Option<Uint128>,
     address: Option<String>,
+    to_community_pool: bool,
 ) -> Result<Response, ContractError> {
     //let address = deps.api.addr_validate(&address)?;
     let amount = match amount {
@@ -317,6 +321,9 @@ fn withdraw_unchecked(
     };
     let res = match address {
         Some(add) => {
+            if to_community_pool {
+                return Err(ContractError::ToCommunityPoolAndAddressMismatch);
+            }
             let add = deps.api.addr_validate(&add)?;
             let msg = BankMsg::Send {
                 to_address: add.into(),
@@ -328,6 +335,9 @@ fn withdraw_unchecked(
                 .add_attribute("action", "withdraw")
         }
         None => {
+            if !to_community_pool {
+                return Err(ContractError::ToCommunityPoolAndAddressMismatch);
+            }
             let msg = CosmosMsg::Stargate {
                 type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
                 value: encode_msg_fund_community_pool(
@@ -841,6 +851,7 @@ mod tests {
             denom: "unoisx".to_string(),
             amount: Some(Uint128::new(12)),
             address: Some("some-address".to_string()),
+            to_community_pool: false,
         };
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
@@ -849,6 +860,7 @@ mod tests {
             denom: "unoisx".to_string(),
             amount: None,
             address: Some("some-address".to_string()),
+            to_community_pool: false,
         };
 
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
@@ -874,6 +886,7 @@ mod tests {
             denom: "unoisx".to_string(),
             amount: Some(Uint128::new(12)),
             address: Some("some-address".to_string()),
+            to_community_pool: false,
         };
         let err = execute(
             deps.as_mut(),
@@ -895,6 +908,29 @@ mod tests {
     }
 
     #[test]
+    fn community_pool_safety_works() {
+        let mut deps = setup();
+
+        let msg = ExecuteMsg::Withdaw {
+            denom: "unoisx".to_string(),
+            amount: Some(Uint128::new(12)),
+            address: None,
+            to_community_pool: false,
+        };
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(CREATOR, &[]),
+            msg.clone(),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            err,
+            ContractError::ToCommunityPoolAndAddressMismatch
+        ));
+    }
+
+    #[test]
     fn withdraw_all_works() {
         let mut deps = setup();
 
@@ -902,6 +938,7 @@ mod tests {
             denom: "unoisx".to_string(),
             amount: None,
             address: Some("some-address".to_string()),
+            to_community_pool: false,
         };
 
         let err = execute(
