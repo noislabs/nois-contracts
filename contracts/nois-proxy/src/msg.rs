@@ -42,12 +42,10 @@ pub enum ExecuteMsg {
     },
     // Withdraw the given amount to the withdrawal address
     Withdaw {
-        amount: Coin,
-        address: String,
-    },
-    // Withdraw all available balance of this token to the withdrawal address
-    WithdawAll {
         denom: String,
+        /// The amount of tokens to withdraw.
+        /// If None, withdraw all available balance of the given denom.
+        amount: Option<Uint128>,
         address: String,
     },
 }
@@ -71,16 +69,21 @@ impl From<ProxyExecuteMsg> for ExecuteMsg {
 pub enum SudoMsg {
     /// Withdraw the given amount to the withdrawal address
     #[cfg(feature = "governance_owned")]
-    Withdaw { amount: Coin, address: String },
-    /// Withdraw all available balance of this token to the withdrawal address
-    #[cfg(feature = "governance_owned")]
-    WithdawAll { denom: String, address: String },
+    Withdaw {
+        denom: String,
+        /// The amount of tokens to withdraw.
+        /// If None, withdraw all available balance of the given denom.
+        amount: Option<Uint128>,
+        address: String,
+    },
     /// Withdraw the given amount to the community pool
     #[cfg(feature = "governance_owned")]
-    WithdrawToCommunityPool { amount: Coin },
-    /// Withdraw all available balance of this token to the community pool
-    #[cfg(feature = "governance_owned")]
-    WithdrawAllToCommunityPool { denom: String },
+    WithdrawToCommunityPool {
+        denom: String,
+        /// The amount of tokens to withdraw.
+        /// If None, withdraw all available balance of the given denom.
+        amount: Option<Uint128>,
+    },
 }
 
 #[cw_serde]

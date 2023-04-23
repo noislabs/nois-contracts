@@ -99,12 +99,11 @@ pub fn execute(
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
         }
-        ExecuteMsg::Withdaw { amount, address } => {
-            execute_withdraw(deps, env, info, amount, address)
-        }
-        ExecuteMsg::WithdawAll { denom, address } => {
-            execute_withdraw_all(deps, env, info, denom, address)
-        }
+        ExecuteMsg::Withdaw {
+            denom,
+            amount,
+            address,
+        } => execute_withdraw(deps, env, info, denom, amount, address),
     }
 }
 
@@ -273,29 +272,12 @@ fn execute_withdraw(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    amount: Coin,
-    address: String,
-) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
-
-    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
-    ensure_eq!(
-        &info.sender,                                                // &Addr
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
-        ContractError::Unauthorized
-    );
-
-    withdraw_unchecked(deps, env, amount, address)
-}
-
-fn execute_withdraw_all(
-    deps: DepsMut,
-    env: Env,
-    info: MessageInfo,
     denom: String,
+    amount: Option<Uint128>,
     address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
     ensure_eq!(
         &info.sender,                                                // &Addr
@@ -303,7 +285,7 @@ fn execute_withdraw_all(
         ContractError::Unauthorized
     );
 
-    withdraw_all_unchecked(deps, env, denom, address)
+    withdraw_unchecked(deps, env, denom, amount, address)
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -311,87 +293,64 @@ fn execute_withdraw_all(
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
         #[cfg(feature = "governance_owned")]
-        SudoMsg::Withdaw { amount, address } => withdraw_unchecked(deps, env, amount, address),
+        SudoMsg::Withdaw {
+            denom,
+            amount,
+            address,
+        } => withdraw_unchecked(deps, env, denom, amount, address),
         #[cfg(feature = "governance_owned")]
-        SudoMsg::WithdawAll { denom, address } => withdraw_all_unchecked(deps, env, denom, address),
-        #[cfg(feature = "governance_owned")]
-        SudoMsg::WithdrawToCommunityPool { amount } => {
-            withdraw_community_pool_unchecked(deps, env, amount)
-        }
-        #[cfg(feature = "governance_owned")]
-        SudoMsg::WithdrawAllToCommunityPool { denom } => {
-            withdraw_all_community_pool_unchecked(deps, env, denom)
+        SudoMsg::WithdrawToCommunityPool { denom, amount } => {
+            withdraw_community_pool_unchecked(deps, env, denom, amount)
         }
     }
 }
 
 fn withdraw_unchecked(
     deps: DepsMut,
-    _env: Env,
-    amount: Coin,
-    address: String,
-) -> Result<Response, ContractError> {
-    let address = deps.api.addr_validate(&address)?;
-
-    let msg = BankMsg::Send {
-        to_address: address.into(),
-        amount: vec![amount],
-    };
-    let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "withdraw");
-    Ok(res)
-}
-
-fn withdraw_all_unchecked(
-    deps: DepsMut,
     env: Env,
     denom: String,
+    amount: Option<Uint128>,
     address: String,
 ) -> Result<Response, ContractError> {
     let address = deps.api.addr_validate(&address)?;
-    let amount = deps.querier.query_balance(env.contract.address, denom)?;
+    let amount: Coin = match amount {
+        Some(amount) => Coin { denom, amount },
+        None => deps.querier.query_balance(env.contract.address, denom)?,
+    };
 
     let msg = BankMsg::Send {
         to_address: address.into(),
-        amount: vec![amount],
+        amount: vec![amount.clone()],
     };
     let res = Response::new()
         .add_message(msg)
-        .add_attribute("action", "withdraw_all");
+        .add_attribute("action", "withdraw")
+        .add_attribute("amount", amount.to_string());
     Ok(res)
 }
 
 fn withdraw_community_pool_unchecked(
-    _deps: DepsMut,
-    env: Env,
-    amount: Coin,
-) -> Result<Response, ContractError> {
-    let msg = CosmosMsg::Stargate {
-        type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
-        value: encode_msg_fund_community_pool(&amount, &env.contract.address).into(),
-    };
-
-    let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "withdraw_community_pool");
-    Ok(res)
-}
-
-fn withdraw_all_community_pool_unchecked(
     deps: DepsMut,
     env: Env,
     denom: String,
+    amount: Option<Uint128>,
 ) -> Result<Response, ContractError> {
-    let amount = deps.querier.query_balance(&env.contract.address, denom)?;
+    let amount: Coin = match amount {
+        Some(amount) => Coin { denom, amount },
+        None => deps
+            .querier
+            .query_balance(env.contract.address.clone(), denom)?,
+    };
 
     let msg = CosmosMsg::Stargate {
         type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
         value: encode_msg_fund_community_pool(&amount, &env.contract.address).into(),
     };
+
     let res = Response::new()
         .add_message(msg)
-        .add_attribute("action", "withdraw_all_community_pool");
+        .add_attribute("action", "withdraw_community_pool")
+        .add_attribute("amount", amount.to_string());
     Ok(res)
 }
 
@@ -889,14 +848,16 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         // withdraw
         let msg = ExecuteMsg::Withdaw {
-            amount: Coin::new(12, "unoisx"),
+            denom: "unoisx".to_string(),
+            amount: Some(Uint128::new(12)),
             address: "some-address".to_string(),
         };
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
         // withdraw all
-        let msg = ExecuteMsg::WithdawAll {
+        let msg = ExecuteMsg::Withdaw {
             denom: "unoisx".to_string(),
+            amount: None,
             address: "some-address".to_string(),
         };
 
@@ -920,7 +881,8 @@ mod tests {
         let mut deps = setup();
 
         let msg = ExecuteMsg::Withdaw {
-            amount: Coin::new(12, "unoisx"),
+            denom: "unoisx".to_string(),
+            amount: Some(Uint128::new(12)),
             address: "some-address".to_string(),
         };
         let err = execute(
@@ -946,8 +908,9 @@ mod tests {
     fn withdraw_all_works() {
         let mut deps = setup();
 
-        let msg = ExecuteMsg::WithdawAll {
+        let msg = ExecuteMsg::Withdaw {
             denom: "unoisx".to_string(),
+            amount: None,
             address: "some-address".to_string(),
         };
 
