@@ -82,10 +82,10 @@ pub fn execute(
         }
         ExecuteMsg::SetConfig {
             manager,
-            mode,
-            nois_beacon_price,
-            payment,
             prices,
+            payment,
+            nois_beacon_price,
+            mode,
         } => execute_set_config(
             deps,
             info,
@@ -234,38 +234,7 @@ fn execute_set_config(
         ContractError::Unauthorized
     );
 
-    let manager = match manager {
-        Some(ma) => Some(deps.api.addr_validate(&ma)?),
-        None => config.manager,
-    };
-    let prices = prices.unwrap_or(config.prices);
-
-    let test_mode = config.test_mode;
-    let callback_gas_limit = config.callback_gas_limit;
-    let payment = match payment {
-        Some(pa) => Some(pa),
-        None => config.payment,
-    };
-    let (nois_beacon_price, nois_beacon_price_updated) = match nois_beacon_price {
-        Some(bp) => (bp, env.block.time),
-        None => (config.nois_beacon_price, config.nois_beacon_price_updated),
-    };
-    let mode = mode.unwrap_or(config.mode);
-
-    let new_config = Config {
-        manager,
-        prices,
-        test_mode,
-        callback_gas_limit,
-        payment,
-        nois_beacon_price,
-        nois_beacon_price_updated,
-        mode,
-    };
-
-    CONFIG.save(deps.storage, &new_config)?;
-
-    Ok(Response::default())
+    set_config_unchecked(deps, env, manager, prices, payment, nois_beacon_price, mode)
 }
 
 fn execute_withdraw(
@@ -302,6 +271,14 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
         SudoMsg::WithdrawToCommunityPool { denom, amount } => {
             withdraw_community_pool_unchecked(deps, env, denom, amount)
         }
+        #[cfg(feature = "governance_owned")]
+        SudoMsg::SetConfig {
+            manager,
+            prices,
+            payment,
+            nois_beacon_price,
+            mode,
+        } => set_config_unchecked(deps, env, manager, prices, payment, nois_beacon_price, mode),
     }
 }
 
@@ -352,6 +329,51 @@ fn withdraw_community_pool_unchecked(
         .add_attribute("action", "withdraw_community_pool")
         .add_attribute("amount", amount.to_string());
     Ok(res)
+}
+
+fn set_config_unchecked(
+    deps: DepsMut,
+    env: Env,
+    manager: Option<String>,
+    prices: Option<Vec<Coin>>,
+    payment: Option<String>,
+    nois_beacon_price: Option<Uint128>,
+    mode: Option<OperationalMode>,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+
+    let manager = match manager {
+        Some(ma) => Some(deps.api.addr_validate(&ma)?),
+        None => config.manager,
+    };
+    let prices = prices.unwrap_or(config.prices);
+
+    let test_mode = config.test_mode;
+    let callback_gas_limit = config.callback_gas_limit;
+    let payment = match payment {
+        Some(pa) => Some(pa),
+        None => config.payment,
+    };
+    let (nois_beacon_price, nois_beacon_price_updated) = match nois_beacon_price {
+        Some(bp) => (bp, env.block.time),
+        None => (config.nois_beacon_price, config.nois_beacon_price_updated),
+    };
+    let mode = mode.unwrap_or(config.mode);
+
+    let new_config = Config {
+        manager,
+        prices,
+        test_mode,
+        callback_gas_limit,
+        payment,
+        nois_beacon_price,
+        nois_beacon_price_updated,
+        mode,
+    };
+
+    CONFIG.save(deps.storage, &new_config)?;
+
+    Ok(Response::default())
 }
 
 fn get_gateway_channel(storage: &dyn Storage) -> Result<String, ContractError> {

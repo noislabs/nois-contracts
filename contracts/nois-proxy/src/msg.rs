@@ -84,6 +84,19 @@ pub enum SudoMsg {
         /// If None, withdraw all available balance of the given denom.
         amount: Option<Uint128>,
     },
+    /// Set the config
+    #[cfg(feature = "governance_owned")]
+    SetConfig {
+        manager: Option<String>,
+        /// The prices of a randomness. List is to be interpreted as oneof,
+        /// i.e. payment must be paid in one of those denominations.
+        prices: Option<Vec<Coin>>,
+        /// Address of the payment contract (on the other chain)
+        payment: Option<String>,
+        /// The amount of tokens the proxy sends for each randomness request to the Nois chain
+        nois_beacon_price: Option<Uint128>,
+        mode: Option<OperationalMode>,
+    },
 }
 
 #[cw_serde]
