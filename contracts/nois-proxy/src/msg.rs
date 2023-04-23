@@ -45,7 +45,8 @@ pub enum ExecuteMsg {
         denom: String,
         // If None Withdraw all available balance of the denom to the withdrawal address
         amount: Option<Uint128>,
-        address: String,
+        // If None then funds will be sent to the community pool
+        address: Option<String>,
     },
 }
 
@@ -72,13 +73,8 @@ pub enum SudoMsg {
         denom: String,
         // If None Withdraw all available balance of the denom to the withdrawal address
         amount: Option<Uint128>,
-        address: String,
-    },
-    /// Withdraw the given amount to the community pool
-    #[cfg(feature = "governance_owned")]
-    WithdrawToCommunityPool {
-        denom: String,
-        amount: Option<Uint128>,
+        // If None then funds will be sent to the community pool
+        address: Option<String>,
     },
 }
 

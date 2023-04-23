@@ -274,7 +274,7 @@ fn execute_withdraw(
     info: MessageInfo,
     denom: String,
     amount: Option<Uint128>,
-    address: String,
+    address: Option<String>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -298,10 +298,6 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             amount,
             address,
         } => withdraw_unchecked(deps, env, denom, amount, address),
-        #[cfg(feature = "governance_owned")]
-        SudoMsg::WithdrawToCommunityPool { denom, amount } => {
-            withdraw_community_pool_unchecked(deps, env, denom, amount)
-        }
     }
 }
 
@@ -310,34 +306,9 @@ fn withdraw_unchecked(
     env: Env,
     denom: String,
     amount: Option<Uint128>,
-    address: String,
+    address: Option<String>,
 ) -> Result<Response, ContractError> {
-    let address = deps.api.addr_validate(&address)?;
-    let amount = match amount {
-        Some(amount) => amount,
-        None => {
-            deps.querier
-                .query_balance(env.contract.address, denom.clone())?
-                .amount
-        }
-    };
-
-    let msg = BankMsg::Send {
-        to_address: address.into(),
-        amount: vec![Coin { denom, amount }],
-    };
-    let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "withdraw");
-    Ok(res)
-}
-
-fn withdraw_community_pool_unchecked(
-    deps: DepsMut,
-    env: Env,
-    denom: String,
-    amount: Option<Uint128>,
-) -> Result<Response, ContractError> {
+    //let address = deps.api.addr_validate(&address)?;
     let amount = match amount {
         Some(amount) => amount,
         None => {
@@ -347,15 +318,33 @@ fn withdraw_community_pool_unchecked(
         }
     };
 
-    let msg = CosmosMsg::Stargate {
-        type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
-        value: encode_msg_fund_community_pool(&Coin { denom, amount }, &env.contract.address)
-            .into(),
+    let res = match address {
+        Some(add) => {
+            let add = deps.api.addr_validate(&add)?;
+            let msg = BankMsg::Send {
+                to_address: add.into(),
+                amount: vec![Coin { denom, amount }],
+            };
+
+            Response::new()
+                .add_message(msg)
+                .add_attribute("action", "withdraw")
+        }
+        None => {
+            let msg = CosmosMsg::Stargate {
+                type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
+                value: encode_msg_fund_community_pool(
+                    &Coin { denom, amount },
+                    &env.contract.address,
+                )
+                .into(),
+            };
+            Response::new()
+                .add_message(msg)
+                .add_attribute("action", "withdraw-community")
+        }
     };
 
-    let res = Response::new()
-        .add_message(msg)
-        .add_attribute("action", "withdraw_community_pool");
     Ok(res)
 }
 
@@ -855,7 +844,7 @@ mod tests {
         let msg = ExecuteMsg::Withdaw {
             denom: "unoisx".to_string(),
             amount: Some(Uint128::new(12)),
-            address: "some-address".to_string(),
+            address: Some("some-address".to_string()),
         };
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
@@ -863,7 +852,7 @@ mod tests {
         let msg = ExecuteMsg::Withdaw {
             denom: "unoisx".to_string(),
             amount: None,
-            address: "some-address".to_string(),
+            address: Some("some-address".to_string()),
         };
 
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
@@ -888,7 +877,7 @@ mod tests {
         let msg = ExecuteMsg::Withdaw {
             denom: "unoisx".to_string(),
             amount: Some(Uint128::new(12)),
-            address: "some-address".to_string(),
+            address: Some("some-address".to_string()),
         };
         let err = execute(
             deps.as_mut(),
@@ -916,7 +905,7 @@ mod tests {
         let msg = ExecuteMsg::Withdaw {
             denom: "unoisx".to_string(),
             amount: None,
-            address: "some-address".to_string(),
+            address: Some("some-address".to_string()),
         };
 
         let err = execute(
