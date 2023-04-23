@@ -306,6 +306,7 @@ fn withdraw_unchecked(
     Ok(res)
 }
 
+#[allow(unused)]
 fn withdraw_community_pool_unchecked(
     deps: DepsMut,
     env: Env,
@@ -384,6 +385,7 @@ fn get_gateway_channel(storage: &dyn Storage) -> Result<String, ContractError> {
     }
 }
 
+#[allow(unused)]
 fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
     // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
     // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
