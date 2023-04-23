@@ -313,22 +313,19 @@ fn withdraw_unchecked(
     address: String,
 ) -> Result<Response, ContractError> {
     let address = deps.api.addr_validate(&address)?;
-    let amount = match amount {
-        Some(amount) => amount,
-        None => {
-            deps.querier
-                .query_balance(env.contract.address, denom.clone())?
-                .amount
-        }
+    let amount: Coin = match amount {
+        Some(amount) => Coin { denom, amount },
+        None => deps.querier.query_balance(env.contract.address, denom)?,
     };
 
     let msg = BankMsg::Send {
         to_address: address.into(),
-        amount: vec![Coin { denom, amount }],
+        amount: vec![amount.clone()],
     };
     let res = Response::new()
         .add_message(msg)
-        .add_attribute("action", "withdraw");
+        .add_attribute("action", "withdraw")
+        .add_attribute("amount", amount.to_string());
     Ok(res)
 }
 
@@ -338,24 +335,22 @@ fn withdraw_community_pool_unchecked(
     denom: String,
     amount: Option<Uint128>,
 ) -> Result<Response, ContractError> {
-    let amount = match amount {
-        Some(amount) => amount,
-        None => {
-            deps.querier
-                .query_balance(env.contract.address.clone(), denom.clone())?
-                .amount
-        }
+    let amount: Coin = match amount {
+        Some(amount) => Coin { denom, amount },
+        None => deps
+            .querier
+            .query_balance(env.contract.address.clone(), denom)?,
     };
 
     let msg = CosmosMsg::Stargate {
         type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
-        value: encode_msg_fund_community_pool(&Coin { denom, amount }, &env.contract.address)
-            .into(),
+        value: encode_msg_fund_community_pool(&amount, &env.contract.address).into(),
     };
 
     let res = Response::new()
         .add_message(msg)
-        .add_attribute("action", "withdraw_community_pool");
+        .add_attribute("action", "withdraw_community_pool")
+        .add_attribute("amount", amount.to_string());
     Ok(res)
 }
 
