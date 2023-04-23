@@ -15,9 +15,19 @@ There are two CosmWasm-enabled blockchains running locally.
 
 ## The contracts
 
-- nois-gateway (runs on the randomness chain; one instance globally)
-  - it gets the requests for randomness via IBC and redirects them to the
-    randomness source (ex drand)
+- nois-gateway (runs on the randomness chain; one instance globally) Steps:
+  - It receives the beacon request from a relayer.
+  - Routes to the request to the router
+  - The router checks if the drand round is already in state.
+    - If it is not
+      - Enqueues a new job
+      - Instructs the payment contract to pay for the randomness
+      - Waits for the round to come
+      - Dequeues the job
+      - Sends a callback packet to the proxy
+    - If it is then
+      - Instructs the payment contract to pay for the randomness
+      - Send the beacon as an IBC acknowledgment packet
 - nois-payment (runs on the randomness chain; one instance per randomness
   consumer proxy/outpost)
   - This contract gets created during IBC channel creation between a proxy and
