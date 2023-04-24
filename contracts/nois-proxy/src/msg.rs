@@ -8,6 +8,8 @@ use crate::state::{Config, OperationalMode};
 pub struct InstantiateMsg {
     /// The prices of a randomness. List is to be interpreted as oneof,
     /// i.e. payment must be paid in one of those denominations.
+    /// If this list is empty, the user cannot pay. This can be used to put the
+    /// contract out of service.
     pub prices: Vec<Coin>,
     pub manager: Option<String>,
     /// In test mode the min publish time calculation is detached from the clock.
@@ -33,6 +35,8 @@ pub enum ExecuteMsg {
         manager: Option<String>,
         /// The prices of a randomness. List is to be interpreted as oneof,
         /// i.e. payment must be paid in one of those denominations.
+        /// If this list is empty, the user cannot pay. This can be used to put the
+        /// contract out of service.
         prices: Option<Vec<Coin>>,
         /// Address of the payment contract (on the other chain)
         payment: Option<String>,
@@ -90,6 +94,8 @@ pub enum SudoMsg {
         manager: Option<String>,
         /// The prices of a randomness. List is to be interpreted as oneof,
         /// i.e. payment must be paid in one of those denominations.
+        /// If this list is empty, the user cannot pay. This can be used to put the
+        /// contract out of service.
         prices: Option<Vec<Coin>>,
         /// Address of the payment contract (on the other chain)
         payment: Option<String>,

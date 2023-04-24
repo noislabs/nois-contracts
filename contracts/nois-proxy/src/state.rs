@@ -32,6 +32,8 @@ pub enum OperationalMode {
 pub struct Config {
     /// The prices of a randomness. List is to be interpreted as oneof,
     /// i.e. payment must be paid in one of those denominations.
+    /// If this list is empty, the user cannot pay. This can be used to put the
+    /// contract out of service.
     pub prices: Vec<Coin>,
     /// Manager to set the config and withdraw funds
     pub manager: Option<Addr>,

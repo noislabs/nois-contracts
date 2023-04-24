@@ -15,6 +15,9 @@ pub enum ContractError {
     #[error("Job ID exceeds length limit.")]
     JobIdTooLong,
 
+    #[error("No payment option is configured in this proxy.")]
+    NoPaymentOption,
+
     #[error("Insufficient payment.")]
     InsufficientPayment,
 
