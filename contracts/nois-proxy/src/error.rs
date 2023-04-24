@@ -5,6 +5,7 @@ use cosmwasm_std::StdError;
 use nois_protocol::ChannelError;
 
 #[derive(Error, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
