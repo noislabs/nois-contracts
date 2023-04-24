@@ -12,15 +12,18 @@ pub fn validate_job_id(job_id: &str) -> Result<(), ContractError> {
     }
 }
 
-/// Checks if provided funds are sufficient to pay the prive in one of the
-/// supported denoms. Payment cannot be plit across multiple denoms. Extra funds
+/// Checks if provided funds are sufficient to pay the price in one of the
+/// supported denoms. Payment cannot be split across multiple denoms. Extra funds
 /// are ignored.
 ///
-/// Panics if prices is empty since then it is impossible for the user to pay.
+/// When `prices` is an empty list the user cannot pay because there is no possible
+/// denomination in which they could do that. This can be desired in case the cantract
+/// does not want to accapt any payment (i.e. is closed).
 pub fn validate_payment(prices: &[Coin], funds: &[Coin]) -> Result<(), ContractError> {
     if prices.is_empty() {
-        panic!("prices must not be empty");
+        return Err(ContractError::NoPaymentOption);
     }
+
     let prices = BTreeMap::from_iter(prices.iter().map(|c| (c.denom.clone(), c.amount)));
     for fund in funds {
         if let Some(price) = prices.get(&fund.denom) {
@@ -57,6 +60,13 @@ mod tests {
 
     #[test]
     fn validate_payment_works() {
+        // No payment option
+        let prices = Vec::<Coin>::new();
+        let err = validate_payment(&prices, &[coin(100, "bucks")]).unwrap_err();
+        assert!(matches!(err, ContractError::NoPaymentOption));
+        let err = validate_payment(&prices, &[]).unwrap_err();
+        assert!(matches!(err, ContractError::NoPaymentOption));
+
         // Single payment option
         let prices = coins(100, "bucks");
         validate_payment(&prices, &[coin(100, "bucks")]).unwrap();
@@ -69,10 +79,14 @@ mod tests {
         )
         .unwrap();
 
-        validate_payment(&prices, &[coin(99, "bucks")]).unwrap_err();
-        validate_payment(&prices, &[coin(99, "bucks"), coin(17, "bucks")]).unwrap_err();
-        validate_payment(&prices, &[]).unwrap_err();
-        validate_payment(&prices, &[coin(99, "bucks"), coin(200, "gold")]).unwrap_err();
+        let err = validate_payment(&prices, &[coin(99, "bucks")]).unwrap_err();
+        assert!(matches!(err, ContractError::InsufficientPayment));
+        let err = validate_payment(&prices, &[coin(99, "bucks"), coin(17, "bucks")]).unwrap_err();
+        assert!(matches!(err, ContractError::InsufficientPayment));
+        let err = validate_payment(&prices, &[]).unwrap_err();
+        assert!(matches!(err, ContractError::InsufficientPayment));
+        let err = validate_payment(&prices, &[coin(99, "bucks"), coin(200, "gold")]).unwrap_err();
+        assert!(matches!(err, ContractError::InsufficientPayment));
 
         // Multi payment option
         let prices = vec![coin(100, "bucks"), coin(20, "sand")];
@@ -88,10 +102,15 @@ mod tests {
         )
         .unwrap();
 
-        validate_payment(&prices, &[coin(99, "bucks")]).unwrap_err();
-        validate_payment(&prices, &[coin(99, "bucks"), coin(17, "bucks")]).unwrap_err();
-        validate_payment(&prices, &[coin(99, "bucks"), coin(17, "sand")]).unwrap_err();
-        validate_payment(&prices, &[]).unwrap_err();
-        validate_payment(&prices, &[coin(99, "bucks"), coin(200, "gold")]).unwrap_err();
+        let err = validate_payment(&prices, &[coin(99, "bucks")]).unwrap_err();
+        assert!(matches!(err, ContractError::InsufficientPayment));
+        let err = validate_payment(&prices, &[coin(99, "bucks"), coin(17, "bucks")]).unwrap_err();
+        assert!(matches!(err, ContractError::InsufficientPayment));
+        let err = validate_payment(&prices, &[coin(99, "bucks"), coin(17, "sand")]).unwrap_err();
+        assert!(matches!(err, ContractError::InsufficientPayment));
+        let err = validate_payment(&prices, &[]).unwrap_err();
+        assert!(matches!(err, ContractError::InsufficientPayment));
+        let err = validate_payment(&prices, &[coin(99, "bucks"), coin(200, "gold")]).unwrap_err();
+        assert!(matches!(err, ContractError::InsufficientPayment));
     }
 }

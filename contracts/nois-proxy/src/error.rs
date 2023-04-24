@@ -5,6 +5,7 @@ use cosmwasm_std::StdError;
 use nois_protocol::ChannelError;
 
 #[derive(Error, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
@@ -14,6 +15,9 @@ pub enum ContractError {
 
     #[error("Job ID exceeds length limit.")]
     JobIdTooLong,
+
+    #[error("No payment option is configured in this proxy.")]
+    NoPaymentOption,
 
     #[error("Insufficient payment.")]
     InsufficientPayment,

@@ -8,6 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fix
+
+- nois-proxy: Embrace the use of empty `prices` lists to deactivate the proxy.
+  Turn a panic into an error when this happens.
+- all: Make all `ContractError`s `#[non_exhaustive]` since error cases can come
+  up over time.
+
 ## [0.13.0] - 2023-04-23
 
 ### Changed
