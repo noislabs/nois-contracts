@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.13.1] - 2023-04-25
+
 ### Fix
 
 - nois-proxy: Embrace the use of empty `prices` lists to deactivate the proxy.
