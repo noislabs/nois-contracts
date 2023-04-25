@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
-use cw_storage_plus::Item;
+use cw_storage_plus::{Item, Map};
 
 /// The denom information required to send a MsgTransfer.
 /// Ideally we could just query the ICS-20 channel ID and did not have to store it,
@@ -45,9 +45,16 @@ pub struct Config {
     /// The time (on the Nois chain) the price info was created
     pub nois_beacon_price_updated: Timestamp,
     pub mode: OperationalMode,
+    /// Defines if the contract is permissioned or not
+    /// Any address can request a beacon from a permissionless proxy
+    /// Only a pre allowlisted set of addresses can request a beacon froma permissioned proxy
+    pub permissioned: bool,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
+
+/// List of contracts that are allowed to request beacon from this contract
+pub const ALLOWLIST: Map<&Addr, ()> = Map::new("ALLOWLIST");
 
 /// Channel to the nois-gateway contract on the Nois chain
 pub const GATEWAY_CHANNEL: Item<String> = Item::new("gateway_channel");

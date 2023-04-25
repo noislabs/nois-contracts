@@ -3,7 +3,7 @@ use cosmwasm_std::{
     attr, ensure_eq, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order,
     QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
     Uint128, WasmMsg,
 };
@@ -18,11 +18,11 @@ use nois_protocol::{
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
-    PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
+    AllowListResponse, ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg,
+    IsAllowListedResponse, PriceResponse, PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
-use crate::state::{Config, OperationalMode, CONFIG, GATEWAY_CHANNEL};
+use crate::state::{Config, OperationalMode, ALLOWLIST, CONFIG, GATEWAY_CHANNEL};
 
 pub const CALLBACK_ID: u64 = 456;
 
@@ -79,6 +79,9 @@ pub fn execute(
     match msg {
         ExecuteMsg::GetNextRandomness { job_id } => {
             execute_get_next_randomness(deps, env, info, job_id)
+        }
+        ExecuteMsg::UpdateAllowlistContracts { add, remove } => {
+            execute_update_allowlist_contracts(deps, info, add, remove)
         }
         ExecuteMsg::SetConfig {
             manager,
@@ -214,6 +217,40 @@ pub fn execute_get_randomness_impl(
     Ok(res)
 }
 
+fn execute_update_allowlist_contracts(
+    deps: DepsMut,
+    info: MessageInfo,
+    add: Vec<String>,
+    remove: Vec<String>,
+) -> Result<Response, ContractError> {
+    // check the calling address is the authorised address
+    let config = CONFIG.load(deps.storage)?;
+    // if manager set, check the calling address is the authorised address otherwise error unauthorised
+    ensure_eq!(
+        &info.sender,                                                // &Addr
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        ContractError::Unauthorized
+    );
+
+    // We add first to ensure an address that is included in both lists
+    // is removed and not added.
+    for contract in add {
+        let addr = deps.api.addr_validate(&contract)?;
+        if !ALLOWLIST.has(deps.storage, &addr) {
+            ALLOWLIST.save(deps.storage, &addr, &())?;
+        }
+    }
+
+    for contract in remove {
+        let addr = deps.api.addr_validate(&contract)?;
+        if ALLOWLIST.has(deps.storage, &addr) {
+            ALLOWLIST.remove(deps.storage, &addr);
+        }
+    }
+
+    Ok(Response::default())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn execute_set_config(
     deps: DepsMut,
@@ -340,6 +377,7 @@ fn set_config_unchecked(
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
     mode: Option<OperationalMode>,
+    permissioned: bool,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -370,6 +408,7 @@ fn set_config_unchecked(
         nois_beacon_price,
         nois_beacon_price_updated,
         mode,
+        permissioned,
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -424,6 +463,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Prices {} => to_binary(&query_prices(deps)?),
         QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
         QueryMsg::GatewayChannel {} => to_binary(&query_gateway_channel(deps)?),
+        QueryMsg::AllowListedContracts {} => to_binary(&query_allow_list(deps)?),
+        QueryMsg::IsAllowListed { address } => to_binary(&query_is_allow_listed(deps, address)?),
     }
 }
 
@@ -447,6 +488,24 @@ fn query_price(deps: Deps, denom: String) -> StdResult<PriceResponse> {
         .find(|price| price.denom == denom)
         .map(|coin| coin.amount);
     Ok(PriceResponse { price })
+}
+
+fn query_allow_list(deps: Deps) -> StdResult<AllowListResponse> {
+    // No pagination here yet 🤷‍♂️
+    let allowed = ALLOWLIST
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|result| {
+            let (address, _) = result.unwrap();
+            address.into()
+        })
+        .collect();
+    Ok(AllowListResponse { allowed })
+}
+
+fn query_is_allow_listed(deps: Deps, address: String) -> StdResult<IsAllowListedResponse> {
+    let addr = deps.api.addr_validate(&address)?;
+    let listed = ALLOWLIST.has(deps.storage, &addr);
+    Ok(IsAllowListedResponse { listed })
 }
 
 fn query_gateway_channel(deps: Deps) -> StdResult<GatewayChannelResponse> {

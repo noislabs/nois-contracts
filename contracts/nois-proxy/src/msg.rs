@@ -15,6 +15,7 @@ pub struct InstantiateMsg {
     /// The amount of gas that the callback to the dapp can consume
     pub callback_gas_limit: u64,
     pub mode: OperationalMode,
+    pub permissioned: bool,
 }
 
 #[cw_serde]
@@ -28,6 +29,10 @@ pub enum ExecuteMsg {
         after: Timestamp,
         job_id: String,
     },
+    UpdateAllowlistContracts {
+        add: Vec<String>,
+        remove: Vec<String>,
+    },
     /// Set the config
     SetConfig {
         manager: Option<String>,
@@ -39,6 +44,7 @@ pub enum ExecuteMsg {
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
         mode: Option<OperationalMode>,
+        permissioned: Option<bool>,
     },
     // Withdraw the given amount to the withdrawal address
     Withdaw {
@@ -116,6 +122,15 @@ pub enum QueryMsg {
     /// the channel is created. Once created, the value does not change anymore.
     #[returns(GatewayChannelResponse)]
     GatewayChannel {},
+    /// Returns the list of allowed contracts
+    #[returns(AllowListResponse)]
+    AllowListedContracts {},
+    /// Returns if a contract address is allowlisted
+    #[returns(IsAllowListedResponse)]
+    IsAllowListed {
+        /// The address of the contract
+        address: String,
+    },
 }
 
 #[cw_serde]
@@ -138,6 +153,17 @@ pub struct PriceResponse {
 #[cw_serde]
 pub struct GatewayChannelResponse {
     pub channel: Option<String>,
+}
+
+#[cw_serde]
+pub struct AllowListResponse {
+    /// List of Contract addresses
+    pub allowed: Vec<String>,
+}
+
+#[cw_serde]
+pub struct IsAllowListedResponse {
+    pub listed: bool,
 }
 
 /// This struct contains information about the origin of the beacon request. It helps the
