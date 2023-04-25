@@ -412,5 +412,5 @@ test.serial("can withdraw from proxy", async (t) => {
   await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg2, "auto", undefined);
 
   const balance2 = await wasmClient.sign.getBalance(recipient2, "ucosm");
-  t.is(balance2.amount, "999978");
+  t.is(balance2.amount, "978");
 });

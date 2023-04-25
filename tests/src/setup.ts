@@ -95,7 +95,7 @@ export async function instantiateAndConnectIbc(
     proxyMsg,
     "Proxy instance",
     "auto",
-    { funds: coins(1_000_000, "ucosm") }
+    { funds: coins(1_000, "ucosm") } // some funds to test withdrawals
   );
   if (options.enablePayment == "ibc_pay") {
     // fund the proxy such that it can pay in NOIS
