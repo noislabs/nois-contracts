@@ -8,7 +8,7 @@ import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 import { MockBot } from "./bot";
 import { noisContracts, ProxyExecuteMsg, uploadContracts, wasmContracts } from "./contracts";
 import { instantiateAndConnectIbc, TestContext } from "./setup";
-import { assertPacketsFromA, assertPacketsFromB, setupNoisClient, setupWasmClient } from "./utils";
+import { assertPacketsFromA, assertPacketsFromB, randomAddress, setupNoisClient, setupWasmClient } from "./utils";
 
 test.before(async (t) => {
   const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
@@ -381,4 +381,36 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
       },
     ]);
   }
+});
+
+test.serial("can withdraw from proxy", async (t) => {
+  const { wasmClient, noisProxyAddress } = await instantiateAndConnectIbc(t, {});
+
+  // Withdraw some
+  const recipient1 = randomAddress("wasm");
+  const msg: ProxyExecuteMsg = {
+    withdraw: {
+      denom: "ucosm",
+      amount: "22",
+      address: recipient1,
+    },
+  };
+  await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined);
+
+  const balance = await wasmClient.sign.getBalance(recipient1, "ucosm");
+  t.is(balance.amount, "22");
+
+  // Withdraw all
+  const recipient2 = randomAddress("wasm");
+  const msg2: ProxyExecuteMsg = {
+    withdraw: {
+      denom: "ucosm",
+      amount: null,
+      address: recipient2,
+    },
+  };
+  await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg2, "auto", undefined);
+
+  const balance2 = await wasmClient.sign.getBalance(recipient2, "ucosm");
+  t.is(balance2.amount, "999978");
 });

@@ -110,6 +110,11 @@ export interface ProxyExecuteMsg {
     /** Timestamp in nanoseconds since epoch */
     readonly after: string;
   };
+  readonly withdraw?: {
+    readonly denom: string;
+    readonly amount: null | string;
+    readonly address: string;
+  };
   // ... some more options, see contract
 }
 
