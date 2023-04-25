@@ -16,7 +16,7 @@ use nois_protocol::{
 };
 
 use crate::error::ContractError;
-use crate::jobs::{validate_job_id, validate_payment};
+use crate::jobs::{validate_job_id, validate_payment, validate_sender};
 use crate::msg::{
     ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
     PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
@@ -39,9 +39,20 @@ pub fn instantiate(
         test_mode,
         callback_gas_limit,
         mode,
+        allow_list,
     } = msg;
     let manager = match manager {
         Some(ma) => Some(deps.api.addr_validate(&ma)?),
+        None => None,
+    };
+    let allow_list = match allow_list {
+        Some(al) => {
+            let mut addrs: Vec<Addr> = Vec::with_capacity(al.len());
+            for addr_str in al.iter() {
+                addrs.push(deps.api.addr_validate(addr_str)?);
+            }
+            Some(addrs)
+        }
         None => None,
     };
     let config = Config {
@@ -54,6 +65,7 @@ pub fn instantiate(
         nois_beacon_price: Uint128::zero(),
         nois_beacon_price_updated: Timestamp::from_seconds(0),
         mode,
+        allow_list,
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -86,6 +98,7 @@ pub fn execute(
             payment,
             nois_beacon_price,
             mode,
+            allow_list,
         } => execute_set_config(
             deps,
             info,
@@ -95,6 +108,7 @@ pub fn execute(
             payment,
             nois_beacon_price,
             mode,
+            allow_list,
         ),
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
@@ -163,6 +177,7 @@ pub fn execute_get_randomness_impl(
 ) -> Result<Response, ContractError> {
     validate_job_id(&job_id)?;
     validate_payment(&config.prices, &info.funds)?;
+    validate_sender(&config.allow_list, &info.sender)?;
 
     let packet = InPacket::RequestBeacon {
         after,
@@ -224,6 +239,7 @@ fn execute_set_config(
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
     mode: Option<OperationalMode>,
+    allow_list: Option<Vec<String>>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -234,7 +250,16 @@ fn execute_set_config(
         ContractError::Unauthorized
     );
 
-    set_config_unchecked(deps, env, manager, prices, payment, nois_beacon_price, mode)
+    set_config_unchecked(
+        deps,
+        env,
+        manager,
+        prices,
+        payment,
+        nois_beacon_price,
+        mode,
+        allow_list,
+    )
 }
 
 fn execute_withdraw(
@@ -340,6 +365,7 @@ fn set_config_unchecked(
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
     mode: Option<OperationalMode>,
+    allow_list: Option<Vec<String>>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -360,6 +386,23 @@ fn set_config_unchecked(
         None => (config.nois_beacon_price, config.nois_beacon_price_updated),
     };
     let mode = mode.unwrap_or(config.mode);
+    let allow_list = match allow_list {
+        Some(al) => {
+            // interpret an empty Vec as a sign to disable the allow_list,
+            // because a value of None for this arg already indicates "no
+            // change"
+            if al.is_empty() {
+                None
+            } else {
+                let mut addrs: Vec<Addr> = Vec::with_capacity(al.len());
+                for addr_str in al.iter() {
+                    addrs.push(deps.api.addr_validate(addr_str)?);
+                }
+                Some(addrs)
+            }
+        }
+        None => config.allow_list,
+    };
 
     let new_config = Config {
         manager,
@@ -370,6 +413,7 @@ fn set_config_unchecked(
         nois_beacon_price,
         nois_beacon_price_updated,
         mode,
+        allow_list,
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -723,7 +767,9 @@ mod tests {
 
     const CREATOR: &str = "creator";
 
-    fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
+    fn setup(
+        instantiate_msg: Option<InstantiateMsg>,
+    ) -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let initial_funds = vec![
             Coin::new(22334455, "unoisx"),
             Coin::new(
@@ -732,13 +778,14 @@ mod tests {
             ),
         ];
         let mut deps = mock_dependencies_with_balance(&initial_funds);
-        let msg = InstantiateMsg {
+        let msg = instantiate_msg.unwrap_or_else(|| InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-        };
+            allow_list: None,
+        });
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -773,6 +820,7 @@ mod tests {
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
+            allow_list: Some(vec![CREATOR.to_string()]),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -785,7 +833,7 @@ mod tests {
 
     #[test]
     fn get_next_randomness_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // Requires a channel to forward requests to
         setup_channel(deps.as_mut());
@@ -806,8 +854,8 @@ mod tests {
     }
 
     #[test]
-    fn get_next_randomnes_for_invalid_inputs() {
-        let mut deps = setup();
+    fn get_next_randomness_for_invalid_inputs() {
+        let mut deps = setup(None);
         setup_channel(deps.as_mut());
 
         // Job ID too long
@@ -820,8 +868,62 @@ mod tests {
     }
 
     #[test]
+    fn get_next_randomness_for_allowed_address() {
+        let mut deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allow_list: Some(vec![CREATOR.to_string()]),
+        }));
+        setup_channel(deps.as_mut());
+
+        // Sender in allow_list
+        let msg = ExecuteMsg::GetNextRandomness { job_id: "1".into() };
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(CREATOR.into(), &coins(22334455, "unoisx")),
+            msg,
+        )
+        .unwrap();
+        assert_eq!(res.messages.len(), 1);
+        let out_msg = &res.messages[0];
+        assert_eq!(out_msg.gas_limit, None);
+        assert_eq!(out_msg.reply_on, ReplyOn::Never);
+        assert!(matches!(
+            out_msg.msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+    }
+
+    #[test]
+    fn get_next_randomness_for_disallowed_address() {
+        let mut deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allow_list: Some(vec![CREATOR.to_string()]),
+        }));
+        setup_channel(deps.as_mut());
+
+        // Sender in allow_list
+        let msg = ExecuteMsg::GetNextRandomness { job_id: "1".into() };
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("disallowed", &coins(22334455, "unoisx")),
+            msg,
+        );
+        assert!(matches!(err, Err(ContractError::NotAllowed)));
+    }
+
+    #[test]
     fn get_randomness_after_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // Requires a channel to forward requests to
         setup_channel(deps.as_mut());
@@ -844,7 +946,7 @@ mod tests {
 
     #[test]
     fn get_randomness_after_fails_for_invalid_inputs() {
-        let mut deps = setup();
+        let mut deps = setup(None);
         setup_channel(deps.as_mut());
 
         // Job ID too long
@@ -867,6 +969,7 @@ mod tests {
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
+            allow_list: None,
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -894,6 +997,7 @@ mod tests {
             payment: None,
             nois_beacon_price: None,
             mode: None,
+            allow_list: None,
         };
 
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
@@ -902,7 +1006,7 @@ mod tests {
 
     #[test]
     fn withdraw_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
@@ -930,7 +1034,7 @@ mod tests {
 
     #[test]
     fn withdraw_all_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
@@ -964,7 +1068,7 @@ mod tests {
 
     #[test]
     fn query_prices_works() {
-        let deps = setup();
+        let deps = setup(None);
 
         let PricesResponse { prices } =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Prices {}).unwrap()).unwrap();
@@ -973,7 +1077,7 @@ mod tests {
 
     #[test]
     fn query_price_works() {
-        let deps = setup();
+        let deps = setup(None);
 
         let PriceResponse { price } = from_binary(
             &query(
@@ -1008,7 +1112,7 @@ mod tests {
 
     #[test]
     fn ibc_channel_open_checks_version_and_order() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // All good
         let valid_handshake = mock_ibc_channel_open_init("channel-12", APP_ORDER, IBC_APP_VERSION);
@@ -1029,7 +1133,7 @@ mod tests {
     fn ibc_channel_connect_works() {
         // We are chain A and get the ChanOpenAck
 
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // Channel is unset
         let GatewayChannelResponse { channel } =
@@ -1059,7 +1163,7 @@ mod tests {
 
     #[test]
     fn ibc_channel_close_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // Open
         let valid_handshake = mock_ibc_channel_open_init("channel-12", APP_ORDER, IBC_APP_VERSION);
@@ -1099,7 +1203,7 @@ mod tests {
 
     #[test]
     fn ibc_packet_ack_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // The proxy -> gateway packet we get the acknowledgement for
         let packet = InPacket::RequestBeacon {

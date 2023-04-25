@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use crate::error::ContractError;
-use cosmwasm_std::Coin;
+use cosmwasm_std::{Addr, Coin};
 use nois::MAX_JOB_ID_LEN;
 
 pub fn validate_job_id(job_id: &str) -> Result<(), ContractError> {
@@ -34,6 +34,21 @@ pub fn validate_payment(prices: &[Coin], funds: &[Coin]) -> Result<(), ContractE
         }
     }
     Err(ContractError::InsufficientPayment)
+}
+
+/// Checks if the given sender address is allowed to request randomness by
+/// checking if it is contained in the config's allow_list. If an allow_list is
+/// not defined, then any address is allowed.
+pub fn validate_sender(
+    maybe_allow_list: &Option<Vec<Addr>>,
+    sender: &Addr,
+) -> Result<(), ContractError> {
+    if let Some(allow_list) = maybe_allow_list {
+        if !allow_list.contains(sender) {
+            return Err(ContractError::NotAllowed);
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

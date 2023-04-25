@@ -22,6 +22,9 @@ pub enum ContractError {
     #[error("Insufficient payment.")]
     InsufficientPayment,
 
+    #[error("NotAllowed")]
+    NotAllowed,
+
     //
     // IBC
     //

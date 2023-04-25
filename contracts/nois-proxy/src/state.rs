@@ -47,6 +47,8 @@ pub struct Config {
     /// The time (on the Nois chain) the price info was created
     pub nois_beacon_price_updated: Timestamp,
     pub mode: OperationalMode,
+    /// List of addresses allowed to get randomness
+    pub allow_list: Option<Vec<Addr>>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

@@ -17,6 +17,8 @@ pub struct InstantiateMsg {
     /// The amount of gas that the callback to the dapp can consume
     pub callback_gas_limit: u64,
     pub mode: OperationalMode,
+    /// List of addresses allowed to get randomness
+    pub allow_list: Option<Vec<String>>,
 }
 
 #[cw_serde]
@@ -43,6 +45,8 @@ pub enum ExecuteMsg {
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
         mode: Option<OperationalMode>,
+        /// List of addresses allowed to get randomness
+        allow_list: Option<Vec<String>>,
     },
     // Withdraw the given amount to the withdrawal address
     Withdraw {
