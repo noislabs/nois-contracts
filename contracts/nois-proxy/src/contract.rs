@@ -262,7 +262,7 @@ fn execute_withdraw(
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
         #[cfg(feature = "governance_owned")]
-        SudoMsg::withdraw {
+        SudoMsg::Withdraw {
             denom,
             amount,
             address,

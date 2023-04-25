@@ -73,7 +73,7 @@ impl From<ProxyExecuteMsg> for ExecuteMsg {
 pub enum SudoMsg {
     /// Withdraw the given amount to the withdrawal address
     #[cfg(feature = "governance_owned")]
-    withdraw {
+    Withdraw {
         denom: String,
         /// The amount of tokens to withdraw.
         /// If None, withdraw all available balance of the given denom.
