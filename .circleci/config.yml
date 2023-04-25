@@ -91,10 +91,15 @@ jobs:
             - v2-contract_nois_proxy-rust:1.68.2-{{ checksum "~/project/Cargo.lock" }}
             - v2-contract_nois_proxy-rust:1.68.2-
       - run:
-          name: Unit Tests
+          name: Unit Tests (default features)
           environment:
             RUST_BACKTRACE: 1
           command: cargo unit-test --locked
+      - run:
+          name: Unit Tests (all features)
+          environment:
+            RUST_BACKTRACE: 1
+          command: cargo unit-test --locked --features governance_owned
       - run:
           name: Build and run schema generator
           command: cargo schema --locked
@@ -403,8 +408,11 @@ jobs:
           name: Check formatting of workspace
           command: cargo fmt -- --check
       - run:
-          name: Clippy linting on workspace
+          name: Clippy linting on workspace (default features)
           command: cargo clippy --all-targets -- -D warnings
+      - run:
+          name: Clippy linting on workspace (all features)
+          command: cargo clippy --all-targets --features governance_owned -- -D warnings
       - save_cache:
           paths:
             - /usr/local/cargo/registry
