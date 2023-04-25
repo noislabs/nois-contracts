@@ -51,7 +51,8 @@ export interface SetupInfo {
 
 export interface InstantiateAndConnectOptions {
   readonly testMode?: boolean;
-  readonly mockDrandAddr: string;
+  /** Set this drand address in the gateway. Don't set any address if undefined. */
+  readonly mockDrandAddr?: string;
   readonly callback_gas_limit?: number;
   readonly enablePayment?: "funded" | "ibc_pay"; // defaults to false
 }
@@ -93,7 +94,8 @@ export async function instantiateAndConnectIbc(
     context.wasmCodeIds.proxy,
     proxyMsg,
     "Proxy instance",
-    "auto"
+    "auto",
+    { funds: coins(1_000, "ucosm") } // some funds to test withdrawals
   );
   if (options.enablePayment == "ibc_pay") {
     // fund the proxy such that it can pay in NOIS
@@ -154,8 +156,10 @@ export async function instantiateAndConnectIbc(
     await fundAccount(nois, noisGatewayAddress, "100000000"); // 100 NOIS can fund 1 payment contracts
   }
 
-  const setDrandMsg: GatewayExecuteMsg = { set_config: { drand_addr: options.mockDrandAddr } };
-  await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
+  if (options.mockDrandAddr) {
+    const setDrandMsg: GatewayExecuteMsg = { set_config: { drand_addr: options.mockDrandAddr } };
+    await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
+  }
 
   const [noisProxyInfo, noisGatewayInfo] = await Promise.all([
     wasmClient.sign.getContract(noisProxyAddress),

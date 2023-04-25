@@ -6,9 +6,9 @@ import test from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 
 import { MockBot } from "./bot";
-import { noisContracts, uploadContracts, wasmContracts } from "./contracts";
+import { noisContracts, ProxyExecuteMsg, uploadContracts, wasmContracts } from "./contracts";
 import { instantiateAndConnectIbc, TestContext } from "./setup";
-import { assertPacketsFromA, assertPacketsFromB, setupNoisClient, setupWasmClient } from "./utils";
+import { assertPacketsFromA, assertPacketsFromB, randomAddress, setupNoisClient, setupWasmClient } from "./utils";
 
 test.before(async (t) => {
   const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
@@ -43,14 +43,8 @@ test.serial("proxy works", async (t) => {
   t.log("Executing get_next_randomness for a round that already exists");
   {
     await bot.submitNext();
-    await wasmClient.sign.execute(
-      wasmClient.senderAddress,
-      noisProxyAddress,
-      { get_next_randomness: { job_id: "eins" } },
-      "auto",
-      undefined,
-      [payment]
-    );
+    const msg: ProxyExecuteMsg = { get_next_randomness: { job_id: "eins" } };
+    await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
     const info1 = await link.relayAll();
@@ -69,14 +63,8 @@ test.serial("proxy works", async (t) => {
 
   t.log("Executing get_next_randomness for a round that does not yet exists");
   {
-    await wasmClient.sign.execute(
-      wasmClient.senderAddress,
-      noisProxyAddress,
-      { get_next_randomness: { job_id: "zwei" } },
-      "auto",
-      undefined,
-      [payment]
-    );
+    const msg: ProxyExecuteMsg = { get_next_randomness: { job_id: "zwei" } };
+    await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
     const info = await link.relayAll();
@@ -89,16 +77,10 @@ test.serial("proxy works", async (t) => {
 
   t.log("Executing get_randomness_after for a round that does not yet exists");
   {
-    await wasmClient.sign.execute(
-      wasmClient.senderAddress,
-      noisProxyAddress,
-      // Wednesday, 5. April 2023 06:07:08
-      // 1680674828
-      { get_randomness_after: { after: "1680674828000000000", job_id: "drei" } },
-      "auto",
-      undefined,
-      [payment]
-    );
+    // Wednesday, 5. April 2023 06:07:08
+    // 1680674828
+    const msg: ProxyExecuteMsg = { get_randomness_after: { after: "1680674828000000000", job_id: "drei" } };
+    await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
     const info = await link.relayAll();
@@ -125,14 +107,8 @@ test.serial("proxy works for get_randomness_after", async (t) => {
 
   t.log("Executing get_randomness_after time between 3nd and 4rd round");
   {
-    await wasmClient.sign.execute(
-      wasmClient.senderAddress,
-      noisProxyAddress,
-      { get_randomness_after: { after: "1677687666000000000", job_id: "first job" } },
-      "auto",
-      undefined,
-      [payment]
-    );
+    const msg: ProxyExecuteMsg = { get_randomness_after: { after: "1677687666000000000", job_id: "first job" } };
+    await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
     const info = await link.relayAll();
@@ -146,14 +122,8 @@ test.serial("proxy works for get_randomness_after", async (t) => {
 
   t.log("Executing get_randomness_after time between 1nd and 2rd round");
   {
-    await wasmClient.sign.execute(
-      wasmClient.senderAddress,
-      noisProxyAddress,
-      { get_randomness_after: { after: "1677687603000000000", job_id: "second job" } },
-      "auto",
-      undefined,
-      [payment]
-    );
+    const msg: ProxyExecuteMsg = { get_randomness_after: { after: "1677687603000000000", job_id: "second job" } };
+    await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
     const info = await link.relayAll();
@@ -411,4 +381,36 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
       },
     ]);
   }
+});
+
+test.serial("can withdraw from proxy", async (t) => {
+  const { wasmClient, noisProxyAddress } = await instantiateAndConnectIbc(t, {});
+
+  // Withdraw some
+  const recipient1 = randomAddress("wasm");
+  const msg: ProxyExecuteMsg = {
+    withdraw: {
+      denom: "ucosm",
+      amount: "22",
+      address: recipient1,
+    },
+  };
+  await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined);
+
+  const balance = await wasmClient.sign.getBalance(recipient1, "ucosm");
+  t.is(balance.amount, "22");
+
+  // Withdraw all
+  const recipient2 = randomAddress("wasm");
+  const msg2: ProxyExecuteMsg = {
+    withdraw: {
+      denom: "ucosm",
+      amount: null,
+      address: recipient2,
+    },
+  };
+  await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg2, "auto", undefined);
+
+  const balance2 = await wasmClient.sign.getBalance(recipient2, "ucosm");
+  t.is(balance2.amount, "978");
 });
