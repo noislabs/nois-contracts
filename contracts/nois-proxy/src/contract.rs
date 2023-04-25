@@ -99,7 +99,7 @@ pub fn execute(
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
         }
-        ExecuteMsg::Withdaw {
+        ExecuteMsg::Withdraw {
             denom,
             amount,
             address,
@@ -262,7 +262,7 @@ fn execute_withdraw(
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
         #[cfg(feature = "governance_owned")]
-        SudoMsg::Withdaw {
+        SudoMsg::withdraw {
             denom,
             amount,
             address,
@@ -871,7 +871,7 @@ mod tests {
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         // withdraw
-        let msg = ExecuteMsg::Withdaw {
+        let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: Some(Uint128::new(12)),
             address: "some-address".to_string(),
@@ -879,7 +879,7 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
         // withdraw all
-        let msg = ExecuteMsg::Withdaw {
+        let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: None,
             address: "some-address".to_string(),
@@ -904,7 +904,7 @@ mod tests {
     fn withdraw_works() {
         let mut deps = setup();
 
-        let msg = ExecuteMsg::Withdaw {
+        let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: Some(Uint128::new(12)),
             address: "some-address".to_string(),
@@ -932,7 +932,7 @@ mod tests {
     fn withdraw_all_works() {
         let mut deps = setup();
 
-        let msg = ExecuteMsg::Withdaw {
+        let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: None,
             address: "some-address".to_string(),
