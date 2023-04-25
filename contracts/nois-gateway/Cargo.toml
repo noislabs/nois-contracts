@@ -1,6 +1,6 @@
 [package]
 name = "nois-gateway"
-version = "0.13.1"
+version = "0.13.2"
 authors = []
 edition = "2021"
 publish = false
