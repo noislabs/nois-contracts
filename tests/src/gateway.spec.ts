@@ -7,7 +7,14 @@ import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
 
 import { ibcPacketsSent, MockBot } from "./bot";
-import { GatewayInstantiateMsg, noisContracts, ProxyInstantiateMsg, uploadContracts, wasmContracts } from "./contracts";
+import {
+  GatewayInstantiateMsg,
+  noisContracts,
+  ProxyExecuteMsg,
+  ProxyInstantiateMsg,
+  uploadContracts,
+  wasmContracts,
+} from "./contracts";
 import { instantiateAndConnectIbc, TestContext } from "./setup";
 import {
   assertPacketsFromA,
@@ -140,17 +147,14 @@ test.serial("submit randomness for various job counts", async (t) => {
   ];
 
   for (const [i, jobs] of [0, 1, 2, 3, 4].entries()) {
-    t.log(`Executing get_next_randomness ${jobs} times for a round that does not yet exists`);
+    t.log(`Executing get_randomness_after ${jobs} times for a round that does not yet exists`);
 
-    const msgs = Array.from({ length: jobs }).map(
-      (_, j): ExecuteInstruction => ({
-        contractAddress: noisProxyAddress,
-        msg: { get_randomness_after: { after: afterValues[i], job_id: `job-${j}` } },
-        funds: [payment],
-      })
-    );
-    if (msgs.length > 0) {
-      await wasmClient.sign.executeMultiple(wasmClient.senderAddress, msgs, "auto");
+    const instructions = Array.from({ length: jobs }).map((_, j): ExecuteInstruction => {
+      const msg: ProxyExecuteMsg = { get_randomness_after: { after: afterValues[i], job_id: `job-${j}` } };
+      return { contractAddress: noisProxyAddress, msg, funds: [payment] };
+    });
+    if (instructions.length > 0) {
+      await wasmClient.sign.executeMultiple(wasmClient.senderAddress, instructions, "auto");
     }
 
     t.log("Relaying RequestBeacon");

@@ -101,6 +101,18 @@ export interface ProxyInstantiateMsg {
   readonly mode: ProxyOperationalMode;
 }
 
+export interface ProxyExecuteMsg {
+  readonly get_next_randomness?: {
+    readonly job_id: string;
+  };
+  readonly get_randomness_after?: {
+    readonly job_id: string;
+    /** Timestamp in nanoseconds since epoch */
+    readonly after: string;
+  };
+  // ... some more options, see contract
+}
+
 export interface WasmdContractPaths {
   readonly proxy: string;
   readonly demo: string;

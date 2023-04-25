@@ -6,7 +6,7 @@ import test from "ava";
 import { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin";
 
 import { MockBot } from "./bot";
-import { GatewayCustomerResponse, noisContracts, uploadContracts, wasmContracts } from "./contracts";
+import { GatewayCustomerResponse, noisContracts, ProxyExecuteMsg, uploadContracts, wasmContracts } from "./contracts";
 import { instantiateAndConnectIbc, TestContext } from "./setup";
 import {
   assertPacketsFromA,
@@ -75,14 +75,8 @@ test.serial("payment works for funded mode", async (t) => {
   t.log("Executing get_next_randomness for a round that already exists");
   {
     await bot.submitNext();
-    await wasmClient.sign.execute(
-      wasmClient.senderAddress,
-      noisProxyAddress,
-      { get_next_randomness: { job_id: "eins" } },
-      "auto",
-      undefined,
-      [payment]
-    );
+    const msg: ProxyExecuteMsg = { get_next_randomness: { job_id: "eins" } };
+    await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
     const paymentBalance1 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
@@ -130,14 +124,8 @@ test.serial("payment works for funded mode", async (t) => {
 
   t.log("Executing get_next_randomness for a round that does not yet exists");
   {
-    await wasmClient.sign.execute(
-      wasmClient.senderAddress,
-      noisProxyAddress,
-      { get_next_randomness: { job_id: "zwei" } },
-      "auto",
-      undefined,
-      [payment]
-    );
+    const msg: ProxyExecuteMsg = { get_next_randomness: { job_id: "zwei" } };
+    await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
     const paymentBalance1 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
@@ -211,14 +199,8 @@ test.serial("payment works for ibc_pay mode", async (t) => {
   t.log("Executing get_next_randomness for a round that already exists");
   {
     await bot.submitNext();
-    await wasmClient.sign.execute(
-      wasmClient.senderAddress,
-      noisProxyAddress,
-      { get_next_randomness: { job_id: "eins" } },
-      "auto",
-      undefined,
-      [payment]
-    );
+    const msg: ProxyExecuteMsg = { get_next_randomness: { job_id: "eins" } };
+    await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
     const paymentBalance1 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
@@ -266,14 +248,8 @@ test.serial("payment works for ibc_pay mode", async (t) => {
 
   t.log("Executing get_next_randomness for a round that does not yet exists");
   {
-    await wasmClient.sign.execute(
-      wasmClient.senderAddress,
-      noisProxyAddress,
-      { get_next_randomness: { job_id: "zwei" } },
-      "auto",
-      undefined,
-      [payment]
-    );
+    const msg: ProxyExecuteMsg = { get_next_randomness: { job_id: "zwei" } };
+    await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
     const paymentBalance1 = parseInt((await noisClient.sign.getBalance(paymentAddress, "unois")).amount, 10);
