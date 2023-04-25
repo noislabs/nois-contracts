@@ -45,7 +45,7 @@ pub enum ExecuteMsg {
         mode: Option<OperationalMode>,
     },
     // Withdraw the given amount to the withdrawal address
-    Withdaw {
+    Withdraw {
         denom: String,
         /// The amount of tokens to withdraw.
         /// If None, withdraw all available balance of the given denom.
@@ -73,7 +73,7 @@ impl From<ProxyExecuteMsg> for ExecuteMsg {
 pub enum SudoMsg {
     /// Withdraw the given amount to the withdrawal address
     #[cfg(feature = "governance_owned")]
-    Withdaw {
+    withdraw {
         denom: String,
         /// The amount of tokens to withdraw.
         /// If None, withdraw all available balance of the given denom.
