@@ -19,6 +19,8 @@ pub struct InstantiateMsg {
     pub mode: OperationalMode,
     /// List of addresses allowed to get randomness
     pub allow_list: Option<Vec<String>>,
+    /// Toggle address whitelist allowed to get randomness
+    pub allow_list_enabled: Option<bool>,
 }
 
 #[cw_serde]
@@ -45,8 +47,8 @@ pub enum ExecuteMsg {
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
         mode: Option<OperationalMode>,
-        /// List of addresses allowed to get randomness
-        allow_list: Option<Vec<String>>,
+        /// Toggle address whitelist allowed to get randomness
+        allow_list_enabled: Option<bool>,
     },
     // Withdraw the given amount to the withdrawal address
     Withdraw {
@@ -55,6 +57,11 @@ pub enum ExecuteMsg {
         /// If None, withdraw all available balance of the given denom.
         amount: Option<Uint128>,
         address: String,
+    },
+    // Add or remove entries from the whitelist of addresses allowed to get randomness.
+    UpdateAllowList {
+        remove: Vec<String>,
+        add: Vec<String>,
     },
 }
 
@@ -126,6 +133,10 @@ pub enum QueryMsg {
     /// the channel is created. Once created, the value does not change anymore.
     #[returns(GatewayChannelResponse)]
     GatewayChannel {},
+    /// Queries whether the given address is allowed to get randomness, based on
+    /// whether the allow_list is in use.
+    #[returns(ConfigResponse)]
+    IsAllowed { address: String },
 }
 
 #[cw_serde]
@@ -148,6 +159,11 @@ pub struct PriceResponse {
 #[cw_serde]
 pub struct GatewayChannelResponse {
     pub channel: Option<String>,
+}
+
+#[cw_serde]
+pub struct IsAllowedResponse {
+    pub is_allowed: bool,
 }
 
 /// This struct contains information about the origin of the beacon request. It helps the

@@ -1,6 +1,6 @@
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin, Timestamp, Uint128};
-use cw_storage_plus::Item;
+use cw_storage_plus::{Item, Map};
 
 /// The denom information required to send a MsgTransfer.
 /// Ideally we could just query the ICS-20 channel ID and did not have to store it,
@@ -47,11 +47,16 @@ pub struct Config {
     /// The time (on the Nois chain) the price info was created
     pub nois_beacon_price_updated: Timestamp,
     pub mode: OperationalMode,
-    /// List of addresses allowed to get randomness
-    pub allow_list: Option<Vec<Addr>>,
+    /// Enable whitelist of addresses allowed to get randomness
+    pub allow_list_enabled: bool,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
+
+/// List of addresses allowed to get randomness if allow_list enabled. To decide
+/// if an address is allowed, we consider only whether the address is present as
+/// a key. The u8 value itself is a dummy value.
+pub const ALLOW_LIST: Map<Addr, u8> = Map::new("allow_list");
 
 /// Channel to the nois-gateway contract on the Nois chain
 pub const GATEWAY_CHANNEL: Item<String> = Item::new("gateway_channel");

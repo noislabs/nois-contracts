@@ -206,6 +206,7 @@ fn integration_test() {
                 test_mode: false,
                 callback_gas_limit: 500_000,
                 mode: nois_proxy::state::OperationalMode::Funded {},
+                allow_list_enabled: Some(false),
                 allow_list: None,
             },
             &[],
@@ -231,7 +232,7 @@ fn integration_test() {
                 nois_beacon_price: Uint128::zero(),
                 nois_beacon_price_updated: Timestamp::from_seconds(0),
                 mode: nois_proxy::state::OperationalMode::Funded {},
-                allow_list: None,
+                allow_list_enabled: false,
             },
         }
     );

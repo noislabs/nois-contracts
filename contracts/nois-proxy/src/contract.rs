@@ -16,13 +16,13 @@ use nois_protocol::{
 };
 
 use crate::error::ContractError;
-use crate::jobs::{validate_job_id, validate_payment, validate_sender};
+use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
-    PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
+    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, IsAllowedResponse,
+    PriceResponse, PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
-use crate::state::{Config, OperationalMode, CONFIG, GATEWAY_CHANNEL};
+use crate::state::{Config, OperationalMode, ALLOW_LIST, CONFIG, GATEWAY_CHANNEL};
 
 pub const CALLBACK_ID: u64 = 456;
 
@@ -40,19 +40,10 @@ pub fn instantiate(
         callback_gas_limit,
         mode,
         allow_list,
+        allow_list_enabled,
     } = msg;
     let manager = match manager {
         Some(ma) => Some(deps.api.addr_validate(&ma)?),
-        None => None,
-    };
-    let allow_list = match allow_list {
-        Some(al) => {
-            let mut addrs: Vec<Addr> = Vec::with_capacity(al.len());
-            for addr_str in al.iter() {
-                addrs.push(deps.api.addr_validate(addr_str)?);
-            }
-            Some(addrs)
-        }
         None => None,
     };
     let config = Config {
@@ -65,9 +56,18 @@ pub fn instantiate(
         nois_beacon_price: Uint128::zero(),
         nois_beacon_price_updated: Timestamp::from_seconds(0),
         mode,
-        allow_list,
+        allow_list_enabled: allow_list_enabled.unwrap_or(false),
     };
+
     CONFIG.save(deps.storage, &config)?;
+
+    // Save whitelisted addresses to allow list.
+    if let Some(allow_list) = allow_list {
+        for addr in allow_list.iter() {
+            let addr = deps.api.addr_validate(addr)?;
+            ALLOW_LIST.save(deps.storage, addr, &1)?;
+        }
+    }
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
@@ -98,7 +98,7 @@ pub fn execute(
             payment,
             nois_beacon_price,
             mode,
-            allow_list,
+            allow_list_enabled,
         } => execute_set_config(
             deps,
             info,
@@ -108,7 +108,7 @@ pub fn execute(
             payment,
             nois_beacon_price,
             mode,
-            allow_list,
+            allow_list_enabled,
         ),
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
@@ -118,6 +118,9 @@ pub fn execute(
             amount,
             address,
         } => execute_withdraw(deps, env, info, denom, amount, address),
+        ExecuteMsg::UpdateAllowList { add, remove } => {
+            execute_update_allow_list(deps, env, info, &add, &remove)
+        }
     }
 }
 
@@ -177,7 +180,11 @@ pub fn execute_get_randomness_impl(
 ) -> Result<Response, ContractError> {
     validate_job_id(&job_id)?;
     validate_payment(&config.prices, &info.funds)?;
-    validate_sender(&config.allow_list, &info.sender)?;
+
+    // only let whitelisted senders get randomness
+    if config.allow_list_enabled && !ALLOW_LIST.has(deps.storage, info.sender.clone()) {
+        return Err(ContractError::NotAllowed);
+    }
 
     let packet = InPacket::RequestBeacon {
         after,
@@ -239,7 +246,7 @@ fn execute_set_config(
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
     mode: Option<OperationalMode>,
-    allow_list: Option<Vec<String>>,
+    allow_list_enabled: Option<bool>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -258,7 +265,7 @@ fn execute_set_config(
         payment,
         nois_beacon_price,
         mode,
-        allow_list,
+        allow_list_enabled,
     )
 }
 
@@ -280,6 +287,35 @@ fn execute_withdraw(
     );
 
     withdraw_unchecked(deps, env, denom, amount, address)
+}
+
+fn execute_update_allow_list(
+    deps: DepsMut,
+    _env: Env,
+    _info: MessageInfo,
+    added_addresses: &Vec<String>,
+    removed_addresses: &Vec<String>,
+) -> Result<Response, ContractError> {
+    update_allow_list(deps, added_addresses, removed_addresses)?;
+    Ok(Response::new().add_attribute("action", "update_allow_list"))
+}
+
+/// Adds and remove entries from the allow list.
+fn update_allow_list(
+    deps: DepsMut,
+    added_addresses: &Vec<String>,
+    removed_addresses: &Vec<String>,
+) -> Result<(), ContractError> {
+    for addr in added_addresses.iter() {
+        let addr = deps.api.addr_validate(addr.as_str())?;
+        ALLOW_LIST.save(deps.storage, addr, &1)?;
+    }
+
+    for addr in removed_addresses.iter() {
+        let addr = deps.api.addr_validate(addr.as_str())?;
+        ALLOW_LIST.remove(deps.storage, addr);
+    }
+    Ok(())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -365,7 +401,7 @@ fn set_config_unchecked(
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
     mode: Option<OperationalMode>,
-    allow_list: Option<Vec<String>>,
+    allow_list_enabled: Option<bool>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -374,7 +410,6 @@ fn set_config_unchecked(
         None => config.manager,
     };
     let prices = prices.unwrap_or(config.prices);
-
     let test_mode = config.test_mode;
     let callback_gas_limit = config.callback_gas_limit;
     let payment = match payment {
@@ -386,23 +421,7 @@ fn set_config_unchecked(
         None => (config.nois_beacon_price, config.nois_beacon_price_updated),
     };
     let mode = mode.unwrap_or(config.mode);
-    let allow_list = match allow_list {
-        Some(al) => {
-            // interpret an empty Vec as a sign to disable the allow_list,
-            // because a value of None for this arg already indicates "no
-            // change"
-            if al.is_empty() {
-                None
-            } else {
-                let mut addrs: Vec<Addr> = Vec::with_capacity(al.len());
-                for addr_str in al.iter() {
-                    addrs.push(deps.api.addr_validate(addr_str)?);
-                }
-                Some(addrs)
-            }
-        }
-        None => config.allow_list,
-    };
+    let allow_list_enabled = allow_list_enabled.unwrap_or(config.allow_list_enabled);
 
     let new_config = Config {
         manager,
@@ -413,7 +432,7 @@ fn set_config_unchecked(
         nois_beacon_price,
         nois_beacon_price_updated,
         mode,
-        allow_list,
+        allow_list_enabled,
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -468,6 +487,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Prices {} => to_binary(&query_prices(deps)?),
         QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
         QueryMsg::GatewayChannel {} => to_binary(&query_gateway_channel(deps)?),
+        QueryMsg::IsAllowed { address } => to_binary(&query_is_allowed(deps, &address)?),
     }
 }
 
@@ -496,6 +516,14 @@ fn query_price(deps: Deps, denom: String) -> StdResult<PriceResponse> {
 fn query_gateway_channel(deps: Deps) -> StdResult<GatewayChannelResponse> {
     Ok(GatewayChannelResponse {
         channel: GATEWAY_CHANNEL.may_load(deps.storage)?,
+    })
+}
+
+fn query_is_allowed(deps: Deps, addr: &String) -> StdResult<IsAllowedResponse> {
+    let config = CONFIG.load(deps.storage)?;
+    let addr = deps.api.addr_validate(addr)?;
+    Ok(IsAllowedResponse {
+        is_allowed: !config.allow_list_enabled || ALLOW_LIST.has(deps.storage, addr.clone()),
     })
 }
 
@@ -785,6 +813,7 @@ mod tests {
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allow_list: None,
+            allow_list_enabled: Some(false),
         });
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -821,6 +850,7 @@ mod tests {
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allow_list: Some(vec![CREATOR.to_string()]),
+            allow_list_enabled: Some(false),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -876,6 +906,7 @@ mod tests {
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allow_list: Some(vec![CREATOR.to_string()]),
+            allow_list_enabled: Some(true),
         }));
         setup_channel(deps.as_mut());
 
@@ -907,6 +938,7 @@ mod tests {
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allow_list: Some(vec![CREATOR.to_string()]),
+            allow_list_enabled: Some(true),
         }));
         setup_channel(deps.as_mut());
 
@@ -970,6 +1002,7 @@ mod tests {
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allow_list: None,
+            allow_list_enabled: Some(false),
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -997,7 +1030,7 @@ mod tests {
             payment: None,
             nois_beacon_price: None,
             mode: None,
-            allow_list: None,
+            allow_list_enabled: Some(false),
         };
 
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
@@ -1062,6 +1095,30 @@ mod tests {
         );
     }
 
+    #[test]
+    fn update_allow_list_works() {
+        let mut deps = setup(None);
+        let msg = ExecuteMsg::UpdateAllowList {
+            add: vec!["aaa".to_owned(), "ccc".to_owned()],
+            remove: vec!["aaa".to_owned(), "bbb".to_owned()],
+        };
+
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("dapp", &[]),
+            msg.clone(),
+        )
+        .unwrap();
+
+        assert_eq!(ALLOW_LIST.has(&deps.storage, Addr::unchecked("bbb")), false);
+        assert_eq!(ALLOW_LIST.has(&deps.storage, Addr::unchecked("ccc")), true);
+
+        // If an address is both added and removed, err on the side or removing it,
+        // hence, here we check that "aaa" is indeed not found.
+        assert_eq!(ALLOW_LIST.has(&deps.storage, Addr::unchecked("aaa")), false);
+    }
+
     //
     // Query tests
     //
@@ -1104,6 +1161,93 @@ mod tests {
         )
         .unwrap();
         assert_eq!(price, Some(Uint128::new(1000000)));
+    }
+
+    #[test]
+    fn query_is_allowed_works_when_allow_list_enabled() {
+        let addr_in_allow_list = String::from("addr1");
+        let addr_not_in_allow_list = String::from("addr2");
+        let deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allow_list: Some(vec![addr_in_allow_list.clone()]),
+            allow_list_enabled: Some(true),
+        }));
+
+        // expect the address IN allow list to return true
+        let IsAllowedResponse { is_allowed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowed {
+                    address: addr_in_allow_list.clone(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(is_allowed, true);
+
+        // expect the address NOT in allow list to return false
+        let IsAllowedResponse { is_allowed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowed {
+                    address: addr_not_in_allow_list.clone(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(is_allowed, false);
+    }
+
+    #[test]
+    fn query_is_allowed_works_when_allow_list_disabled() {
+        let addr_in_allow_list = String::from("addr1");
+        let addr_not_in_allow_list = String::from("addr2");
+        let deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allow_list: Some(vec![addr_in_allow_list.clone()]),
+            allow_list_enabled: None,
+        }));
+
+        // expect the address IN allow list to return true
+        let IsAllowedResponse { is_allowed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowed {
+                    address: addr_in_allow_list.clone(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(is_allowed, true);
+
+        // expect the address NOT in allow list to return true because, despite not being
+        // in the allow list, the allow list is not enabled.
+        let IsAllowedResponse { is_allowed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowed {
+                    address: addr_not_in_allow_list.clone(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(is_allowed, true);
     }
 
     //
