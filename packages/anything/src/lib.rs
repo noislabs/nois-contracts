@@ -72,6 +72,11 @@ impl Anything {
         self
     }
 
+    #[inline]
+    pub fn append_string(self, field_number: u32, data: impl AsRef<str>) -> Self {
+        self.append_bytes(field_number, data.as_ref())
+    }
+
     /// Appends a uint64 field to with the given field number.
     pub fn append_uint64(mut self, field_number: u32, value: u64) -> Self {
         if value == 0 {
@@ -191,6 +196,27 @@ mod tests {
 
         // Empty field not written
         let data = Anything::new().append_bytes(2, b"");
+        assert_eq!(data.into_vec(), []);
+    }
+
+    #[test]
+    fn append_string() {
+        // &str
+        let data = Anything::new().append_string(2, "testing");
+        assert_eq!(
+            data.into_vec(),
+            [0x12, 0x07, 0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67]
+        );
+
+        // String
+        let data = Anything::new().append_string(2, String::from("testing"));
+        assert_eq!(
+            data.into_vec(),
+            [0x12, 0x07, 0x74, 0x65, 0x73, 0x74, 0x69, 0x6e, 0x67]
+        );
+
+        // Empty field not written
+        let data = Anything::new().append_string(2, "");
         assert_eq!(data.into_vec(), []);
     }
 

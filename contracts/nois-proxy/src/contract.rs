@@ -390,11 +390,11 @@ fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
     // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
     // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
     let coin = Anything::new()
-        .append_bytes(1, &amount.denom)
-        .append_bytes(2, amount.amount.to_string());
+        .append_string(1, &amount.denom)
+        .append_string(2, amount.amount.to_string());
     Anything::new()
         .append_message(1, &coin)
-        .append_bytes(2, depositor.as_bytes())
+        .append_string(2, depositor)
         .into_vec()
 }
 
