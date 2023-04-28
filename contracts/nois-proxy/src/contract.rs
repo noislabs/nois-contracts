@@ -1,4 +1,4 @@
-use anything::Anything;
+use anybuf::Anybuf;
 use cosmwasm_std::{
     attr, ensure_eq, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
@@ -389,10 +389,10 @@ fn get_gateway_channel(storage: &dyn Storage) -> Result<String, ContractError> {
 fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
     // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
     // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
-    let coin = Anything::new()
+    let coin = Anybuf::new()
         .append_string(1, &amount.denom)
         .append_string(2, amount.amount.to_string());
-    Anything::new()
+    Anybuf::new()
         .append_message(1, &coin)
         .append_string(2, depositor)
         .into_vec()

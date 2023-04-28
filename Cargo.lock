@@ -14,6 +14,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anybuf"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f14538dd5b6befdc12b11aae1dddee64b670534d4fdbd28057bcc7c976c0e4eb"
+
+[[package]]
 name = "anyhow"
 version = "1.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -629,7 +635,7 @@ dependencies = [
 name = "nois-payment"
 version = "0.13.2"
 dependencies = [
- "anything",
+ "anybuf",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",
@@ -654,7 +660,7 @@ dependencies = [
 name = "nois-proxy"
 version = "0.13.2"
 dependencies = [
- "anything",
+ "anybuf",
  "cosmwasm-schema",
  "cosmwasm-std",
  "cw-storage-plus",

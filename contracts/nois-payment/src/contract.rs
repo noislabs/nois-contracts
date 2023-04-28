@@ -1,4 +1,4 @@
-use anything::Anything;
+use anybuf::Anybuf;
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env,
     MessageInfo, QueryResponse, Response, StdResult, WasmMsg,
@@ -128,10 +128,10 @@ fn execute_pay(
 fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
     // Coin: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/base/v1beta1/coin.proto#L14-L19
     // MsgFundCommunityPool: https://github.com/cosmos/cosmos-sdk/blob/v0.45.15/proto/cosmos/distribution/v1beta1/tx.proto#L69-L76
-    let coin = Anything::new()
+    let coin = Anybuf::new()
         .append_string(1, &amount.denom)
         .append_string(2, amount.amount.to_string());
-    Anything::new()
+    Anybuf::new()
         .append_message(1, &coin)
         .append_string(2, depositor)
         .into_vec()
