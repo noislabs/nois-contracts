@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Use anybuf from crates.io
+
 ## [0.13.2] - 2023-04-26
 
 ### Fix
