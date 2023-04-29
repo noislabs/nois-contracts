@@ -135,7 +135,7 @@ pub enum QueryMsg {
     GatewayChannel {},
     /// Queries whether the given address is allowed to get randomness, based on
     /// whether the allow_list is in use.
-    #[returns(ConfigResponse)]
+    #[returns(IsAllowedResponse)]
     IsAllowed { address: String },
 }
 
