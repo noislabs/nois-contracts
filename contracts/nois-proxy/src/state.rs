@@ -48,15 +48,15 @@ pub struct Config {
     pub nois_beacon_price_updated: Timestamp,
     pub mode: OperationalMode,
     /// Enable whitelist of addresses allowed to get randomness
-    pub allow_list_enabled: bool,
+    pub allowlist_enabled: bool,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
 
-/// List of addresses allowed to get randomness if allow_list enabled. To decide
+/// List of addresses allowed to get randomness if allowlist enabled. To decide
 /// if an address is allowed, we consider only whether the address is present as
 /// a key. The u8 value itself is a dummy value.
-pub const ALLOW_LIST: Map<Addr, u8> = Map::new("allow_list");
+pub const ALLOW_LIST: Map<Addr, u8> = Map::new("allowlist");
 
 /// Channel to the nois-gateway contract on the Nois chain
 pub const GATEWAY_CHANNEL: Item<String> = Item::new("gateway_channel");

@@ -18,9 +18,9 @@ pub struct InstantiateMsg {
     pub callback_gas_limit: u64,
     pub mode: OperationalMode,
     /// List of addresses allowed to get randomness
-    pub allow_list: Option<Vec<String>>,
+    pub allowlist: Option<Vec<String>>,
     /// Toggle address whitelist allowed to get randomness
-    pub allow_list_enabled: Option<bool>,
+    pub allowlist_enabled: Option<bool>,
 }
 
 #[cw_serde]
@@ -48,7 +48,7 @@ pub enum ExecuteMsg {
         nois_beacon_price: Option<Uint128>,
         mode: Option<OperationalMode>,
         /// Toggle address whitelist allowed to get randomness
-        allow_list_enabled: Option<bool>,
+        allowlist_enabled: Option<bool>,
     },
     // Withdraw the given amount to the withdrawal address
     Withdraw {
@@ -134,7 +134,7 @@ pub enum QueryMsg {
     #[returns(GatewayChannelResponse)]
     GatewayChannel {},
     /// Queries whether the given address is allowed to get randomness, based on
-    /// whether the allow_list is in use.
+    /// whether the allowlist is in use.
     #[returns(IsAllowedResponse)]
     IsAllowed { address: String },
 }

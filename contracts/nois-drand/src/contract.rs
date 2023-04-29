@@ -107,8 +107,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
-        QueryMsg::AllowList {} => to_binary(&query_allow_list(deps)?)?,
-        QueryMsg::IsAllowListed { bot } => to_binary(&query_is_allow_listed(deps, bot)?)?,
+        QueryMsg::AllowList {} => to_binary(&query_allowlist(deps)?)?,
+        QueryMsg::IsAllowListed { bot } => to_binary(&query_is_allowlisted(deps, bot)?)?,
     };
     Ok(response)
 }
@@ -182,7 +182,7 @@ fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
     Ok(BotsResponse { bots })
 }
 
-fn query_allow_list(deps: Deps) -> StdResult<AllowListResponse> {
+fn query_allowlist(deps: Deps) -> StdResult<AllowListResponse> {
     // No pagination here yet 🤷‍♂️
     let allowed = ALLOWLIST
         .range(deps.storage, None, None, Order::Ascending)
@@ -194,7 +194,7 @@ fn query_allow_list(deps: Deps) -> StdResult<AllowListResponse> {
     Ok(AllowListResponse { allowed })
 }
 
-fn query_is_allow_listed(deps: Deps, bot: String) -> StdResult<IsAllowListedResponse> {
+fn query_is_allowlisted(deps: Deps, bot: String) -> StdResult<IsAllowListedResponse> {
     let bot_addr = deps.api.addr_validate(&bot)?;
     let listed = ALLOWLIST.has(deps.storage, &bot_addr);
     Ok(IsAllowListedResponse { listed })
@@ -1602,7 +1602,7 @@ mod tests {
     }
 
     #[test]
-    fn query_allow_list_works() {
+    fn query_allowlist_works() {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
@@ -1791,7 +1791,7 @@ mod tests {
     }
 
     #[test]
-    fn is_query_allow_listed_works() {
+    fn is_query_allowlisted_works() {
         let mut deps = mock_dependencies();
 
         let info = mock_info("creator", &[]);
