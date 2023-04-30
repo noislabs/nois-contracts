@@ -56,7 +56,7 @@ pub fn instantiate(
         nois_beacon_price: Uint128::zero(),
         nois_beacon_price_updated: Timestamp::from_seconds(0),
         mode,
-        allowlist_enabled: allowlist_enabled.unwrap_or(false),
+        allowlist_enabled,
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -119,7 +119,7 @@ pub fn execute(
             address,
         } => execute_withdraw(deps, env, info, denom, amount, address),
         ExecuteMsg::UpdateAllowList { add, remove } => {
-            execute_update_allowlist(deps, env, info, &add, &remove)
+            execute_update_allowlist(deps, env, info, add, remove)
         }
     }
 }
@@ -182,7 +182,8 @@ pub fn execute_get_randomness_impl(
     validate_payment(&config.prices, &info.funds)?;
 
     // only let whitelisted senders get randomness
-    if config.allowlist_enabled && !ALLOW_LIST.has(deps.storage, info.sender.clone()) {
+    let allowlist_enabled = config.allowlist_enabled.unwrap_or(false);
+    if allowlist_enabled && !ALLOW_LIST.has(deps.storage, info.sender.clone()) {
         return Err(ContractError::NotAllowed);
     }
 
@@ -293,8 +294,8 @@ fn execute_update_allowlist(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    added_addresses: &Vec<String>,
-    removed_addresses: &Vec<String>,
+    added_addresses: Vec<String>,
+    removed_addresses: Vec<String>,
 ) -> Result<Response, ContractError> {
     update_allowlist(deps, added_addresses, removed_addresses)?;
     Ok(Response::new().add_attribute("action", "update_allowlist"))
@@ -303,8 +304,8 @@ fn execute_update_allowlist(
 /// Adds and remove entries from the allow list.
 fn update_allowlist(
     deps: DepsMut,
-    added_addresses: &Vec<String>,
-    removed_addresses: &Vec<String>,
+    added_addresses: Vec<String>,
+    removed_addresses: Vec<String>,
 ) -> Result<(), ContractError> {
     for addr in added_addresses.iter() {
         let addr = deps.api.addr_validate(addr.as_str())?;
@@ -421,7 +422,6 @@ fn set_config_unchecked(
         None => (config.nois_beacon_price, config.nois_beacon_price_updated),
     };
     let mode = mode.unwrap_or(config.mode);
-    let allowlist_enabled = allowlist_enabled.unwrap_or(config.allowlist_enabled);
 
     let new_config = Config {
         manager,
@@ -523,7 +523,8 @@ fn query_is_allowed(deps: Deps, addr: &String) -> StdResult<IsAllowedResponse> {
     let config = CONFIG.load(deps.storage)?;
     let addr = deps.api.addr_validate(addr)?;
     Ok(IsAllowedResponse {
-        is_allowed: !config.allowlist_enabled || ALLOW_LIST.has(deps.storage, addr.clone()),
+        is_allowed: !config.allowlist_enabled.unwrap_or(false)
+            || ALLOW_LIST.has(deps.storage, addr.clone()),
     })
 }
 

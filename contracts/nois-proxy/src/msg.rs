@@ -113,6 +113,8 @@ pub enum SudoMsg {
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
         mode: Option<OperationalMode>,
+        /// Toggle address whitelist allowed to get randomness
+        allowlist_enabled: Option<bool>,
     },
 }
 
@@ -163,6 +165,8 @@ pub struct GatewayChannelResponse {
 
 #[cw_serde]
 pub struct IsAllowedResponse {
+    /// Returns true if and only if the address is allowed to use the proxy.
+    /// This is true if no allow-list is in place or the given address is allow-listed.
     pub is_allowed: bool,
 }
 

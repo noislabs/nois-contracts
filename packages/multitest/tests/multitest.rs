@@ -160,7 +160,7 @@ fn integration_test() {
                 nois_beacon_price: Uint128::zero(),
                 nois_beacon_price_updated: Timestamp::from_seconds(0),
                 mode: nois_proxy::state::OperationalMode::Funded {},
-                allowlist_enabled: false,
+                allowlist_enabled: None,
             },
         }
     );

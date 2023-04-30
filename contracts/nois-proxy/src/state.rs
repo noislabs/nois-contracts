@@ -47,8 +47,10 @@ pub struct Config {
     /// The time (on the Nois chain) the price info was created
     pub nois_beacon_price_updated: Timestamp,
     pub mode: OperationalMode,
-    /// Enable whitelist of addresses allowed to get randomness
-    pub allowlist_enabled: bool,
+    /// Enable whitelist of addresses allowed to get randomness.
+    /// This is an Option for compatibility with older versions of the contract.
+    /// If set to None it means disabled.
+    pub allowlist_enabled: Option<bool>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
