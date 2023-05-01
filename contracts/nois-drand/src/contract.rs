@@ -15,8 +15,8 @@ use crate::attributes::{
 use crate::bots::{eligible_group, group, validate_moniker};
 use crate::error::ContractError;
 use crate::msg::{
-    AllowListResponse, BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse,
-    ExecuteMsg, InstantiateMsg, IsAllowListedResponse, NoisGatewayExecuteMsg, QueriedSubmission,
+    AllowlistResponse, BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse,
+    ExecuteMsg, InstantiateMsg, IsAllowlistedResponse, NoisGatewayExecuteMsg, QueriedSubmission,
     QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
@@ -186,7 +186,7 @@ fn query_bots(deps: Deps) -> StdResult<BotsResponse> {
     Ok(BotsResponse { bots })
 }
 
-fn query_allowlist(deps: Deps) -> StdResult<AllowListResponse> {
+fn query_allowlist(deps: Deps) -> StdResult<AllowlistResponse> {
     // No pagination here yet 🤷‍♂️
     let allowed = ALLOWLIST
         .range(deps.storage, None, None, Order::Ascending)
@@ -195,13 +195,13 @@ fn query_allowlist(deps: Deps) -> StdResult<AllowListResponse> {
             address.into()
         })
         .collect();
-    Ok(AllowListResponse { allowed })
+    Ok(AllowlistResponse { allowed })
 }
 
-fn query_is_allowlisted(deps: Deps, bot: String) -> StdResult<IsAllowListedResponse> {
+fn query_is_allowlisted(deps: Deps, bot: String) -> StdResult<IsAllowlistedResponse> {
     let bot_addr = deps.api.addr_validate(&bot)?;
     let listed = ALLOWLIST.has(deps.storage, &bot_addr);
-    Ok(IsAllowListedResponse { listed })
+    Ok(IsAllowlistedResponse { listed })
 }
 
 fn execute_register_bot(
@@ -717,7 +717,7 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), mock_info("creator", &[]), msg).unwrap();
 
-        let IsAllowListedResponse { listed } = from_binary(
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
@@ -746,7 +746,7 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let IsAllowListedResponse { listed } = from_binary(
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
@@ -767,7 +767,7 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let IsAllowListedResponse { listed } = from_binary(
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
@@ -788,7 +788,7 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let IsAllowListedResponse { listed } = from_binary(
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
@@ -1618,7 +1618,7 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let AllowListResponse { allowed } =
+        let AllowlistResponse { allowed } =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
                 .unwrap();
         assert_eq!(allowed, Vec::<String>::new());
@@ -1636,7 +1636,7 @@ mod tests {
         )
         .unwrap();
 
-        let AllowListResponse { allowed } =
+        let AllowlistResponse { allowed } =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
                 .unwrap();
         assert_eq!(allowed, vec!["bot_b".to_string()]);
@@ -1654,7 +1654,7 @@ mod tests {
         )
         .unwrap();
 
-        let AllowListResponse { allowed } =
+        let AllowlistResponse { allowed } =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
                 .unwrap();
         assert_eq!(
@@ -1821,7 +1821,7 @@ mod tests {
         .unwrap();
 
         // bot_b is listed
-        let IsAllowListedResponse { listed } = from_binary(
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
@@ -1835,7 +1835,7 @@ mod tests {
         assert!(listed);
 
         // bot_a is not listed
-        let IsAllowListedResponse { listed } = from_binary(
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),

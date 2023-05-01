@@ -76,14 +76,14 @@ pub enum QueryMsg {
     #[returns(BotsResponse)]
     Bots {},
     /// Returns the list of allowed bot addresses
-    #[returns(AllowListResponse)]
+    #[returns(AllowlistResponse)]
     #[deprecated(note = "use QueryMsg::Allowlist")]
     AllowList {},
     /// Returns the list of allowed bot addresses
     #[returns(AllowlistResponse)]
     Allowlist {},
     /// Returns if the given bot addresses is in the allowlist.
-    #[returns(IsAllowListedResponse)]
+    #[returns(IsAllowlistedResponse)]
     #[deprecated(note = "use QueryMsg::IsAllowlisted")]
     IsAllowListed {
         /// The address of the bot
@@ -121,22 +121,9 @@ pub struct BotsResponse {
 }
 
 #[cw_serde]
-#[deprecated(note = "use AllowlistResponse")]
-pub struct AllowListResponse {
-    /// List of bot addresses
-    pub allowed: Vec<String>,
-}
-
-#[cw_serde]
 pub struct AllowlistResponse {
     /// List of bot addresses
     pub allowed: Vec<String>,
-}
-
-#[cw_serde]
-#[deprecated(note = "use IsAllowlistedResponse")]
-pub struct IsAllowListedResponse {
-    pub listed: bool,
 }
 
 #[cw_serde]

@@ -13,6 +13,8 @@ and this project adheres to
 - Use anybuf from crates.io
 - drand: Add `QueryMsg::IsAllowlisted` and `QueryMsg::Allowlist` (one word)
   analogue to `QueryMsg::IsAllowListed` and `QueryMsg::AllowList`.
+- drand: Rename `AllowListResponse` to `AllowlistResponse`. Rename
+  `IsAllowListedResponse` to `IsAllowlistedResponse`.
 - proxy: Add allowlist
 
 ## [0.13.2] - 2023-04-26
