@@ -340,7 +340,17 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             payment,
             nois_beacon_price,
             mode,
-        } => set_config_unchecked(deps, env, manager, prices, payment, nois_beacon_price, mode),
+            allowlist_enabled,
+        } => set_config_unchecked(
+            deps,
+            env,
+            manager,
+            prices,
+            payment,
+            nois_beacon_price,
+            mode,
+            allowlist_enabled,
+        ),
     }
 }
 

@@ -48,7 +48,8 @@ pub enum ExecuteMsg {
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
         mode: Option<OperationalMode>,
-        /// Toggle address whitelist allowed to get randomness
+        /// Toggle address allowlist to get randomness. When enabled, the allowlist is checked.
+        /// Otherwise the allowlist entries are ignored.
         allowlist_enabled: Option<bool>,
     },
     // Withdraw the given amount to the withdrawal address
@@ -114,7 +115,8 @@ pub enum SudoMsg {
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
         mode: Option<OperationalMode>,
-        /// Toggle address whitelist allowed to get randomness
+        /// Toggle address allowlist to get randomness. When enabled, the allowlist is checked.
+        /// Otherwise the allowlist entries are ignored.
         allowlist_enabled: Option<bool>,
     },
 }
