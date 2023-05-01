@@ -1189,7 +1189,7 @@ mod tests {
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: true,
-            allowlist: addr_in_allowlist.clone(),
+            allowlist: addr_in_allowlist,
         }));
 
         let AllowlistResponse { allowed } =
