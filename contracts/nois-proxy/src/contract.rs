@@ -307,7 +307,7 @@ fn update_allowlist(
 ) -> Result<(), ContractError> {
     for addr in add_addresses {
         let addr = deps.api.addr_validate(addr.as_str())?;
-        ALLOWLIST.save(deps.storage, &addr, &1)?;
+        ALLOWLIST.save(deps.storage, &addr, &ALLOWLIST_MARKER)?;
     }
 
     for addr in remove_addresses {
