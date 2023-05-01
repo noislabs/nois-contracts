@@ -66,7 +66,7 @@ pub fn instantiate(
     // Save addresses to allow list.
     for addr in allowlist {
         let addr = deps.api.addr_validate(&addr)?;
-        ALLOW_LIST.save(deps.storage, addr, &ALLOWLIST_MARKER)?;
+        ALLOW_LIST.save(deps.storage, &addr, &ALLOWLIST_MARKER)?;
     }
 
     Ok(Response::new()
@@ -183,7 +183,7 @@ pub fn execute_get_randomness_impl(
 
     // only let whitelisted senders get randomness
     let allowlist_enabled = config.allowlist_enabled.unwrap_or(false);
-    if allowlist_enabled && !ALLOW_LIST.has(deps.storage, info.sender.clone()) {
+    if allowlist_enabled && !ALLOW_LIST.has(deps.storage, &info.sender) {
         return Err(ContractError::NotAllowed);
     }
 
@@ -309,12 +309,12 @@ fn update_allowlist(
 ) -> Result<(), ContractError> {
     for addr in added_addresses.iter() {
         let addr = deps.api.addr_validate(addr.as_str())?;
-        ALLOW_LIST.save(deps.storage, addr, &1)?;
+        ALLOW_LIST.save(deps.storage, &addr, &1)?;
     }
 
     for addr in removed_addresses.iter() {
         let addr = deps.api.addr_validate(addr.as_str())?;
-        ALLOW_LIST.remove(deps.storage, addr);
+        ALLOW_LIST.remove(deps.storage, &addr);
     }
     Ok(())
 }
@@ -534,7 +534,7 @@ fn query_is_allowed(deps: Deps, addr: &String) -> StdResult<IsAllowedResponse> {
     let addr = deps.api.addr_validate(addr)?;
     Ok(IsAllowedResponse {
         is_allowed: !config.allowlist_enabled.unwrap_or(false)
-            || ALLOW_LIST.has(deps.storage, addr.clone()),
+            || ALLOW_LIST.has(deps.storage, &addr),
     })
 }
 
@@ -1122,12 +1122,12 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(ALLOW_LIST.has(&deps.storage, Addr::unchecked("bbb")), false);
-        assert_eq!(ALLOW_LIST.has(&deps.storage, Addr::unchecked("ccc")), true);
+        assert!(!ALLOW_LIST.has(&deps.storage, &Addr::unchecked("bbb")));
+        assert!(ALLOW_LIST.has(&deps.storage, &Addr::unchecked("ccc")));
 
         // If an address is both added and removed, err on the side or removing it,
         // hence, here we check that "aaa" is indeed not found.
-        assert_eq!(ALLOW_LIST.has(&deps.storage, Addr::unchecked("aaa")), false);
+        assert!(!ALLOW_LIST.has(&deps.storage, &Addr::unchecked("aaa")));
     }
 
     //

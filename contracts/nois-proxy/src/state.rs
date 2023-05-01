@@ -58,7 +58,7 @@ pub const CONFIG: Item<Config> = Item::new("config");
 /// List of addresses allowed to get randomness if allowlist enabled. To decide
 /// if an address is allowed, we consider only whether the address is present as
 /// a key. The u8 value itself is a dummy value.
-pub const ALLOW_LIST: Map<Addr, u8> = Map::new("allowlist");
+pub const ALLOW_LIST: Map<&Addr, u8> = Map::new("allowlist");
 
 /// Dummy value. Don't rely on the value but just check existence.
 pub const ALLOWLIST_MARKER: u8 = 1;
