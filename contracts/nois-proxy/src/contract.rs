@@ -404,6 +404,7 @@ fn withdraw_community_pool_unchecked(
     Ok(res)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn set_config_unchecked(
     deps: DepsMut,
     env: Env,
@@ -924,7 +925,7 @@ mod tests {
         let res = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info(CREATOR.into(), &coins(22334455, "unoisx")),
+            mock_info(CREATOR, &coins(22334455, "unoisx")),
             msg,
         )
         .unwrap();
