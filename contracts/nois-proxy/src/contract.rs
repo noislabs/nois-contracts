@@ -41,8 +41,8 @@ pub fn instantiate(
         test_mode,
         callback_gas_limit,
         mode,
-        allowlist,
         allowlist_enabled,
+        allowlist,
     } = msg;
     let manager = match manager {
         Some(ma) => Some(deps.api.addr_validate(&ma)?),
@@ -58,17 +58,15 @@ pub fn instantiate(
         nois_beacon_price: Uint128::zero(),
         nois_beacon_price_updated: Timestamp::from_seconds(0),
         mode,
-        allowlist_enabled,
+        allowlist_enabled: Some(allowlist_enabled),
     };
 
     CONFIG.save(deps.storage, &config)?;
 
-    // Save whitelisted addresses to allow list.
-    if let Some(allowlist) = allowlist {
-        for addr in allowlist.iter() {
-            let addr = deps.api.addr_validate(addr)?;
-            ALLOW_LIST.save(deps.storage, addr, &ALLOWLIST_MARKER)?;
-        }
+    // Save addresses to allow list.
+    for addr in allowlist {
+        let addr = deps.api.addr_validate(&addr)?;
+        ALLOW_LIST.save(deps.storage, addr, &ALLOWLIST_MARKER)?;
     }
 
     Ok(Response::new()
@@ -815,8 +813,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist: None,
-            allowlist_enabled: Some(false),
+            allowlist_enabled: false,
+            allowlist: vec![],
         });
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -852,8 +850,8 @@ mod tests {
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist: Some(vec![CREATOR.to_string()]),
-            allowlist_enabled: Some(false),
+            allowlist_enabled: false,
+            allowlist: vec![CREATOR.to_string()],
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -908,8 +906,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist: Some(vec![CREATOR.to_string()]),
-            allowlist_enabled: Some(true),
+            allowlist_enabled: true,
+            allowlist: vec![CREATOR.to_string()],
         }));
         setup_channel(deps.as_mut());
 
@@ -940,8 +938,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist: Some(vec![CREATOR.to_string()]),
-            allowlist_enabled: Some(true),
+            allowlist_enabled: true,
+            allowlist: vec![CREATOR.to_string()],
         }));
         setup_channel(deps.as_mut());
 
@@ -1004,8 +1002,8 @@ mod tests {
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist: None,
-            allowlist_enabled: Some(false),
+            allowlist_enabled: false,
+            allowlist: vec![],
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1176,8 +1174,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist: Some(vec![addr_in_allowlist.clone()]),
-            allowlist_enabled: Some(true),
+            allowlist_enabled: true,
+            allowlist: vec![addr_in_allowlist.clone()],
         }));
 
         // expect the address IN allow list to return true
@@ -1219,8 +1217,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist: Some(vec![addr_in_allowlist.clone()]),
-            allowlist_enabled: None,
+            allowlist_enabled: false,
+            allowlist: vec![addr_in_allowlist.clone()],
         }));
 
         // expect the address IN allow list to return true
