@@ -138,10 +138,10 @@ pub enum QueryMsg {
     /// the channel is created. Once created, the value does not change anymore.
     #[returns(GatewayChannelResponse)]
     GatewayChannel {},
-    /// Queries whether the given address is allowed to get randomness, based on
-    /// whether the allowlist is in use.
-    #[returns(IsAllowedResponse)]
-    IsAllowed { address: String },
+    /// Queries whether the given address is part of the proxy's allowlist.
+    /// Whether or not the allowlist is enabled must be queried via the config.
+    #[returns(IsAllowlistedResponse)]
+    IsAllowlisted { address: String },
 }
 
 #[cw_serde]
@@ -167,10 +167,10 @@ pub struct GatewayChannelResponse {
 }
 
 #[cw_serde]
-pub struct IsAllowedResponse {
-    /// Returns true if and only if the address is allowed to use the proxy.
-    /// This is true if no allow-list is in place or the given address is allow-listed.
-    pub is_allowed: bool,
+pub struct IsAllowlistedResponse {
+    /// Returns true if and only if the address is part of the proxy's allowlist.
+    /// Whether or not the allowlist is enabled must be queried via the config.
+    pub listed: bool,
 }
 
 /// This struct contains information about the origin of the beacon request. It helps the

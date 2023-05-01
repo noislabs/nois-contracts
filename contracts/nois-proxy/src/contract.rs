@@ -18,7 +18,7 @@ use nois_protocol::{
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, IsAllowedResponse,
+    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, IsAllowlistedResponse,
     PriceResponse, PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
@@ -497,7 +497,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Prices {} => to_binary(&query_prices(deps)?),
         QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
         QueryMsg::GatewayChannel {} => to_binary(&query_gateway_channel(deps)?),
-        QueryMsg::IsAllowed { address } => to_binary(&query_is_allowed(deps, &address)?),
+        QueryMsg::IsAllowlisted { address } => to_binary(&query_is_allowlisted(deps, address)?),
     }
 }
 
@@ -529,12 +529,10 @@ fn query_gateway_channel(deps: Deps) -> StdResult<GatewayChannelResponse> {
     })
 }
 
-fn query_is_allowed(deps: Deps, addr: &String) -> StdResult<IsAllowedResponse> {
-    let config = CONFIG.load(deps.storage)?;
-    let addr = deps.api.addr_validate(addr)?;
-    Ok(IsAllowedResponse {
-        is_allowed: !config.allowlist_enabled.unwrap_or(false)
-            || ALLOW_LIST.has(deps.storage, &addr),
+fn query_is_allowlisted(deps: Deps, addr: String) -> StdResult<IsAllowlistedResponse> {
+    let addr = deps.api.addr_validate(&addr)?;
+    Ok(IsAllowlistedResponse {
+        listed: ALLOW_LIST.has(deps.storage, &addr),
     })
 }
 
@@ -1114,13 +1112,7 @@ mod tests {
             remove: vec!["aaa".to_owned(), "bbb".to_owned()],
         };
 
-        execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info("dapp", &[]),
-            msg.clone(),
-        )
-        .unwrap();
+        execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
 
         assert!(!ALLOW_LIST.has(&deps.storage, &Addr::unchecked("bbb")));
         assert!(ALLOW_LIST.has(&deps.storage, &Addr::unchecked("ccc")));
@@ -1189,32 +1181,32 @@ mod tests {
         }));
 
         // expect the address IN allow list to return true
-        let IsAllowedResponse { is_allowed } = from_binary(
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowed {
-                    address: addr_in_allowlist.clone(),
+                QueryMsg::IsAllowlisted {
+                    address: addr_in_allowlist,
                 },
             )
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(is_allowed, true);
+        assert!(listed);
 
         // expect the address NOT in allow list to return false
-        let IsAllowedResponse { is_allowed } = from_binary(
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowed {
-                    address: addr_not_in_allowlist.clone(),
+                QueryMsg::IsAllowlisted {
+                    address: addr_not_in_allowlist,
                 },
             )
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(is_allowed, false);
+        assert!(!listed);
     }
 
     #[test]
@@ -1232,33 +1224,32 @@ mod tests {
         }));
 
         // expect the address IN allow list to return true
-        let IsAllowedResponse { is_allowed } = from_binary(
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowed {
-                    address: addr_in_allowlist.clone(),
+                QueryMsg::IsAllowlisted {
+                    address: addr_in_allowlist,
                 },
             )
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(is_allowed, true);
+        assert!(listed);
 
-        // expect the address NOT in allow list to return true because, despite not being
-        // in the allow list, the allow list is not enabled.
-        let IsAllowedResponse { is_allowed } = from_binary(
+        // Expect the address NOT in allowlist to return false even if allowlist is not enabled.
+        let IsAllowlistedResponse { listed } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowed {
-                    address: addr_not_in_allowlist.clone(),
+                QueryMsg::IsAllowlisted {
+                    address: addr_not_in_allowlist,
                 },
             )
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(is_allowed, true);
+        assert!(!listed);
     }
 
     //

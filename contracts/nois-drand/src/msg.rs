@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
 
@@ -76,9 +78,16 @@ pub enum QueryMsg {
     /// Returns the list of allowed bot addresses
     #[returns(AllowListResponse)]
     AllowList {},
-    /// Returns the list of allowed bot addresses
+    /// Returns if the given bot addresses is in the allowlist.
     #[returns(IsAllowListedResponse)]
+    #[deprecated(note = "use QueryMsg::IsAllowlisted")]
     IsAllowListed {
+        /// The address of the bot
+        bot: String,
+    },
+    /// Returns if the given bot addresses is in the allowlist.
+    #[returns(IsAllowlistedResponse)]
+    IsAllowlisted {
         /// The address of the bot
         bot: String,
     },
@@ -114,7 +123,13 @@ pub struct AllowListResponse {
 }
 
 #[cw_serde]
+#[deprecated(note = "use IsAllowlistedResponse")]
 pub struct IsAllowListedResponse {
+    pub listed: bool,
+}
+
+#[cw_serde]
+pub struct IsAllowlistedResponse {
     pub listed: bool,
 }
 

@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty,
     Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128,
@@ -109,6 +111,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::AllowList {} => to_binary(&query_allowlist(deps)?)?,
         QueryMsg::IsAllowListed { bot } => to_binary(&query_is_allowlisted(deps, bot)?)?,
+        QueryMsg::IsAllowlisted { bot } => to_binary(&query_is_allowlisted(deps, bot)?)?,
     };
     Ok(response)
 }
