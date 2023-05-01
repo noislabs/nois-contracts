@@ -60,6 +60,9 @@ pub const CONFIG: Item<Config> = Item::new("config");
 /// a key. The u8 value itself is a dummy value.
 pub const ALLOW_LIST: Map<Addr, u8> = Map::new("allowlist");
 
+/// Dummy value. Don't rely on the value but just check existence.
+pub const ALLOWLIST_MARKER: u8 = 1;
+
 /// Channel to the nois-gateway contract on the Nois chain
 pub const GATEWAY_CHANNEL: Item<String> = Item::new("gateway_channel");
 

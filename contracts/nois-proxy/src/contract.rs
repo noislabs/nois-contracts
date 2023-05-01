@@ -22,7 +22,9 @@ use crate::msg::{
     PriceResponse, PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
-use crate::state::{Config, OperationalMode, ALLOW_LIST, CONFIG, GATEWAY_CHANNEL};
+use crate::state::{
+    Config, OperationalMode, ALLOWLIST_MARKER, ALLOW_LIST, CONFIG, GATEWAY_CHANNEL,
+};
 
 pub const CALLBACK_ID: u64 = 456;
 
@@ -65,7 +67,7 @@ pub fn instantiate(
     if let Some(allowlist) = allowlist {
         for addr in allowlist.iter() {
             let addr = deps.api.addr_validate(addr)?;
-            ALLOW_LIST.save(deps.storage, addr, &1)?;
+            ALLOW_LIST.save(deps.storage, addr, &ALLOWLIST_MARKER)?;
         }
     }
 
