@@ -17,11 +17,12 @@ pub struct InstantiateMsg {
     /// The amount of gas that the callback to the dapp can consume
     pub callback_gas_limit: u64,
     pub mode: OperationalMode,
-    /// Toggle caller allowlist allowed to get randomness
-    pub allowlist_enabled: bool,
+    /// Toggle caller allowlist allowed to get randomness.
+    /// This is optional and can be omitted. Defaults to false.
+    pub allowlist_enabled: Option<bool>,
     /// List of addresses allowed to get randomness.
-    /// If the allowlist is not used (allowlist_enabled = false), set this to an empty list.
-    pub allowlist: Vec<String>,
+    /// This is optional and can be omitted. Defaults to an empty list.
+    pub allowlist: Option<Vec<String>>,
 }
 
 #[cw_serde]

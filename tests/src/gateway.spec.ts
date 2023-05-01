@@ -58,8 +58,6 @@ test.serial("set up nois channel", async (t) => {
     mode: {
       funded: {},
     },
-    allowlist_enabled: false,
-    allowlist: [],
   };
   const { contractAddress: proxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,

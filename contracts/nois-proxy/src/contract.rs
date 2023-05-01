@@ -46,6 +46,9 @@ pub fn instantiate(
         Some(ma) => Some(deps.api.addr_validate(&ma)?),
         None => None,
     };
+    let allowlist_enabled = allowlist_enabled.unwrap_or_default();
+    let allowlist = allowlist.unwrap_or_default();
+
     let config = Config {
         prices,
         manager,
@@ -833,8 +836,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist_enabled: false,
-            allowlist: vec![],
+            allowlist_enabled: None,
+            allowlist: None,
         });
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -870,8 +873,8 @@ mod tests {
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist_enabled: false,
-            allowlist: vec![CREATOR.to_string()],
+            allowlist_enabled: None,
+            allowlist: None,
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -926,8 +929,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist_enabled: true,
-            allowlist: vec![CREATOR.to_string()],
+            allowlist_enabled: Some(true),
+            allowlist: Some(vec![CREATOR.to_string()]),
         }));
         setup_channel(deps.as_mut());
 
@@ -958,8 +961,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist_enabled: true,
-            allowlist: vec![CREATOR.to_string()],
+            allowlist_enabled: Some(true),
+            allowlist: Some(vec![CREATOR.to_string()]),
         }));
         setup_channel(deps.as_mut());
 
@@ -1013,7 +1016,7 @@ mod tests {
     }
 
     #[test]
-    fn when_manager_is_not_set_manager_permissions_are_unathorised() {
+    fn when_manager_is_not_set_manager_permissions_are_unauthorised() {
         // Check that if manager not set, a random person cannot execute manager-like operations.
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
@@ -1022,8 +1025,8 @@ mod tests {
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist_enabled: false,
-            allowlist: vec![],
+            allowlist_enabled: None,
+            allowlist: None,
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -1188,8 +1191,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist_enabled: true,
-            allowlist: addr_in_allowlist,
+            allowlist_enabled: Some(true),
+            allowlist: Some(addr_in_allowlist),
         }));
 
         let AllowlistResponse { allowed } =
@@ -1204,8 +1207,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist_enabled: true,
-            allowlist: vec![],
+            allowlist_enabled: Some(true),
+            allowlist: Some(vec![]),
         }));
 
         let AllowlistResponse { allowed } =
@@ -1224,8 +1227,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist_enabled: true,
-            allowlist: vec![addr_in_allowlist.clone()],
+            allowlist_enabled: Some(true),
+            allowlist: Some(vec![addr_in_allowlist.clone()]),
         }));
 
         // expect the address IN allow list to return true
@@ -1267,8 +1270,8 @@ mod tests {
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-            allowlist_enabled: false,
-            allowlist: vec![addr_in_allowlist.clone()],
+            allowlist_enabled: Some(false),
+            allowlist: Some(vec![addr_in_allowlist.clone()]),
         }));
 
         // expect the address IN allow list to return true

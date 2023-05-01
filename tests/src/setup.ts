@@ -88,8 +88,6 @@ export async function instantiateAndConnectIbc(
     test_mode: options.testMode ?? true,
     callback_gas_limit: options.callback_gas_limit ?? 500_000,
     mode,
-    allowlist_enabled: false,
-    allowlist: [],
   };
   const { contractAddress: noisProxyAddress } = await wasmClient.sign.instantiate(
     wasmClient.senderAddress,
