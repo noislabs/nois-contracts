@@ -22,9 +22,7 @@ use crate::msg::{
     PriceResponse, PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
-use crate::state::{
-    Config, OperationalMode, ALLOWLIST_MARKER, ALLOW_LIST, CONFIG, GATEWAY_CHANNEL,
-};
+use crate::state::{Config, OperationalMode, ALLOWLIST, ALLOWLIST_MARKER, CONFIG, GATEWAY_CHANNEL};
 
 pub const CALLBACK_ID: u64 = 456;
 
@@ -66,7 +64,7 @@ pub fn instantiate(
     // Save addresses to allow list.
     for addr in allowlist {
         let addr = deps.api.addr_validate(&addr)?;
-        ALLOW_LIST.save(deps.storage, &addr, &ALLOWLIST_MARKER)?;
+        ALLOWLIST.save(deps.storage, &addr, &ALLOWLIST_MARKER)?;
     }
 
     Ok(Response::new()
@@ -183,7 +181,7 @@ pub fn execute_get_randomness_impl(
 
     // only let whitelisted senders get randomness
     let allowlist_enabled = config.allowlist_enabled.unwrap_or(false);
-    if allowlist_enabled && !ALLOW_LIST.has(deps.storage, &info.sender) {
+    if allowlist_enabled && !ALLOWLIST.has(deps.storage, &info.sender) {
         return Err(ContractError::NotAllowed);
     }
 
@@ -309,12 +307,12 @@ fn update_allowlist(
 ) -> Result<(), ContractError> {
     for addr in add_addresses {
         let addr = deps.api.addr_validate(addr.as_str())?;
-        ALLOW_LIST.save(deps.storage, &addr, &1)?;
+        ALLOWLIST.save(deps.storage, &addr, &1)?;
     }
 
     for addr in remove_addresses {
         let addr = deps.api.addr_validate(addr.as_str())?;
-        ALLOW_LIST.remove(deps.storage, &addr);
+        ALLOWLIST.remove(deps.storage, &addr);
     }
     Ok(())
 }
@@ -533,7 +531,7 @@ fn query_gateway_channel(deps: Deps) -> StdResult<GatewayChannelResponse> {
 fn query_is_allowlisted(deps: Deps, addr: String) -> StdResult<IsAllowlistedResponse> {
     let addr = deps.api.addr_validate(&addr)?;
     Ok(IsAllowlistedResponse {
-        listed: ALLOW_LIST.has(deps.storage, &addr),
+        listed: ALLOWLIST.has(deps.storage, &addr),
     })
 }
 
@@ -1115,12 +1113,12 @@ mod tests {
 
         execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
 
-        assert!(!ALLOW_LIST.has(&deps.storage, &Addr::unchecked("bbb")));
-        assert!(ALLOW_LIST.has(&deps.storage, &Addr::unchecked("ccc")));
+        assert!(!ALLOWLIST.has(&deps.storage, &Addr::unchecked("bbb")));
+        assert!(ALLOWLIST.has(&deps.storage, &Addr::unchecked("ccc")));
 
         // If an address is both added and removed, err on the side or removing it,
         // hence, here we check that "aaa" is indeed not found.
-        assert!(!ALLOW_LIST.has(&deps.storage, &Addr::unchecked("aaa")));
+        assert!(!ALLOWLIST.has(&deps.storage, &Addr::unchecked("aaa")));
     }
 
     //
