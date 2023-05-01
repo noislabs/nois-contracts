@@ -13,6 +13,7 @@ and this project adheres to
 - Use anybuf from crates.io
 - drand: Add `QueryMsg::IsAllowlisted` (one word) analogue to
   `QueryMsg::IsAllowListed`.
+- proxy: Add allowlist
 
 ## [0.13.2] - 2023-04-26
 
