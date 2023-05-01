@@ -3,7 +3,7 @@ use cosmwasm_std::{
     attr, ensure_eq, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order,
     QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
     Uint128, WasmMsg,
 };
@@ -18,11 +18,11 @@ use nois_protocol::{
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, PriceResponse,
-    PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
+    AllowlistResponse, ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg,
+    IsAllowlistedResponse, PriceResponse, PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
-use crate::state::{Config, OperationalMode, CONFIG, GATEWAY_CHANNEL};
+use crate::state::{Config, OperationalMode, ALLOWLIST, ALLOWLIST_MARKER, CONFIG, GATEWAY_CHANNEL};
 
 pub const CALLBACK_ID: u64 = 456;
 
@@ -39,11 +39,16 @@ pub fn instantiate(
         test_mode,
         callback_gas_limit,
         mode,
+        allowlist_enabled,
+        allowlist,
     } = msg;
     let manager = match manager {
         Some(ma) => Some(deps.api.addr_validate(&ma)?),
         None => None,
     };
+    let allowlist_enabled = allowlist_enabled.unwrap_or_default();
+    let allowlist = allowlist.unwrap_or_default();
+
     let config = Config {
         prices,
         manager,
@@ -54,8 +59,16 @@ pub fn instantiate(
         nois_beacon_price: Uint128::zero(),
         nois_beacon_price_updated: Timestamp::from_seconds(0),
         mode,
+        allowlist_enabled: Some(allowlist_enabled),
     };
+
     CONFIG.save(deps.storage, &config)?;
+
+    // Save addresses to allow list.
+    for addr in allowlist {
+        let addr = deps.api.addr_validate(&addr)?;
+        ALLOWLIST.save(deps.storage, &addr, &ALLOWLIST_MARKER)?;
+    }
 
     Ok(Response::new()
         .add_attribute("action", "instantiate")
@@ -86,6 +99,7 @@ pub fn execute(
             payment,
             nois_beacon_price,
             mode,
+            allowlist_enabled,
         } => execute_set_config(
             deps,
             info,
@@ -95,6 +109,7 @@ pub fn execute(
             payment,
             nois_beacon_price,
             mode,
+            allowlist_enabled,
         ),
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
@@ -104,6 +119,9 @@ pub fn execute(
             amount,
             address,
         } => execute_withdraw(deps, env, info, denom, amount, address),
+        ExecuteMsg::UpdateAllowlist { add, remove } => {
+            execute_update_allowlist(deps, env, info, add, remove)
+        }
     }
 }
 
@@ -163,6 +181,12 @@ pub fn execute_get_randomness_impl(
 ) -> Result<Response, ContractError> {
     validate_job_id(&job_id)?;
     validate_payment(&config.prices, &info.funds)?;
+
+    // only let whitelisted senders get randomness
+    let allowlist_enabled = config.allowlist_enabled.unwrap_or(false);
+    if allowlist_enabled && !ALLOWLIST.has(deps.storage, &info.sender) {
+        return Err(ContractError::SenderNotAllowed);
+    }
 
     let packet = InPacket::RequestBeacon {
         after,
@@ -224,6 +248,7 @@ fn execute_set_config(
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
     mode: Option<OperationalMode>,
+    allowlist_enabled: Option<bool>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -234,7 +259,16 @@ fn execute_set_config(
         ContractError::Unauthorized
     );
 
-    set_config_unchecked(deps, env, manager, prices, payment, nois_beacon_price, mode)
+    set_config_unchecked(
+        deps,
+        env,
+        manager,
+        prices,
+        payment,
+        nois_beacon_price,
+        mode,
+        allowlist_enabled,
+    )
 }
 
 fn execute_withdraw(
@@ -255,6 +289,35 @@ fn execute_withdraw(
     );
 
     withdraw_unchecked(deps, env, denom, amount, address)
+}
+
+fn execute_update_allowlist(
+    deps: DepsMut,
+    _env: Env,
+    _info: MessageInfo,
+    add_addresses: Vec<String>,
+    remove_addresses: Vec<String>,
+) -> Result<Response, ContractError> {
+    update_allowlist(deps, add_addresses, remove_addresses)?;
+    Ok(Response::new().add_attribute("action", "update_allowlist"))
+}
+
+/// Adds and remove entries from the allow list.
+fn update_allowlist(
+    deps: DepsMut,
+    add_addresses: Vec<String>,
+    remove_addresses: Vec<String>,
+) -> Result<(), ContractError> {
+    for addr in add_addresses {
+        let addr = deps.api.addr_validate(addr.as_str())?;
+        ALLOWLIST.save(deps.storage, &addr, &ALLOWLIST_MARKER)?;
+    }
+
+    for addr in remove_addresses {
+        let addr = deps.api.addr_validate(addr.as_str())?;
+        ALLOWLIST.remove(deps.storage, &addr);
+    }
+    Ok(())
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -278,7 +341,17 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             payment,
             nois_beacon_price,
             mode,
-        } => set_config_unchecked(deps, env, manager, prices, payment, nois_beacon_price, mode),
+            allowlist_enabled,
+        } => set_config_unchecked(
+            deps,
+            env,
+            manager,
+            prices,
+            payment,
+            nois_beacon_price,
+            mode,
+            allowlist_enabled,
+        ),
     }
 }
 
@@ -332,6 +405,7 @@ fn withdraw_community_pool_unchecked(
     Ok(res)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn set_config_unchecked(
     deps: DepsMut,
     env: Env,
@@ -340,6 +414,7 @@ fn set_config_unchecked(
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
     mode: Option<OperationalMode>,
+    allowlist_enabled: Option<bool>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -348,7 +423,6 @@ fn set_config_unchecked(
         None => config.manager,
     };
     let prices = prices.unwrap_or(config.prices);
-
     let test_mode = config.test_mode;
     let callback_gas_limit = config.callback_gas_limit;
     let payment = match payment {
@@ -370,6 +444,7 @@ fn set_config_unchecked(
         nois_beacon_price,
         nois_beacon_price_updated,
         mode,
+        allowlist_enabled,
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -424,6 +499,8 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Prices {} => to_binary(&query_prices(deps)?),
         QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
         QueryMsg::GatewayChannel {} => to_binary(&query_gateway_channel(deps)?),
+        QueryMsg::Allowlist {} => to_binary(&query_allowlist(deps)?),
+        QueryMsg::IsAllowlisted { address } => to_binary(&query_is_allowlisted(deps, address)?),
     }
 }
 
@@ -452,6 +529,25 @@ fn query_price(deps: Deps, denom: String) -> StdResult<PriceResponse> {
 fn query_gateway_channel(deps: Deps) -> StdResult<GatewayChannelResponse> {
     Ok(GatewayChannelResponse {
         channel: GATEWAY_CHANNEL.may_load(deps.storage)?,
+    })
+}
+
+fn query_allowlist(deps: Deps) -> StdResult<AllowlistResponse> {
+    // No pagination here yet 🤷‍♂️
+    let allowed = ALLOWLIST
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|result| {
+            let (address, _) = result.unwrap();
+            address.into()
+        })
+        .collect();
+    Ok(AllowlistResponse { allowed })
+}
+
+fn query_is_allowlisted(deps: Deps, addr: String) -> StdResult<IsAllowlistedResponse> {
+    let addr = deps.api.addr_validate(&addr)?;
+    Ok(IsAllowlistedResponse {
+        listed: ALLOWLIST.has(deps.storage, &addr),
     })
 }
 
@@ -723,7 +819,9 @@ mod tests {
 
     const CREATOR: &str = "creator";
 
-    fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
+    fn setup(
+        instantiate_msg: Option<InstantiateMsg>,
+    ) -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let initial_funds = vec![
             Coin::new(22334455, "unoisx"),
             Coin::new(
@@ -732,13 +830,15 @@ mod tests {
             ),
         ];
         let mut deps = mock_dependencies_with_balance(&initial_funds);
-        let msg = InstantiateMsg {
+        let msg = instantiate_msg.unwrap_or_else(|| InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
             test_mode: true,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
-        };
+            allowlist_enabled: None,
+            allowlist: None,
+        });
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -773,6 +873,8 @@ mod tests {
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
+            allowlist_enabled: None,
+            allowlist: None,
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -785,7 +887,7 @@ mod tests {
 
     #[test]
     fn get_next_randomness_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // Requires a channel to forward requests to
         setup_channel(deps.as_mut());
@@ -806,8 +908,8 @@ mod tests {
     }
 
     #[test]
-    fn get_next_randomnes_for_invalid_inputs() {
-        let mut deps = setup();
+    fn get_next_randomness_for_invalid_inputs() {
+        let mut deps = setup(None);
         setup_channel(deps.as_mut());
 
         // Job ID too long
@@ -820,8 +922,64 @@ mod tests {
     }
 
     #[test]
+    fn get_next_randomness_for_allowed_address() {
+        let mut deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: Some(true),
+            allowlist: Some(vec![CREATOR.to_string()]),
+        }));
+        setup_channel(deps.as_mut());
+
+        // Sender in allowlist
+        let msg = ExecuteMsg::GetNextRandomness { job_id: "1".into() };
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(CREATOR, &coins(22334455, "unoisx")),
+            msg,
+        )
+        .unwrap();
+        assert_eq!(res.messages.len(), 1);
+        let out_msg = &res.messages[0];
+        assert_eq!(out_msg.gas_limit, None);
+        assert_eq!(out_msg.reply_on, ReplyOn::Never);
+        assert!(matches!(
+            out_msg.msg,
+            CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
+        ));
+    }
+
+    #[test]
+    fn get_next_randomness_for_disallowed_address() {
+        let mut deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: Some(true),
+            allowlist: Some(vec![CREATOR.to_string()]),
+        }));
+        setup_channel(deps.as_mut());
+
+        // Sender in allowlist
+        let msg = ExecuteMsg::GetNextRandomness { job_id: "1".into() };
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info("disallowed", &coins(22334455, "unoisx")),
+            msg,
+        );
+        assert!(matches!(err, Err(ContractError::SenderNotAllowed)));
+    }
+
+    #[test]
     fn get_randomness_after_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // Requires a channel to forward requests to
         setup_channel(deps.as_mut());
@@ -844,7 +1002,7 @@ mod tests {
 
     #[test]
     fn get_randomness_after_fails_for_invalid_inputs() {
-        let mut deps = setup();
+        let mut deps = setup(None);
         setup_channel(deps.as_mut());
 
         // Job ID too long
@@ -858,7 +1016,7 @@ mod tests {
     }
 
     #[test]
-    fn when_manager_is_not_set_manager_permissions_are_unathorised() {
+    fn when_manager_is_not_set_manager_permissions_are_unauthorised() {
         // Check that if manager not set, a random person cannot execute manager-like operations.
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
@@ -867,6 +1025,8 @@ mod tests {
             test_mode: false,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
+            allowlist_enabled: None,
+            allowlist: None,
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -894,6 +1054,7 @@ mod tests {
             payment: None,
             nois_beacon_price: None,
             mode: None,
+            allowlist_enabled: Some(false),
         };
 
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
@@ -902,7 +1063,7 @@ mod tests {
 
     #[test]
     fn withdraw_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
@@ -930,7 +1091,7 @@ mod tests {
 
     #[test]
     fn withdraw_all_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
@@ -958,13 +1119,31 @@ mod tests {
         );
     }
 
+    #[test]
+    fn update_allowlist_works() {
+        let mut deps = setup(None);
+        let msg = ExecuteMsg::UpdateAllowlist {
+            add: vec!["aaa".to_owned(), "ccc".to_owned()],
+            remove: vec!["aaa".to_owned(), "bbb".to_owned()],
+        };
+
+        execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+
+        assert!(!ALLOWLIST.has(&deps.storage, &Addr::unchecked("bbb")));
+        assert!(ALLOWLIST.has(&deps.storage, &Addr::unchecked("ccc")));
+
+        // If an address is both added and removed, err on the side or removing it,
+        // hence, here we check that "aaa" is indeed not found.
+        assert!(!ALLOWLIST.has(&deps.storage, &Addr::unchecked("aaa")));
+    }
+
     //
     // Query tests
     //
 
     #[test]
     fn query_prices_works() {
-        let deps = setup();
+        let deps = setup(None);
 
         let PricesResponse { prices } =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Prices {}).unwrap()).unwrap();
@@ -973,7 +1152,7 @@ mod tests {
 
     #[test]
     fn query_price_works() {
-        let deps = setup();
+        let deps = setup(None);
 
         let PriceResponse { price } = from_binary(
             &query(
@@ -1002,13 +1181,135 @@ mod tests {
         assert_eq!(price, Some(Uint128::new(1000000)));
     }
 
+    #[test]
+    fn query_allowlist_works() {
+        // some list
+        let addr_in_allowlist = vec![String::from("addr2"), String::from("addr1")];
+        let deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: Some(true),
+            allowlist: Some(addr_in_allowlist),
+        }));
+
+        let AllowlistResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
+                .unwrap();
+        assert_eq!(allowed, ["addr1", "addr2"]);
+
+        // empty list
+        let deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: Some(true),
+            allowlist: Some(vec![]),
+        }));
+
+        let AllowlistResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
+                .unwrap();
+        assert!(allowed.is_empty());
+    }
+
+    #[test]
+    fn query_is_allowed_works_when_allowlist_enabled() {
+        let addr_in_allowlist = String::from("addr1");
+        let addr_not_in_allowlist = String::from("addr2");
+        let deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: Some(true),
+            allowlist: Some(vec![addr_in_allowlist.clone()]),
+        }));
+
+        // expect the address IN allow list to return true
+        let IsAllowlistedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowlisted {
+                    address: addr_in_allowlist,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(listed);
+
+        // expect the address NOT in allow list to return false
+        let IsAllowlistedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowlisted {
+                    address: addr_not_in_allowlist,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(!listed);
+    }
+
+    #[test]
+    fn query_is_allowed_works_when_allowlist_disabled() {
+        let addr_in_allowlist = String::from("addr1");
+        let addr_not_in_allowlist = String::from("addr2");
+        let deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: Some(false),
+            allowlist: Some(vec![addr_in_allowlist.clone()]),
+        }));
+
+        // expect the address IN allow list to return true
+        let IsAllowlistedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowlisted {
+                    address: addr_in_allowlist,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(listed);
+
+        // Expect the address NOT in allowlist to return false even if allowlist is not enabled.
+        let IsAllowlistedResponse { listed } = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsAllowlisted {
+                    address: addr_not_in_allowlist,
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert!(!listed);
+    }
+
     //
     // IBC tests
     //
 
     #[test]
     fn ibc_channel_open_checks_version_and_order() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // All good
         let valid_handshake = mock_ibc_channel_open_init("channel-12", APP_ORDER, IBC_APP_VERSION);
@@ -1029,7 +1330,7 @@ mod tests {
     fn ibc_channel_connect_works() {
         // We are chain A and get the ChanOpenAck
 
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // Channel is unset
         let GatewayChannelResponse { channel } =
@@ -1059,7 +1360,7 @@ mod tests {
 
     #[test]
     fn ibc_channel_close_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // Open
         let valid_handshake = mock_ibc_channel_open_init("channel-12", APP_ORDER, IBC_APP_VERSION);
@@ -1099,7 +1400,7 @@ mod tests {
 
     #[test]
     fn ibc_packet_ack_works() {
-        let mut deps = setup();
+        let mut deps = setup(None);
 
         // The proxy -> gateway packet we get the acknowledgement for
         let packet = InPacket::RequestBeacon {

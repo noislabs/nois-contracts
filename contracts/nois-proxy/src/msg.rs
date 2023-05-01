@@ -17,6 +17,12 @@ pub struct InstantiateMsg {
     /// The amount of gas that the callback to the dapp can consume
     pub callback_gas_limit: u64,
     pub mode: OperationalMode,
+    /// Toggle caller allowlist allowed to get randomness.
+    /// This is optional and can be omitted. Defaults to false.
+    pub allowlist_enabled: Option<bool>,
+    /// List of addresses allowed to get randomness.
+    /// This is optional and can be omitted. Defaults to an empty list.
+    pub allowlist: Option<Vec<String>>,
 }
 
 #[cw_serde]
@@ -43,6 +49,9 @@ pub enum ExecuteMsg {
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
         mode: Option<OperationalMode>,
+        /// Toggle address allowlist to get randomness. When enabled, the allowlist is checked.
+        /// Otherwise the allowlist entries are ignored.
+        allowlist_enabled: Option<bool>,
     },
     // Withdraw the given amount to the withdrawal address
     Withdraw {
@@ -51,6 +60,11 @@ pub enum ExecuteMsg {
         /// If None, withdraw all available balance of the given denom.
         amount: Option<Uint128>,
         address: String,
+    },
+    // Add or remove entries from the list of addresses allowed to get randomness.
+    UpdateAllowlist {
+        add: Vec<String>,
+        remove: Vec<String>,
     },
 }
 
@@ -102,6 +116,9 @@ pub enum SudoMsg {
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
         mode: Option<OperationalMode>,
+        /// Toggle address allowlist to get randomness. When enabled, the allowlist is checked.
+        /// Otherwise the allowlist entries are ignored.
+        allowlist_enabled: Option<bool>,
     },
 }
 
@@ -122,6 +139,13 @@ pub enum QueryMsg {
     /// the channel is created. Once created, the value does not change anymore.
     #[returns(GatewayChannelResponse)]
     GatewayChannel {},
+    /// Returns the list of allowed dapp addresses
+    #[returns(AllowlistResponse)]
+    Allowlist {},
+    /// Queries whether the given address is part of the proxy's allowlist.
+    /// Whether or not the allowlist is enabled must be queried via the config.
+    #[returns(IsAllowlistedResponse)]
+    IsAllowlisted { address: String },
 }
 
 #[cw_serde]
@@ -144,6 +168,19 @@ pub struct PriceResponse {
 #[cw_serde]
 pub struct GatewayChannelResponse {
     pub channel: Option<String>,
+}
+
+#[cw_serde]
+pub struct AllowlistResponse {
+    /// List of addresses
+    pub allowed: Vec<String>,
+}
+
+#[cw_serde]
+pub struct IsAllowlistedResponse {
+    /// Returns true if and only if the address is part of the proxy's allowlist.
+    /// Whether or not the allowlist is enabled must be queried via the config.
+    pub listed: bool,
 }
 
 /// This struct contains information about the origin of the beacon request. It helps the
