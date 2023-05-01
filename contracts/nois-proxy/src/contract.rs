@@ -294,25 +294,25 @@ fn execute_update_allowlist(
     deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
-    added_addresses: Vec<String>,
-    removed_addresses: Vec<String>,
+    add_addresses: Vec<String>,
+    remove_addresses: Vec<String>,
 ) -> Result<Response, ContractError> {
-    update_allowlist(deps, added_addresses, removed_addresses)?;
+    update_allowlist(deps, add_addresses, remove_addresses)?;
     Ok(Response::new().add_attribute("action", "update_allowlist"))
 }
 
 /// Adds and remove entries from the allow list.
 fn update_allowlist(
     deps: DepsMut,
-    added_addresses: Vec<String>,
-    removed_addresses: Vec<String>,
+    add_addresses: Vec<String>,
+    remove_addresses: Vec<String>,
 ) -> Result<(), ContractError> {
-    for addr in added_addresses.iter() {
+    for addr in add_addresses {
         let addr = deps.api.addr_validate(addr.as_str())?;
         ALLOW_LIST.save(deps.storage, &addr, &1)?;
     }
 
-    for addr in removed_addresses.iter() {
+    for addr in remove_addresses {
         let addr = deps.api.addr_validate(addr.as_str())?;
         ALLOW_LIST.remove(deps.storage, &addr);
     }
