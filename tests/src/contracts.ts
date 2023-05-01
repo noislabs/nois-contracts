@@ -99,6 +99,8 @@ export interface ProxyInstantiateMsg {
   readonly test_mode: boolean;
   readonly callback_gas_limit: number;
   readonly mode: ProxyOperationalMode;
+  readonly allowlist_enabled: boolean;
+  readonly allowlist: string[];
 }
 
 export interface ProxyExecuteMsg {
