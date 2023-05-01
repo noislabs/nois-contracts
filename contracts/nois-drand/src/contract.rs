@@ -110,6 +110,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
         QueryMsg::AllowList {} => to_binary(&query_allowlist(deps)?)?,
+        QueryMsg::Allowlist {} => to_binary(&query_allowlist(deps)?)?,
         QueryMsg::IsAllowListed { bot } => to_binary(&query_is_allowlisted(deps, bot)?)?,
         QueryMsg::IsAllowlisted { bot } => to_binary(&query_is_allowlisted(deps, bot)?)?,
     };
