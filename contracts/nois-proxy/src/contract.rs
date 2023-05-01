@@ -3,7 +3,7 @@ use cosmwasm_std::{
     attr, ensure_eq, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order,
     QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
     Uint128, WasmMsg,
 };
@@ -18,8 +18,8 @@ use nois_protocol::{
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
-    ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg, IsAllowlistedResponse,
-    PriceResponse, PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
+    AllowlistResponse, ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg,
+    IsAllowlistedResponse, PriceResponse, PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, OperationalMode, ALLOWLIST, ALLOWLIST_MARKER, CONFIG, GATEWAY_CHANNEL};
@@ -496,6 +496,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Prices {} => to_binary(&query_prices(deps)?),
         QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
         QueryMsg::GatewayChannel {} => to_binary(&query_gateway_channel(deps)?),
+        QueryMsg::Allowlist {} => to_binary(&query_allowlist(deps)?),
         QueryMsg::IsAllowlisted { address } => to_binary(&query_is_allowlisted(deps, address)?),
     }
 }
@@ -526,6 +527,18 @@ fn query_gateway_channel(deps: Deps) -> StdResult<GatewayChannelResponse> {
     Ok(GatewayChannelResponse {
         channel: GATEWAY_CHANNEL.may_load(deps.storage)?,
     })
+}
+
+fn query_allowlist(deps: Deps) -> StdResult<AllowlistResponse> {
+    // No pagination here yet 🤷‍♂️
+    let allowed = ALLOWLIST
+        .range(deps.storage, None, None, Order::Ascending)
+        .map(|result| {
+            let (address, _) = result.unwrap();
+            address.into()
+        })
+        .collect();
+    Ok(AllowlistResponse { allowed })
 }
 
 fn query_is_allowlisted(deps: Deps, addr: String) -> StdResult<IsAllowlistedResponse> {
@@ -1163,6 +1176,42 @@ mod tests {
         )
         .unwrap();
         assert_eq!(price, Some(Uint128::new(1000000)));
+    }
+
+    #[test]
+    fn query_allowlist_works() {
+        // some list
+        let addr_in_allowlist = vec![String::from("addr2"), String::from("addr1")];
+        let deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: true,
+            allowlist: addr_in_allowlist.clone(),
+        }));
+
+        let AllowlistResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
+                .unwrap();
+        assert_eq!(allowed, ["addr1", "addr2"]);
+
+        // empty list
+        let deps = setup(Some(InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: true,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: true,
+            allowlist: vec![],
+        }));
+
+        let AllowlistResponse { allowed } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
+                .unwrap();
+        assert!(allowed.is_empty());
     }
 
     #[test]

@@ -138,6 +138,9 @@ pub enum QueryMsg {
     /// the channel is created. Once created, the value does not change anymore.
     #[returns(GatewayChannelResponse)]
     GatewayChannel {},
+    /// Returns the list of allowed dapp addresses
+    #[returns(AllowlistResponse)]
+    Allowlist {},
     /// Queries whether the given address is part of the proxy's allowlist.
     /// Whether or not the allowlist is enabled must be queried via the config.
     #[returns(IsAllowlistedResponse)]
@@ -164,6 +167,12 @@ pub struct PriceResponse {
 #[cw_serde]
 pub struct GatewayChannelResponse {
     pub channel: Option<String>,
+}
+
+#[cw_serde]
+pub struct AllowlistResponse {
+    /// List of addresses
+    pub allowed: Vec<String>,
 }
 
 #[cw_serde]
