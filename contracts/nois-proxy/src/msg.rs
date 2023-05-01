@@ -60,10 +60,10 @@ pub enum ExecuteMsg {
         amount: Option<Uint128>,
         address: String,
     },
-    // Add or remove entries from the whitelist of addresses allowed to get randomness.
-    UpdateAllowList {
-        remove: Vec<String>,
+    // Add or remove entries from the list of addresses allowed to get randomness.
+    UpdateAllowlist {
         add: Vec<String>,
+        remove: Vec<String>,
     },
 }
 

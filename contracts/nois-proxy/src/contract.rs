@@ -118,7 +118,7 @@ pub fn execute(
             amount,
             address,
         } => execute_withdraw(deps, env, info, denom, amount, address),
-        ExecuteMsg::UpdateAllowList { add, remove } => {
+        ExecuteMsg::UpdateAllowlist { add, remove } => {
             execute_update_allowlist(deps, env, info, add, remove)
         }
     }
@@ -1108,7 +1108,7 @@ mod tests {
     #[test]
     fn update_allowlist_works() {
         let mut deps = setup(None);
-        let msg = ExecuteMsg::UpdateAllowList {
+        let msg = ExecuteMsg::UpdateAllowlist {
             add: vec!["aaa".to_owned(), "ccc".to_owned()],
             remove: vec!["aaa".to_owned(), "bbb".to_owned()],
         };
