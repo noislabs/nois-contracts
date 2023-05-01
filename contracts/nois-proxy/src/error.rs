@@ -22,8 +22,8 @@ pub enum ContractError {
     #[error("Insufficient payment.")]
     InsufficientPayment,
 
-    #[error("NotAllowed")]
-    NotAllowed,
+    #[error("Sender address is not allowed to perform this action")]
+    SenderNotAllowed,
 
     //
     // IBC

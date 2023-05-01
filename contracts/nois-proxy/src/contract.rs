@@ -182,7 +182,7 @@ pub fn execute_get_randomness_impl(
     // only let whitelisted senders get randomness
     let allowlist_enabled = config.allowlist_enabled.unwrap_or(false);
     if allowlist_enabled && !ALLOWLIST.has(deps.storage, &info.sender) {
-        return Err(ContractError::NotAllowed);
+        return Err(ContractError::SenderNotAllowed);
     }
 
     let packet = InPacket::RequestBeacon {
@@ -971,7 +971,7 @@ mod tests {
             mock_info("disallowed", &coins(22334455, "unoisx")),
             msg,
         );
-        assert!(matches!(err, Err(ContractError::NotAllowed)));
+        assert!(matches!(err, Err(ContractError::SenderNotAllowed)));
     }
 
     #[test]
