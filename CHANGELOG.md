@@ -11,6 +11,7 @@ and this project adheres to
 ### Changed
 
 - Use anybuf from crates.io
+- Upgrade cosmwasm to 1.2.5
 - drand: Add `QueryMsg::IsAllowlisted` and `QueryMsg::Allowlist` (one word)
   analogue to `QueryMsg::IsAllowListed` and `QueryMsg::AllowList`.
 - drand: Rename `AllowListResponse` to `AllowlistResponse`. Rename
