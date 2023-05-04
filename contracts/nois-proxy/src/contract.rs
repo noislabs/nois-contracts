@@ -254,8 +254,8 @@ fn execute_set_config(
 
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
     ensure_eq!(
-        &info.sender,                                                // &Addr
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        info.sender,
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?,
         ContractError::Unauthorized
     );
 
@@ -283,8 +283,8 @@ fn execute_withdraw(
 
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
     ensure_eq!(
-        &info.sender,                                                // &Addr
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?, // &Addr
+        info.sender,
+        config.manager.as_ref().ok_or(ContractError::Unauthorized)?,
         ContractError::Unauthorized
     );
 
