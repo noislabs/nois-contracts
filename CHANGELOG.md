@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.13.3] - 2023-05-04
+
 ### Changed
 
 - Use anybuf from crates.io
@@ -152,7 +154,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.2...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.3...HEAD
+[0.13.3]: https://github.com/noislabs/nois-contracts/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/noislabs/nois-contracts/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/noislabs/nois-contracts/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/noislabs/nois-contracts/compare/v0.12.0...v0.13.0
