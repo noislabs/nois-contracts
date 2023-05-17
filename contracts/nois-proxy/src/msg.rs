@@ -48,6 +48,8 @@ pub enum ExecuteMsg {
         payment: Option<String>,
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
+        /// The amount of gas that the callback to the dapp can consume
+        callback_gas_limit: Option<u64>,
         mode: Option<OperationalMode>,
         /// Toggle address allowlist to get randomness. When enabled, the allowlist is checked.
         /// Otherwise the allowlist entries are ignored.
@@ -115,6 +117,8 @@ pub enum SudoMsg {
         payment: Option<String>,
         /// The amount of tokens the proxy sends for each randomness request to the Nois chain
         nois_beacon_price: Option<Uint128>,
+        /// The amount of gas that the callback to the dapp can consume
+        callback_gas_limit: Option<u64>,
         mode: Option<OperationalMode>,
         /// Toggle address allowlist to get randomness. When enabled, the allowlist is checked.
         /// Otherwise the allowlist entries are ignored.
