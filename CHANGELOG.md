@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- proxy: Updating the `allowlist_enabled` value via `SetConfig` was fixed. In
+  0.13.3 an unset value caused the config to set `allowlist_enabled` to
+  None/false. Now it does not change the value.
+
 ## [0.13.3] - 2023-05-04
 
 ### Changed

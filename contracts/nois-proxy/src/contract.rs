@@ -435,6 +435,11 @@ fn set_config_unchecked(
     };
     let mode = mode.unwrap_or(config.mode);
 
+    // Older versions of the proxy did not set allowlist_enabled (i.e. it was None/undefined in JSON).
+    // This is normalized to Some(false) every time the value is used.
+    let current_allowlist_enabled = config.allowlist_enabled.unwrap_or_default();
+    let allowlist_enabled = allowlist_enabled.unwrap_or(current_allowlist_enabled);
+
     let new_config = Config {
         manager,
         prices,
@@ -444,7 +449,7 @@ fn set_config_unchecked(
         nois_beacon_price,
         nois_beacon_price_updated,
         mode,
-        allowlist_enabled,
+        allowlist_enabled: Some(allowlist_enabled),
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -1013,6 +1018,71 @@ mod tests {
         };
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
+    }
+
+    #[test]
+    fn set_config_works() {
+        let mut deps = setup(None);
+
+        // Check original config
+        let ConfigResponse { config: original } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(original.manager, Some(Addr::unchecked(CREATOR)));
+        assert_eq!(original.allowlist_enabled, Some(false));
+
+        // Update nothing
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            mode: None,
+            allowlist_enabled: None,
+        };
+        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        let ConfigResponse { config } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(config, original);
+
+        // Set allowlist_enabled to true
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            mode: None,
+            allowlist_enabled: Some(true),
+        };
+        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        let ConfigResponse { config } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        // Updated
+        assert_eq!(config.allowlist_enabled, Some(true));
+        // Rest unchanged
+        assert_eq!(config.prices, original.prices);
+        assert_eq!(config.manager, original.manager);
+        assert_eq!(config.mode, original.mode);
+        assert_eq!(config.payment, original.payment);
+
+        // Set allowlist_enabled to false
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            mode: None,
+            allowlist_enabled: Some(false),
+        };
+        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        let ConfigResponse { config } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        // Updated
+        assert_eq!(config.allowlist_enabled, Some(false));
+        // Rest unchanged
+        assert_eq!(config.prices, original.prices);
+        assert_eq!(config.manager, original.manager);
+        assert_eq!(config.mode, original.mode);
+        assert_eq!(config.payment, original.payment);
     }
 
     #[test]
