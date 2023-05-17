@@ -435,6 +435,11 @@ fn set_config_unchecked(
     };
     let mode = mode.unwrap_or(config.mode);
 
+    // Older versions of the proxy did not set allowlist_enabled (i.e. it was None/undefined in JSON).
+    // This is normalized to Some(false) every time the value is used.
+    let current_allowlist_enabled = config.allowlist_enabled.unwrap_or_default();
+    let allowlist_enabled = allowlist_enabled.unwrap_or(current_allowlist_enabled);
+
     let new_config = Config {
         manager,
         prices,
@@ -444,7 +449,7 @@ fn set_config_unchecked(
         nois_beacon_price,
         nois_beacon_price_updated,
         mode,
-        allowlist_enabled,
+        allowlist_enabled: Some(allowlist_enabled),
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -1016,49 +1021,68 @@ mod tests {
     }
 
     #[test]
-    fn when_manager_is_not_set_manager_permissions_are_unauthorised() {
-        // Check that if manager not set, a random person cannot execute manager-like operations.
-        let mut deps = mock_dependencies();
-        let msg = InstantiateMsg {
-            manager: None,
-            prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: false,
-            callback_gas_limit: 500_000,
-            mode: OperationalMode::Funded {},
-            allowlist_enabled: None,
-            allowlist: None,
-        };
-        let info = mock_info(CREATOR, &[]);
-        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        // withdraw
-        let msg = ExecuteMsg::Withdraw {
-            denom: "unoisx".to_string(),
-            amount: Some(Uint128::new(12)),
-            address: "some-address".to_string(),
-        };
-        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
-        assert!(matches!(err, ContractError::Unauthorized));
-        // withdraw all
-        let msg = ExecuteMsg::Withdraw {
-            denom: "unoisx".to_string(),
-            amount: None,
-            address: "some-address".to_string(),
-        };
+    fn set_config_works() {
+        let mut deps = setup(None);
 
-        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
-        assert!(matches!(err, ContractError::Unauthorized));
-        // Edit config
+        // Check original config
+        let ConfigResponse { config: original } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(original.manager, Some(Addr::unchecked(CREATOR)));
+        assert_eq!(original.allowlist_enabled, Some(false));
+
+        // Update nothing
         let msg = ExecuteMsg::SetConfig {
-            manager: Some("some-manager".to_string()),
+            manager: None,
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            mode: None,
+            allowlist_enabled: None,
+        };
+        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        let ConfigResponse { config } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(config, original);
+
+        // Set allowlist_enabled to true
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            mode: None,
+            allowlist_enabled: Some(true),
+        };
+        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        let ConfigResponse { config } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        // Updated
+        assert_eq!(config.allowlist_enabled, Some(true));
+        // Rest unchanged
+        assert_eq!(config.prices, original.prices);
+        assert_eq!(config.manager, original.manager);
+        assert_eq!(config.mode, original.mode);
+        assert_eq!(config.payment, original.payment);
+
+        // Set allowlist_enabled to false
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
             prices: None,
             payment: None,
             nois_beacon_price: None,
             mode: None,
             allowlist_enabled: Some(false),
         };
-
-        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
-        assert!(matches!(err, ContractError::Unauthorized));
+        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        let ConfigResponse { config } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        // Updated
+        assert_eq!(config.allowlist_enabled, Some(false));
+        // Rest unchanged
+        assert_eq!(config.prices, original.prices);
+        assert_eq!(config.manager, original.manager);
+        assert_eq!(config.mode, original.mode);
+        assert_eq!(config.payment, original.payment);
     }
 
     #[test]
@@ -1117,6 +1141,52 @@ mod tests {
                 amount: coins(22334455, "unoisx"),
             })
         );
+    }
+
+    #[test]
+    fn withdraw_when_manager_is_not_set_manager_permissions_are_unauthorised() {
+        // Check that if manager not set, a random person cannot execute manager-like operations.
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            manager: None,
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: false,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: None,
+            allowlist: None,
+        };
+        let info = mock_info(CREATOR, &[]);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        // withdraw
+        let msg = ExecuteMsg::Withdraw {
+            denom: "unoisx".to_string(),
+            amount: Some(Uint128::new(12)),
+            address: "some-address".to_string(),
+        };
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+        // withdraw all
+        let msg = ExecuteMsg::Withdraw {
+            denom: "unoisx".to_string(),
+            amount: None,
+            address: "some-address".to_string(),
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+        // Edit config
+        let msg = ExecuteMsg::SetConfig {
+            manager: Some("some-manager".to_string()),
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            mode: None,
+            allowlist_enabled: Some(false),
+        };
+
+        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
     }
 
     #[test]
