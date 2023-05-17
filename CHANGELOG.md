@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- proxy: Add support for updating `callback_gas_limit` via SetConfig ([#240]).
+
+[#240]: https://github.com/noislabs/nois-contracts/pull/240
+
 ### Fixed
 
 - proxy: Updating the `allowlist_enabled` value via `SetConfig` was fixed. In

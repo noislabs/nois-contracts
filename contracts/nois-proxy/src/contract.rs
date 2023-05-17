@@ -98,6 +98,7 @@ pub fn execute(
             prices,
             payment,
             nois_beacon_price,
+            callback_gas_limit,
             mode,
             allowlist_enabled,
         } => execute_set_config(
@@ -108,6 +109,7 @@ pub fn execute(
             prices,
             payment,
             nois_beacon_price,
+            callback_gas_limit,
             mode,
             allowlist_enabled,
         ),
@@ -247,6 +249,7 @@ fn execute_set_config(
     prices: Option<Vec<Coin>>,
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
+    callback_gas_limit: Option<u64>,
     mode: Option<OperationalMode>,
     allowlist_enabled: Option<bool>,
 ) -> Result<Response, ContractError> {
@@ -266,6 +269,7 @@ fn execute_set_config(
         prices,
         payment,
         nois_beacon_price,
+        callback_gas_limit,
         mode,
         allowlist_enabled,
     )
@@ -340,6 +344,7 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             prices,
             payment,
             nois_beacon_price,
+            callback_gas_limit,
             mode,
             allowlist_enabled,
         } => set_config_unchecked(
@@ -349,6 +354,7 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             prices,
             payment,
             nois_beacon_price,
+            callback_gas_limit,
             mode,
             allowlist_enabled,
         ),
@@ -413,6 +419,7 @@ fn set_config_unchecked(
     prices: Option<Vec<Coin>>,
     payment: Option<String>,
     nois_beacon_price: Option<Uint128>,
+    callback_gas_limit: Option<u64>,
     mode: Option<OperationalMode>,
     allowlist_enabled: Option<bool>,
 ) -> Result<Response, ContractError> {
@@ -424,7 +431,7 @@ fn set_config_unchecked(
     };
     let prices = prices.unwrap_or(config.prices);
     let test_mode = config.test_mode;
-    let callback_gas_limit = config.callback_gas_limit;
+    let callback_gas_limit = callback_gas_limit.unwrap_or(config.callback_gas_limit);
     let payment = match payment {
         Some(pa) => Some(pa),
         None => config.payment,
@@ -1028,6 +1035,7 @@ mod tests {
         let ConfigResponse { config: original } =
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(original.manager, Some(Addr::unchecked(CREATOR)));
+        assert_eq!(original.callback_gas_limit, 500_000);
         assert_eq!(original.allowlist_enabled, Some(false));
 
         // Update nothing
@@ -1036,6 +1044,7 @@ mod tests {
             prices: None,
             payment: None,
             nois_beacon_price: None,
+            callback_gas_limit: None,
             mode: None,
             allowlist_enabled: None,
         };
@@ -1050,6 +1059,7 @@ mod tests {
             prices: None,
             payment: None,
             nois_beacon_price: None,
+            callback_gas_limit: None,
             mode: None,
             allowlist_enabled: Some(true),
         };
@@ -1070,6 +1080,7 @@ mod tests {
             prices: None,
             payment: None,
             nois_beacon_price: None,
+            callback_gas_limit: None,
             mode: None,
             allowlist_enabled: Some(false),
         };
@@ -1078,6 +1089,27 @@ mod tests {
             from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         // Updated
         assert_eq!(config.allowlist_enabled, Some(false));
+        // Rest unchanged
+        assert_eq!(config.prices, original.prices);
+        assert_eq!(config.manager, original.manager);
+        assert_eq!(config.mode, original.mode);
+        assert_eq!(config.payment, original.payment);
+
+        // Update callback_gas_limit
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            callback_gas_limit: Some(800_000),
+            mode: None,
+            allowlist_enabled: None,
+        };
+        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        let ConfigResponse { config } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        // Updated
+        assert_eq!(config.callback_gas_limit, 800_000);
         // Rest unchanged
         assert_eq!(config.prices, original.prices);
         assert_eq!(config.manager, original.manager);
@@ -1181,6 +1213,7 @@ mod tests {
             prices: None,
             payment: None,
             nois_beacon_price: None,
+            callback_gas_limit: None,
             mode: None,
             allowlist_enabled: Some(false),
         };
