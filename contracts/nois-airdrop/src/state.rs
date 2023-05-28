@@ -6,6 +6,7 @@ use cw_storage_plus::{Item, Map};
 pub struct Config {
     /// manager that can change the manager , register merkle or withdraw funds
     pub manager: Addr,
+    pub denom: String,
 }
 
 #[cw_serde]

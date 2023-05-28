@@ -14,9 +14,6 @@ use crate::state::{
     Config, RandomnessParams, CLAIMED, CLAIMED_VALUE, CONFIG, MERKLE_ROOT, NOIS_RANDOMNESS,
 };
 
-// The airdrop Denom, probably gonna be some IBCed Nois something like IBC/hashhashhashhashhashhash
-const AIRDROP_DENOM: &str = "unois";
-
 /// The winning chance is 1/AIRDROP_ODDS
 const AIRDROP_ODDS: u64 = 3;
 
@@ -31,6 +28,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let manager = deps.api.addr_validate(&msg.manager)?;
+    let denom = msg.denom;
     let nois_proxy = deps
         .api
         .addr_validate(&msg.nois_proxy)
@@ -45,7 +43,7 @@ pub fn instantiate(
         },
     )?;
 
-    let config = Config { manager };
+    let config = Config { manager, denom };
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::default())
@@ -64,13 +62,13 @@ pub fn execute(
             execute_register_merkle_root(deps, env, info, merkle_root)
         }
         //RandDrop should be called by the manager with a future timestamp
-        ExecuteMsg::RandDrop {
+        ExecuteMsg::Randdrop {
             random_beacon_after,
-        } => execute_rand_drop(deps, env, info, random_beacon_after),
+        } => execute_randdrop(deps, env, info, random_beacon_after),
         //NoisReceive should be called by the proxy contract. The proxy is forwarding the randomness from the nois chain to this contract.
         ExecuteMsg::NoisReceive { callback } => execute_receive(deps, env, info, callback),
         ExecuteMsg::Claim { amount, proof } => execute_claim(deps, env, info, amount, proof),
-        ExecuteMsg::WithdawAll { address } => execute_withdraw_all(deps, env, info, address),
+        ExecuteMsg::WithdrawAll { address } => execute_withdraw_all(deps, env, info, address),
     }
 }
 
@@ -99,14 +97,15 @@ fn execute_update_config(
         Some(ma) => deps.api.addr_validate(&ma)?,
         None => config.manager,
     };
+    let denom = config.denom;
 
-    CONFIG.save(deps.storage, &Config { manager })?;
+    CONFIG.save(deps.storage, &Config { manager, denom })?;
 
     Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 // This function will call the proxy and ask for the randomness round
-pub fn execute_rand_drop(
+pub fn execute_randdrop(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
@@ -216,12 +215,12 @@ fn execute_withdraw_all(
     address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     let amount = deps
         .querier
-        .query_balance(env.contract.address, AIRDROP_DENOM)?;
+        .query_balance(env.contract.address, config.denom)?;
     let msg = BankMsg::Send {
         to_address: address,
         amount: vec![amount],
@@ -325,10 +324,11 @@ fn execute_claim(
 
     // Update claim
     CLAIMED.save(deps.storage, &info.sender, &CLAIMED_VALUE)?;
+    let config = CONFIG.load(deps.storage)?;
 
     let send_amount = Coin {
         amount: amount * Uint128::from(AIRDROP_ODDS),
-        denom: AIRDROP_DENOM.to_string(),
+        denom: config.denom,
     };
 
     let res = Response::new()
@@ -394,6 +394,8 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             nois_proxy: PROXY_ADDRESS.to_string(),
+            denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                .to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -416,6 +418,8 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             nois_proxy: "".to_string(),
+            denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                .to_string(),
         };
         let info = mock_info("CREATOR", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap_err();
@@ -429,6 +433,8 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             nois_proxy: "nois_proxy".to_string(),
+            denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                .to_string(),
         };
 
         let env = mock_env();
@@ -536,7 +542,7 @@ mod tests {
     fn execute_rand_drop_works() {
         let mut deps = instantiate_contract();
 
-        let msg = ExecuteMsg::RandDrop {
+        let msg = ExecuteMsg::Randdrop {
             random_beacon_after: Timestamp::from_seconds(1571797419),
         };
         let info = mock_info("guest", &[]);
@@ -566,7 +572,7 @@ mod tests {
                 random_beacon_after: Timestamp::from_seconds(1571797419)
             }
         );
-        let msg = ExecuteMsg::RandDrop {
+        let msg = ExecuteMsg::Randdrop {
             random_beacon_after: Timestamp::from_seconds(1579687420),
         };
         let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
@@ -577,7 +583,7 @@ mod tests {
             }
         );
 
-        let msg = ExecuteMsg::RandDrop {
+        let msg = ExecuteMsg::Randdrop {
             random_beacon_after: Timestamp::from_seconds(1577565357),
         };
         execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
@@ -652,7 +658,8 @@ mod tests {
             to_address: info.sender.to_string(),
             amount: vec![Coin {
                 amount: Uint128::new(13500000), // 4500000*3
-                denom: AIRDROP_DENOM.to_string(),
+                denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                    .to_string(),
             }],
         });
         assert_eq!(res.messages, vec![expected]);
@@ -667,7 +674,9 @@ mod tests {
                     "send_amount",
                     Coin {
                         amount: test_data.amount * Uint128::new(AIRDROP_ODDS as u128),
-                        denom: "unois".to_string(),
+                        denom:
+                            "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                                .to_string(),
                     }
                     .to_string()
                 ),
@@ -695,7 +704,7 @@ mod tests {
         // Stop aridrop and Widhdraw funds
         let env = mock_env();
         let info = mock_info("random_person_who_hates_airdrops", &[]);
-        let msg = ExecuteMsg::WithdawAll {
+        let msg = ExecuteMsg::WithdrawAll {
             address: "some-address".to_string(),
         };
         let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
@@ -703,7 +712,7 @@ mod tests {
 
         let env = mock_env();
         let info = mock_info(MANAGER, &[]);
-        let msg = ExecuteMsg::WithdawAll {
+        let msg = ExecuteMsg::WithdrawAll {
             address: "withdraw_address".to_string(),
         };
         let res = execute(deps.as_mut(), env, info, msg).unwrap();
@@ -712,7 +721,8 @@ mod tests {
             to_address: "withdraw_address".to_string(),
             amount: vec![Coin {
                 amount: Uint128::new(0),
-                denom: AIRDROP_DENOM.to_string(),
+                denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                    .to_string(),
             }],
         });
         assert_eq!(res.messages, vec![expected]);
