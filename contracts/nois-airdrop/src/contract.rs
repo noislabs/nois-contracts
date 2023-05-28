@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, Deps, DepsMut, Env,
+    ensure, ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, Deps, DepsMut, Env,
     HexBinary, MessageInfo, QueryResponse, Response, StdResult, Timestamp, Uint128, WasmMsg,
 };
 use nois::{NoisCallback, ProxyExecuteMsg};
@@ -10,11 +10,15 @@ use crate::msg::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, IsClaimedResponse, IsLuckyResponse,
     MerkleRootResponse, QueryMsg,
 };
-use crate::state::{Config, RandomnessParams, CLAIM, CONFIG, MERKLE_ROOT, NOIS_RANDOMNESS};
+use crate::state::{
+    Config, RandomnessParams, CLAIMED, CLAIMED_VALUE, CONFIG, MERKLE_ROOT, NOIS_RANDOMNESS,
+};
 
-// The airdrop Denom, probably gonna be some IBCed Nois something like IBC/hashhashhashhashhashhash
-const AIRDROP_DENOM: &str = "unois";
-const AIRDROP_ODDS: u8 = 3;
+/// The winning chance is 1/AIRDROP_ODDS
+const AIRDROP_ODDS: u64 = 3;
+
+/// This allows the manager to request the beacon up to 3 months in the future
+const RANDOM_BEACON_MAX_REQUEST_TIME_IN_THE_FUTURE: u64 = 7890000;
 
 #[entry_point]
 pub fn instantiate(
@@ -24,6 +28,7 @@ pub fn instantiate(
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     let manager = deps.api.addr_validate(&msg.manager)?;
+    let denom = msg.denom;
     let nois_proxy = deps
         .api
         .addr_validate(&msg.nois_proxy)
@@ -38,7 +43,7 @@ pub fn instantiate(
         },
     )?;
 
-    let config = Config { manager };
+    let config = Config { manager, denom };
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::default())
@@ -57,13 +62,13 @@ pub fn execute(
             execute_register_merkle_root(deps, env, info, merkle_root)
         }
         //RandDrop should be called by the manager with a future timestamp
-        ExecuteMsg::RandDrop {
+        ExecuteMsg::Randdrop {
             random_beacon_after,
-        } => execute_rand_drop(deps, env, info, random_beacon_after),
+        } => execute_randdrop(deps, env, info, random_beacon_after),
         //NoisReceive should be called by the proxy contract. The proxy is forwarding the randomness from the nois chain to this contract.
         ExecuteMsg::NoisReceive { callback } => execute_receive(deps, env, info, callback),
         ExecuteMsg::Claim { amount, proof } => execute_claim(deps, env, info, amount, proof),
-        ExecuteMsg::WithdawAll { address } => execute_withdraw_all(deps, env, info, address),
+        ExecuteMsg::WithdrawAll { address } => execute_withdraw_all(deps, env, info, address),
     }
 }
 
@@ -92,16 +97,17 @@ fn execute_update_config(
         Some(ma) => deps.api.addr_validate(&ma)?,
         None => config.manager,
     };
+    let denom = config.denom;
 
-    CONFIG.save(deps.storage, &Config { manager })?;
+    CONFIG.save(deps.storage, &Config { manager, denom })?;
 
     Ok(Response::new().add_attribute("action", "update_config"))
 }
 
 // This function will call the proxy and ask for the randomness round
-pub fn execute_rand_drop(
+pub fn execute_randdrop(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     random_beacon_after: Timestamp,
 ) -> Result<Response, ContractError> {
@@ -113,6 +119,25 @@ pub fn execute_rand_drop(
     if MERKLE_ROOT.may_load(deps.storage)?.is_none() {
         return Err(ContractError::MerkleRootAbsent);
     }
+
+    // check that the timestamp is between now and the safety time
+    // to make sure the operator did not make a typo
+    let block_time = env.block.time;
+    ensure!(
+        block_time < random_beacon_after,
+        ContractError::RandomAfterIsInThePast {
+            block_time,
+            random_beacon_after
+        }
+    );
+    let max_allowed_beacon_time =
+        block_time.plus_seconds(RANDOM_BEACON_MAX_REQUEST_TIME_IN_THE_FUTURE);
+    ensure!(
+        max_allowed_beacon_time > random_beacon_after,
+        ContractError::RandomAfterIsTooMuchInTheFuture {
+            max_allowed_beacon_time
+        }
+    );
 
     let RandomnessParams {
         nois_proxy,
@@ -190,12 +215,12 @@ fn execute_withdraw_all(
     address: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    // check the calling address is the authorised multisig
+    // check the calling address is the authorised address
     ensure_eq!(info.sender, config.manager, ContractError::Unauthorized);
 
     let amount = deps
         .querier
-        .query_balance(env.contract.address, AIRDROP_DENOM)?;
+        .query_balance(env.contract.address, config.denom)?;
     let msg = BankMsg::Send {
         to_address: address,
         amount: vec![amount],
@@ -206,20 +231,23 @@ fn execute_withdraw_all(
     Ok(res)
 }
 
-fn is_randomly_eligible(addr: &Addr, randomness: [u8; 32]) -> bool {
-    let mut hasher = Sha256::new();
-    hasher.update(addr.as_bytes());
-    let sender_hash: [u8; 32] = hasher.finalize().into();
-    // Concatenate the randomness and sender hash values
-    let combined = [randomness, sender_hash].concat();
+fn is_randomly_eligible(sender: &Addr, randomness: [u8; 32]) -> bool {
+    let sender_hash: [u8; 32] = Sha256::digest(sender.as_bytes()).into();
+
     // Hash the combined value using SHA256 to generate a random number between 1 and 3
     let mut hasher = Sha256::new();
-    hasher.update(&combined);
+    // Concatenate the randomness and sender hash values
+    hasher.update(randomness);
+    hasher.update(sender_hash);
     let hash = hasher.finalize();
-    let outcome = hash[0] % AIRDROP_ODDS;
 
-    // returns true if the address is eligible
-    outcome == 0
+    // The u64 range is large compared to the modulo, so the distribution is expected to be good enough.
+    // See https://research.kudelskisecurity.com/2020/07/28/the-definitive-guide-to-modulo-bias-and-how-to-avoid-it/
+    let hash_u64 = u64::from_be_bytes([
+        hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
+    ]);
+    // returns true iff the address is eligible
+    hash_u64 % AIRDROP_ODDS == 0
 }
 
 fn execute_register_merkle_root(
@@ -258,8 +286,8 @@ fn execute_claim(
     proof: Vec<HexBinary>,
 ) -> Result<Response, ContractError> {
     // verify not claimed
-    let claimed = CLAIM.may_load(deps.storage, info.sender.clone())?;
-    if claimed.is_some() {
+    let claimed = CLAIMED.has(deps.storage, &info.sender);
+    if claimed {
         return Err(ContractError::Claimed {});
     }
     let merkle_root = MERKLE_ROOT.load(deps.storage)?;
@@ -295,20 +323,24 @@ fn execute_claim(
     }?;
 
     // Update claim
-    CLAIM.save(deps.storage, info.sender.clone(), &true)?;
+    CLAIMED.save(deps.storage, &info.sender, &CLAIMED_VALUE)?;
+    let config = CONFIG.load(deps.storage)?;
+
+    let send_amount = Coin {
+        amount: amount * Uint128::from(AIRDROP_ODDS),
+        denom: config.denom,
+    };
 
     let res = Response::new()
         .add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![Coin {
-                amount: amount * Uint128::new(AIRDROP_ODDS as u128),
-                denom: AIRDROP_DENOM.to_string(),
-            }],
+            amount: vec![send_amount.clone()],
         })
         .add_attributes(vec![
             Attribute::new("action", "claim"),
             Attribute::new("address", info.sender),
-            Attribute::new("amount", amount),
+            Attribute::new("merkle_amount", amount), // value from the merkle tree
+            Attribute::new("send_amount", send_amount.to_string()), // actual send amount
         ]);
     Ok(res)
 }
@@ -337,9 +369,8 @@ fn query_merkle_root(deps: Deps) -> StdResult<MerkleRootResponse> {
 }
 
 fn query_is_claimed(deps: Deps, address: String) -> StdResult<IsClaimedResponse> {
-    let is_claimed = CLAIM
-        .may_load(deps.storage, deps.api.addr_validate(&address)?)?
-        .unwrap_or(false);
+    let address = deps.api.addr_validate(&address)?;
+    let is_claimed = CLAIMED.has(deps.storage, &address);
     let resp = IsClaimedResponse { is_claimed };
 
     Ok(resp)
@@ -363,6 +394,8 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             nois_proxy: PROXY_ADDRESS.to_string(),
+            denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                .to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -385,6 +418,8 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             nois_proxy: "".to_string(),
+            denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                .to_string(),
         };
         let info = mock_info("CREATOR", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap_err();
@@ -398,6 +433,8 @@ mod tests {
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
             nois_proxy: "nois_proxy".to_string(),
+            denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                .to_string(),
         };
 
         let env = mock_env();
@@ -505,8 +542,8 @@ mod tests {
     fn execute_rand_drop_works() {
         let mut deps = instantiate_contract();
 
-        let msg = ExecuteMsg::RandDrop {
-            random_beacon_after: Timestamp::from_seconds(11111111),
+        let msg = ExecuteMsg::Randdrop {
+            random_beacon_after: Timestamp::from_seconds(1571797419),
         };
         let info = mock_info("guest", &[]);
         // Only manager should be able to request the randomness
@@ -527,6 +564,28 @@ mod tests {
         execute(deps.as_mut(), mock_env(), info, msg_merkle).unwrap();
 
         let info = mock_info(MANAGER, &[]);
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
+        assert_eq!(
+            err,
+            ContractError::RandomAfterIsInThePast {
+                block_time: Timestamp::from_nanos(1571797419879305533),
+                random_beacon_after: Timestamp::from_seconds(1571797419)
+            }
+        );
+        let msg = ExecuteMsg::Randdrop {
+            random_beacon_after: Timestamp::from_seconds(1579687420),
+        };
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
+        assert_eq!(
+            err,
+            ContractError::RandomAfterIsTooMuchInTheFuture {
+                max_allowed_beacon_time: Timestamp::from_nanos(1579687419879305533),
+            }
+        );
+
+        let msg = ExecuteMsg::Randdrop {
+            random_beacon_after: Timestamp::from_seconds(1577565357),
+        };
         execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
         // Cannot request randomness more than once
@@ -579,7 +638,7 @@ mod tests {
                 job_id: "123".to_string(),
                 published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa124",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa127",
                 )
                 .unwrap(),
             },
@@ -599,7 +658,8 @@ mod tests {
             to_address: info.sender.to_string(),
             amount: vec![Coin {
                 amount: Uint128::new(13500000), // 4500000*3
-                denom: AIRDROP_DENOM.to_string(),
+                denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                    .to_string(),
             }],
         });
         assert_eq!(res.messages, vec![expected]);
@@ -609,7 +669,17 @@ mod tests {
             vec![
                 Attribute::new("action", "claim"),
                 Attribute::new("address", test_data.account.clone()),
-                Attribute::new("amount", test_data.amount)
+                Attribute::new("merkle_amount", test_data.amount),
+                Attribute::new(
+                    "send_amount",
+                    Coin {
+                        amount: test_data.amount * Uint128::new(AIRDROP_ODDS as u128),
+                        denom:
+                            "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                                .to_string(),
+                    }
+                    .to_string()
+                ),
             ]
         );
 
@@ -634,7 +704,7 @@ mod tests {
         // Stop aridrop and Widhdraw funds
         let env = mock_env();
         let info = mock_info("random_person_who_hates_airdrops", &[]);
-        let msg = ExecuteMsg::WithdawAll {
+        let msg = ExecuteMsg::WithdrawAll {
             address: "some-address".to_string(),
         };
         let err = execute(deps.as_mut(), env, info, msg).unwrap_err();
@@ -642,7 +712,7 @@ mod tests {
 
         let env = mock_env();
         let info = mock_info(MANAGER, &[]);
-        let msg = ExecuteMsg::WithdawAll {
+        let msg = ExecuteMsg::WithdrawAll {
             address: "withdraw_address".to_string(),
         };
         let res = execute(deps.as_mut(), env, info, msg).unwrap();
@@ -651,7 +721,8 @@ mod tests {
             to_address: "withdraw_address".to_string(),
             amount: vec![Coin {
                 amount: Uint128::new(0),
-                denom: AIRDROP_DENOM.to_string(),
+                denom: "ibc/717352A5277F3DE916E8FD6B87F4CA6A51F2FBA9CF04ABCFF2DF7202F8A8BC50"
+                    .to_string(),
             }],
         });
         assert_eq!(res.messages, vec![expected]);
@@ -702,10 +773,9 @@ mod tests {
                 num_lucky += 1;
             }
         }
-        // Normally we should tolerate some difference here but I guess with thislist we were lucky to get exactly the 3rd 17/51
-        assert_eq!(
-            num_lucky,
-            test_data.airdrop_list.len() / AIRDROP_ODDS as usize
-        );
+        // We have 51 participants. We accept +/- 20%.
+        let expected = test_data.airdrop_list.len() / AIRDROP_ODDS as usize;
+        assert!(num_lucky >= expected * 80 / 100, "{num_lucky} winners");
+        assert!(num_lucky <= expected * 120 / 100, "{num_lucky} winners");
     }
 }

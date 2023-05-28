@@ -1,7 +1,7 @@
 use hex::FromHexError;
 use thiserror::Error;
 
-use cosmwasm_std::StdError;
+use cosmwasm_std::{StdError, Timestamp};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum ContractError {
@@ -38,7 +38,7 @@ pub enum ContractError {
     #[error("The sender is not randomly eligible for the randdrop")]
     NotRandomlyEligible {},
 
-    #[error("The claiming phase didnot start. The random beacon is yet to be fetched")]
+    #[error("The claiming phase did not start. The random beacon is yet to be fetched")]
     RandomnessUnavailable {},
 
     #[error("Cannot migrate from different contract type: {previous_contract}")]
@@ -48,6 +48,17 @@ pub enum ContractError {
     // otherwise anyone can cut the randomness workflow and cheat the randomness
     #[error("Unauthorized Receive execution")]
     UnauthorizedReceive,
+
+    #[error("Requesting randomness {random_beacon_after} in the past compared to  {block_time}. This is not safe, make sure the timestamp is in the future and in nanoseconds")]
+    RandomAfterIsInThePast {
+        block_time: Timestamp,
+        random_beacon_after: Timestamp,
+    },
+
+    #[error(
+        "Requesting randomness is too much in the future, max allowed is {max_allowed_beacon_time}"
+    )]
+    RandomAfterIsTooMuchInTheFuture { max_allowed_beacon_time: Timestamp },
 
     #[error("Received invalid randomness")]
     InvalidRandomness,

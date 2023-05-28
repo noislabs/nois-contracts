@@ -8,6 +8,8 @@ pub struct InstantiateMsg {
     pub manager: String,
     /// Address of the Nois proxy contract
     pub nois_proxy: String,
+    /// Randdrop denom
+    pub denom: String,
 }
 
 #[cw_serde]
@@ -20,7 +22,7 @@ pub enum ExecuteMsg {
         merkle_root: HexBinary,
     },
     // This will trigger fetching the unpredictable random beacon that will serve to give the randdrop to only a subset of accounts
-    RandDrop {
+    Randdrop {
         random_beacon_after: Timestamp,
     },
     //callback contains the randomness from drand (HexBinary) and job_id
@@ -30,12 +32,14 @@ pub enum ExecuteMsg {
     },
     /// Claim does not check if contract has enough funds, manager must ensure it.
     Claim {
+        /// The amount which is stored in the merkle tree. If a wrong amount is used here,
+        /// no entry will be found.
         amount: Uint128,
         /// Proof is hex-encoded merkle proof.
         proof: Vec<HexBinary>,
     },
     // Withdraw all available balance of the AIRDROP DENOM to the withdrawal address
-    WithdawAll {
+    WithdrawAll {
         address: String,
     },
 }

@@ -6,6 +6,7 @@ use cw_storage_plus::{Item, Map};
 pub struct Config {
     /// manager that can change the manager , register merkle or withdraw funds
     pub manager: Addr,
+    pub denom: String,
 }
 
 #[cw_serde]
@@ -24,7 +25,9 @@ pub const CONFIG: Item<Config> = Item::new(CONFIG_KEY);
 pub const MERKLE_ROOT_PREFIX: &str = "merkle_root";
 pub const MERKLE_ROOT: Item<HexBinary> = Item::new(MERKLE_ROOT_PREFIX);
 
-pub const CLAIM_PREFIX: &str = "claim";
-pub const CLAIM: Map<Addr, bool> = Map::new(CLAIM_PREFIX);
+pub const CLAIMED_PREFIX: &str = "claimed";
+pub const CLAIMED_VALUE: u8 = 1;
+/// A map that stores claimed addresses. Think of this as a set. Any existing value means the value is cleamed.
+pub const CLAIMED: Map<&Addr, u8> = Map::new(CLAIMED_PREFIX);
 
 pub const NOIS_RANDOMNESS: Item<RandomnessParams> = Item::new("nois_randomness");
