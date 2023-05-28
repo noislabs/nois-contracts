@@ -266,22 +266,17 @@ fn execute_claim(
 
     // "nois1blabla...chksum4500000" -> hash
     let user_input = format!("{}{}", info.sender, amount);
-    let hash = sha2::Sha256::digest(user_input.as_bytes())
-        .as_slice()
-        .try_into()
-        .map_err(|_| ContractError::WrongLength {})?;
+    let hash = sha2::Sha256::digest(user_input.as_bytes()).into();
 
     // hash all the way up the merkle tree until reaching the top root.
-    let hash = proof.into_iter().try_fold(hash, |hash, p| {
-        let proof_buf: [u8; 32] = p.to_array()?;
-
-        let mut hashes = [hash, proof_buf];
-        hashes.sort_unstable();
-        sha2::Sha256::digest(&hashes.concat())
-            .as_slice()
-            .try_into()
-            .map_err(|_| ContractError::WrongLength {})
-    })?;
+    let hash = proof
+        .into_iter()
+        .try_fold(hash, |hash, p| -> Result<_, ContractError> {
+            let proof_buf: [u8; 32] = p.to_array()?;
+            let mut hashes = [hash, proof_buf];
+            hashes.sort_unstable();
+            Ok(sha2::Sha256::digest(hashes.concat()).into())
+        })?;
 
     // Check the overall cumulated proof hashes along the merkle tree ended up having the same hash as the registered Merkle root
     if merkle_root != hash {
