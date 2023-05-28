@@ -263,7 +263,7 @@ fn execute_claim(
     proof: Vec<HexBinary>,
 ) -> Result<Response, ContractError> {
     // verify not claimed
-    let claimed = CLAIM.may_load(deps.storage, info.sender.clone())?;
+    let claimed = CLAIM.may_load(deps.storage, &info.sender)?;
     if claimed.is_some() {
         return Err(ContractError::Claimed {});
     }
@@ -300,7 +300,7 @@ fn execute_claim(
     }?;
 
     // Update claim
-    CLAIM.save(deps.storage, info.sender.clone(), &true)?;
+    CLAIM.save(deps.storage, &info.sender, &true)?;
 
     let res = Response::new()
         .add_message(BankMsg::Send {
@@ -342,9 +342,8 @@ fn query_merkle_root(deps: Deps) -> StdResult<MerkleRootResponse> {
 }
 
 fn query_is_claimed(deps: Deps, address: String) -> StdResult<IsClaimedResponse> {
-    let is_claimed = CLAIM
-        .may_load(deps.storage, deps.api.addr_validate(&address)?)?
-        .unwrap_or(false);
+    let address = deps.api.addr_validate(&address)?;
+    let is_claimed = CLAIM.may_load(deps.storage, &address)?.unwrap_or(false);
     let resp = IsClaimedResponse { is_claimed };
 
     Ok(resp)
