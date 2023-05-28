@@ -540,6 +540,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
@@ -575,6 +576,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa124",
                 )
@@ -671,6 +673,7 @@ mod tests {
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "123".to_string(),
+                published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa124",
                 )
