@@ -304,18 +304,21 @@ fn execute_claim(
     // Update claim
     CLAIMED.save(deps.storage, &info.sender, &CLAIMED_VALUE)?;
 
+    let send_amount = Coin {
+        amount: amount * Uint128::from(AIRDROP_ODDS),
+        denom: AIRDROP_DENOM.to_string(),
+    };
+
     let res = Response::new()
         .add_message(BankMsg::Send {
             to_address: info.sender.to_string(),
-            amount: vec![Coin {
-                amount: amount * Uint128::new(AIRDROP_ODDS as u128),
-                denom: AIRDROP_DENOM.to_string(),
-            }],
+            amount: vec![send_amount.clone()],
         })
         .add_attributes(vec![
             Attribute::new("action", "claim"),
             Attribute::new("address", info.sender),
-            Attribute::new("amount", amount),
+            Attribute::new("merkle_amount", amount), // value from the merkle tree
+            Attribute::new("send_amount", send_amount.to_string()), // actual send amount
         ]);
     Ok(res)
 }
