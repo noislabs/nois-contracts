@@ -206,15 +206,14 @@ fn execute_withdraw_all(
     Ok(res)
 }
 
-fn is_randomly_eligible(addr: &Addr, randomness: [u8; 32]) -> bool {
-    let mut hasher = Sha256::new();
-    hasher.update(addr.as_bytes());
-    let sender_hash: [u8; 32] = hasher.finalize().into();
-    // Concatenate the randomness and sender hash values
-    let combined = [randomness, sender_hash].concat();
+fn is_randomly_eligible(sender: &Addr, randomness: [u8; 32]) -> bool {
+    let sender_hash: [u8; 32] = Sha256::digest(sender.as_bytes()).into();
+
     // Hash the combined value using SHA256 to generate a random number between 1 and 3
     let mut hasher = Sha256::new();
-    hasher.update(&combined);
+    // Concatenate the randomness and sender hash values
+    hasher.update(randomness);
+    hasher.update(sender_hash);
     let hash = hasher.finalize();
     let outcome = hash[0] % AIRDROP_ODDS;
 
