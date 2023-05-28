@@ -549,7 +549,7 @@ dependencies = [
 
 [[package]]
 name = "nois-airdrop"
-version = "0.11.0"
+version = "0.13.4"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
