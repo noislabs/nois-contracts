@@ -30,6 +30,8 @@ pub enum ExecuteMsg {
     },
     /// Claim does not check if contract has enough funds, manager must ensure it.
     Claim {
+        /// The amount which is stored in the merkle tree. If a wrong amount is used here,
+        /// no entry will be found.
         amount: Uint128,
         /// Proof is hex-encoded merkle proof.
         proof: Vec<HexBinary>,
