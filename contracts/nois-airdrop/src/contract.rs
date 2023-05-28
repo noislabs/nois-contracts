@@ -223,10 +223,8 @@ fn is_randomly_eligible(sender: &Addr, randomness: [u8; 32]) -> bool {
     let hash_u64 = u64::from_be_bytes([
         hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
     ]);
-    let outcome = hash_u64 % AIRDROP_ODDS == 0;
-
-    // returns true if the address is eligible
-    outcome
+    // returns true iff the address is eligible
+    hash_u64 % AIRDROP_ODDS == 0
 }
 
 fn execute_register_merkle_root(
