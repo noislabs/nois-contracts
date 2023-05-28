@@ -4,8 +4,8 @@ use cosmwasm_std::{
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order,
-    QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
-    Uint128, WasmMsg,
+    QueryResponse, Reply, Response, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, Uint128,
+    WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
@@ -25,7 +25,7 @@ use crate::msg::{
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, OperationalMode, ALLOWLIST, ALLOWLIST_MARKER, CONFIG, GATEWAY_CHANNEL};
 
-pub const CALLBACK_ID: u64 = 456;
+pub const REPLAY_ID_CALLBACK: u64 = 456;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -545,9 +545,9 @@ fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
+pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
     match reply.id {
-        CALLBACK_ID => {
+        REPLAY_ID_CALLBACK => {
             let mut attributes = vec![];
             match reply.result {
                 SubMsgResult::Ok(_) => attributes.push(Attribute::new("success", "true")),
@@ -559,7 +559,7 @@ pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
             let callback_event = Event::new("nois-callback").add_attributes(attributes);
             Ok(Response::new().add_event(callback_event))
         }
-        _ => Err(StdError::generic_err("invalid reply id or result")),
+        _ => Err(ContractError::UnknownReplyId { id: reply.id }),
     }
 }
 
@@ -758,7 +758,7 @@ fn receive_deliver_beacon(
             })?,
             funds: vec![],
         },
-        CALLBACK_ID,
+        REPLAY_ID_CALLBACK,
     )
     .with_gas_limit(callback_gas_limit);
 
