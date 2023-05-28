@@ -558,7 +558,7 @@ mod tests {
         execute(deps.as_mut(), mock_env(), info, msg_merkle).unwrap();
 
         let info = mock_info(MANAGER, &[]);
-        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
         assert_eq!(
             err,
             ContractError::RandomAfterIsInThePast {
@@ -569,7 +569,7 @@ mod tests {
         let msg = ExecuteMsg::RandDrop {
             random_beacon_after: Timestamp::from_seconds(1579687420),
         };
-        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
         assert_eq!(
             err,
             ContractError::RandomAfterIsTooMuchInTheFuture {
