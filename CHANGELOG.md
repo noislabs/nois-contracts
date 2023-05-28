@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- proxy: Streamline event attributes
+
 ## [0.13.4] - 2023-05-17
 
 ### Added

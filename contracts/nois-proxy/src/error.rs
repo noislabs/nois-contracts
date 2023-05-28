@@ -26,6 +26,12 @@ pub enum ContractError {
     SenderNotAllowed,
 
     //
+    // Reply/Submessages
+    //
+    #[error("Unknown reply ID {id}")]
+    UnknownReplyId { id: u64 },
+
+    //
     // IBC
     //
     #[error("The nois-proxy contract must be on chain A of the connection. Try swapping A and B in the channel creation.")]

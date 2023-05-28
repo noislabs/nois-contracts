@@ -326,7 +326,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
         value: "false",
       },
       {
-        key: "log",
+        key: "error_msg",
         value: "codespace: sdk, code: 11",
       },
     ]);
@@ -376,7 +376,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
         value: "false",
       },
       {
-        key: "log",
+        key: "error_msg",
         value: "codespace: sdk, code: 11",
       },
     ]);

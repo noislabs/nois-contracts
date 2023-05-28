@@ -4,8 +4,8 @@ use cosmwasm_std::{
     CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
     IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
     IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order,
-    QueryResponse, Reply, Response, StdError, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
-    Uint128, WasmMsg,
+    QueryResponse, Reply, Response, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, Uint128,
+    WasmMsg,
 };
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{entry_point, Empty};
@@ -15,6 +15,9 @@ use nois_protocol::{
     REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
 };
 
+use crate::attributes::{
+    ATTR_ACTION, ATTR_CALLBACK_ERROR_MSG, ATTR_CALLBACK_SUCCESS, EVENT_TYPE_CALLBACK,
+};
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
@@ -24,7 +27,7 @@ use crate::msg::{
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, OperationalMode, ALLOWLIST, ALLOWLIST_MARKER, CONFIG, GATEWAY_CHANNEL};
 
-pub const CALLBACK_ID: u64 = 456;
+pub const REPLAY_ID_CALLBACK: u64 = 456;
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -71,7 +74,7 @@ pub fn instantiate(
     }
 
     Ok(Response::new()
-        .add_attribute("action", "instantiate")
+        .add_attribute(ATTR_ACTION, "instantiate")
         .add_attribute("test_mode", test_mode.to_string()))
 }
 
@@ -79,7 +82,7 @@ pub fn instantiate(
 // No state changes expected.
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
-    Ok(Response::default())
+    Ok(Response::default().add_attribute(ATTR_ACTION, "migtrate"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -146,10 +149,10 @@ fn execute_get_next_randomness(
         deps,
         env,
         info,
+        "execute_get_next_randomness",
         config,
         after,
         job_id,
-        "execute_get_next_randomness",
     )
 }
 
@@ -165,10 +168,10 @@ fn execute_get_randomness_after(
         deps,
         env,
         info,
+        "execute_get_randomness_after",
         config,
         after,
         job_id,
-        "execute_get_randomness_after",
     )
 }
 
@@ -176,10 +179,10 @@ pub fn execute_get_randomness_impl(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    action: &str,
     config: Config,
     after: Timestamp,
     job_id: String,
-    action: &str,
 ) -> Result<Response, ContractError> {
     validate_job_id(&job_id)?;
     validate_payment(&config.prices, &info.funds)?;
@@ -236,7 +239,7 @@ pub fn execute_get_randomness_impl(
 
     let res = Response::new()
         .add_messages(msgs)
-        .add_attribute("action", action);
+        .add_attribute(ATTR_ACTION, action);
     Ok(res)
 }
 
@@ -265,6 +268,7 @@ fn execute_set_config(
     set_config_unchecked(
         deps,
         env,
+        "execute_set_config",
         manager,
         prices,
         payment,
@@ -292,7 +296,7 @@ fn execute_withdraw(
         ContractError::Unauthorized
     );
 
-    withdraw_unchecked(deps, env, denom, amount, address)
+    withdraw_unchecked(deps, env, "execute_withdraw", denom, amount, address)
 }
 
 fn execute_update_allowlist(
@@ -303,7 +307,7 @@ fn execute_update_allowlist(
     remove_addresses: Vec<String>,
 ) -> Result<Response, ContractError> {
     update_allowlist(deps, add_addresses, remove_addresses)?;
-    Ok(Response::new().add_attribute("action", "update_allowlist"))
+    Ok(Response::new().add_attribute(ATTR_ACTION, "execute_update_allowlist"))
 }
 
 /// Adds and remove entries from the allow list.
@@ -333,10 +337,10 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             denom,
             amount,
             address,
-        } => withdraw_unchecked(deps, env, denom, amount, address),
+        } => sudo_withdraw(deps, env, denom, amount, address),
         #[cfg(feature = "governance_owned")]
         SudoMsg::WithdrawToCommunityPool { denom, amount } => {
-            withdraw_community_pool_unchecked(deps, env, denom, amount)
+            sudo_withdraw_to_community_pool(deps, env, denom, amount)
         }
         #[cfg(feature = "governance_owned")]
         SudoMsg::SetConfig {
@@ -347,7 +351,7 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             callback_gas_limit,
             mode,
             allowlist_enabled,
-        } => set_config_unchecked(
+        } => sudo_set_config(
             deps,
             env,
             manager,
@@ -361,9 +365,64 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
     }
 }
 
+#[cfg(feature = "governance_owned")]
+fn sudo_withdraw(
+    deps: DepsMut,
+    env: Env,
+    denom: String,
+    amount: Option<Uint128>,
+    address: String,
+) -> Result<Response, ContractError> {
+    withdraw_unchecked(deps, env, "sudo_withdraw", denom, amount, address)
+}
+
+#[cfg(feature = "governance_owned")]
+fn sudo_withdraw_to_community_pool(
+    deps: DepsMut,
+    env: Env,
+    denom: String,
+    amount: Option<Uint128>,
+) -> Result<Response, ContractError> {
+    withdraw_to_community_pool_unchecked(
+        deps,
+        env,
+        "sudo_withdraw_to_community_pool",
+        denom,
+        amount,
+    )
+}
+
+#[cfg(feature = "governance_owned")]
+#[allow(clippy::too_many_arguments)]
+fn sudo_set_config(
+    deps: DepsMut,
+    env: Env,
+    manager: Option<String>,
+    prices: Option<Vec<Coin>>,
+    payment: Option<String>,
+    nois_beacon_price: Option<Uint128>,
+    callback_gas_limit: Option<u64>,
+    mode: Option<OperationalMode>,
+    allowlist_enabled: Option<bool>,
+) -> Result<Response, ContractError> {
+    set_config_unchecked(
+        deps,
+        env,
+        "sudo_set_config",
+        manager,
+        prices,
+        payment,
+        nois_beacon_price,
+        callback_gas_limit,
+        mode,
+        allowlist_enabled,
+    )
+}
+
 fn withdraw_unchecked(
     deps: DepsMut,
     env: Env,
+    action: &str,
     denom: String,
     amount: Option<Uint128>,
     address: String,
@@ -380,15 +439,16 @@ fn withdraw_unchecked(
     };
     let res = Response::new()
         .add_message(msg)
-        .add_attribute("action", "withdraw")
+        .add_attribute(ATTR_ACTION, action)
         .add_attribute("amount", amount.to_string());
     Ok(res)
 }
 
 #[allow(unused)]
-fn withdraw_community_pool_unchecked(
+fn withdraw_to_community_pool_unchecked(
     deps: DepsMut,
     env: Env,
+    action: &str,
     denom: String,
     amount: Option<Uint128>,
 ) -> Result<Response, ContractError> {
@@ -406,7 +466,7 @@ fn withdraw_community_pool_unchecked(
 
     let res = Response::new()
         .add_message(msg)
-        .add_attribute("action", "withdraw_community_pool")
+        .add_attribute(ATTR_ACTION, action)
         .add_attribute("amount", amount.to_string());
     Ok(res)
 }
@@ -415,6 +475,7 @@ fn withdraw_community_pool_unchecked(
 fn set_config_unchecked(
     deps: DepsMut,
     env: Env,
+    action: &str,
     manager: Option<String>,
     prices: Option<Vec<Coin>>,
     payment: Option<String>,
@@ -461,7 +522,7 @@ fn set_config_unchecked(
 
     CONFIG.save(deps.storage, &new_config)?;
 
-    Ok(Response::default())
+    Ok(Response::default().add_attribute(ATTR_ACTION, action))
 }
 
 fn get_gateway_channel(storage: &dyn Storage) -> Result<String, ContractError> {
@@ -486,21 +547,23 @@ fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> StdResult<Response> {
+pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
     match reply.id {
-        CALLBACK_ID => {
+        REPLAY_ID_CALLBACK => {
             let mut attributes = vec![];
             match reply.result {
-                SubMsgResult::Ok(_) => attributes.push(Attribute::new("success", "true")),
-                SubMsgResult::Err(err) => {
-                    attributes.push(Attribute::new("success", "false"));
-                    attributes.push(Attribute::new("log", err));
+                SubMsgResult::Ok(_) => {
+                    attributes.push(Attribute::new(ATTR_CALLBACK_SUCCESS, "true"))
+                }
+                SubMsgResult::Err(err_msg) => {
+                    attributes.push(Attribute::new(ATTR_CALLBACK_SUCCESS, "false"));
+                    attributes.push(Attribute::new(ATTR_CALLBACK_ERROR_MSG, err_msg));
                 }
             };
-            let callback_event = Event::new("nois-callback").add_attributes(attributes);
+            let callback_event = Event::new(EVENT_TYPE_CALLBACK).add_attributes(attributes);
             Ok(Response::new().add_event(callback_event))
         }
-        _ => Err(StdError::generic_err("invalid reply id or result")),
+        _ => Err(ContractError::UnknownReplyId { id: reply.id }),
     }
 }
 
@@ -605,7 +668,7 @@ pub fn ibc_channel_connect(
 
     GATEWAY_CHANNEL.save(deps.storage, &channel_id)?;
     Ok(IbcBasicResponse::new()
-        .add_attribute("action", "ibc_connect")
+        .add_attribute(ATTR_ACTION, "ibc_channel_connect")
         .add_attribute("channel_id", channel_id))
 }
 
@@ -627,7 +690,7 @@ pub fn ibc_channel_close(
         IbcChannelCloseMsg::CloseConfirm { channel } => {
             GATEWAY_CHANNEL.remove(deps.storage);
             Ok(IbcBasicResponse::new()
-                .add_attribute("action", "ibc_close")
+                .add_attribute(ATTR_ACTION, "ibc_channel_close")
                 .add_attribute("channel_id", channel.endpoint.channel_id))
         }
     }
@@ -699,14 +762,14 @@ fn receive_deliver_beacon(
             })?,
             funds: vec![],
         },
-        CALLBACK_ID,
+        REPLAY_ID_CALLBACK,
     )
     .with_gas_limit(callback_gas_limit);
 
     let ack = StdAck::success(OutPacketAck::DeliverBeacon {});
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
-        .add_attribute("action", "acknowledge_ibc_query")
+        .add_attribute(ATTR_ACTION, "receive_deliver_beacon")
         .add_attribute("job_id", job_id)
         .add_submessage(msg))
 }
@@ -720,7 +783,9 @@ fn receive_welcome(
     config.payment = Some(payment);
     CONFIG.save(deps.storage, &config)?;
     let ack = StdAck::success(OutPacketAck::Welcome {});
-    Ok(IbcReceiveResponse::new().set_ack(ack))
+    Ok(IbcReceiveResponse::new()
+        .set_ack(ack)
+        .add_attribute(ATTR_ACTION, "receive_welcome"))
 }
 
 fn receive_push_beacon_price(
@@ -732,7 +797,9 @@ fn receive_push_beacon_price(
 ) -> Result<IbcReceiveResponse, ContractError> {
     update_nois_beacon_price(deps, timestamp, amount, denom)?;
     let ack = StdAck::success(OutPacketAck::PushBeaconPrice {});
-    Ok(IbcReceiveResponse::new().set_ack(ack))
+    Ok(IbcReceiveResponse::new()
+        .set_ack(ack)
+        .add_attribute(ATTR_ACTION, "receive_push_beacon_price"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]
@@ -742,7 +809,7 @@ pub fn ibc_packet_ack(
     msg: IbcPacketAckMsg,
 ) -> Result<IbcBasicResponse, ContractError> {
     let mut attributes = Vec::<Attribute>::new();
-    attributes.push(attr("action", "ack"));
+    attributes.push(attr(ATTR_ACTION, "ibc_packet_ack"));
     let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
     let is_error: bool;
     match ack {
@@ -808,7 +875,7 @@ pub fn ibc_packet_timeout(
     _env: Env,
     _msg: IbcPacketTimeoutMsg,
 ) -> StdResult<IbcBasicResponse> {
-    Ok(IbcBasicResponse::new().add_attribute("action", "ibc_packet_timeout"))
+    Ok(IbcBasicResponse::new().add_attribute(ATTR_ACTION, "ibc_packet_timeout"))
 }
 
 #[cfg(test)]
@@ -1527,7 +1594,7 @@ mod tests {
         .unwrap();
         let IbcBasicResponse { attributes, .. } =
             ibc_packet_ack(deps.as_mut(), mock_env(), msg).unwrap();
-        assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
+        assert_eq!(first_attr(&attributes, "action").unwrap(), "ibc_packet_ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "false");
         assert_eq!(first_attr(&attributes, "error"), None);
         assert_eq!(
@@ -1547,7 +1614,7 @@ mod tests {
         .unwrap();
         let IbcBasicResponse { attributes, .. } =
             ibc_packet_ack(deps.as_mut(), mock_env(), msg).unwrap();
-        assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
+        assert_eq!(first_attr(&attributes, "action").unwrap(), "ibc_packet_ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "false");
         assert_eq!(first_attr(&attributes, "error"), None);
         assert_eq!(
@@ -1565,7 +1632,7 @@ mod tests {
         .unwrap();
         let IbcBasicResponse { attributes, .. } =
             ibc_packet_ack(deps.as_mut(), mock_env(), msg).unwrap();
-        assert_eq!(first_attr(&attributes, "action").unwrap(), "ack");
+        assert_eq!(first_attr(&attributes, "action").unwrap(), "ibc_packet_ack");
         assert_eq!(first_attr(&attributes, "is_error").unwrap(), "true");
         assert_eq!(first_attr(&attributes, "error").unwrap(), "kaputt");
         assert_eq!(first_attr(&attributes, "ack_type"), None);
