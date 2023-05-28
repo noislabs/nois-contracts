@@ -10,7 +10,9 @@ use crate::msg::{
     ConfigResponse, ExecuteMsg, InstantiateMsg, IsClaimedResponse, IsLuckyResponse,
     MerkleRootResponse, QueryMsg,
 };
-use crate::state::{Config, RandomnessParams, CLAIM, CONFIG, MERKLE_ROOT, NOIS_RANDOMNESS};
+use crate::state::{
+    Config, RandomnessParams, CLAIMED, CLAIMED_VALUE, CONFIG, MERKLE_ROOT, NOIS_RANDOMNESS,
+};
 
 // The airdrop Denom, probably gonna be some IBCed Nois something like IBC/hashhashhashhashhashhash
 const AIRDROP_DENOM: &str = "unois";
@@ -263,8 +265,8 @@ fn execute_claim(
     proof: Vec<HexBinary>,
 ) -> Result<Response, ContractError> {
     // verify not claimed
-    let claimed = CLAIM.may_load(deps.storage, &info.sender)?;
-    if claimed.is_some() {
+    let claimed = CLAIMED.has(deps.storage, &info.sender);
+    if claimed {
         return Err(ContractError::Claimed {});
     }
     let merkle_root = MERKLE_ROOT.load(deps.storage)?;
@@ -300,7 +302,7 @@ fn execute_claim(
     }?;
 
     // Update claim
-    CLAIM.save(deps.storage, &info.sender, &true)?;
+    CLAIMED.save(deps.storage, &info.sender, &CLAIMED_VALUE)?;
 
     let res = Response::new()
         .add_message(BankMsg::Send {
@@ -343,7 +345,7 @@ fn query_merkle_root(deps: Deps) -> StdResult<MerkleRootResponse> {
 
 fn query_is_claimed(deps: Deps, address: String) -> StdResult<IsClaimedResponse> {
     let address = deps.api.addr_validate(&address)?;
-    let is_claimed = CLAIM.may_load(deps.storage, &address)?.unwrap_or(false);
+    let is_claimed = CLAIMED.has(deps.storage, &address);
     let resp = IsClaimedResponse { is_claimed };
 
     Ok(resp)
