@@ -38,7 +38,7 @@ pub enum ContractError {
     #[error("The sender is not randomly eligible for the randdrop")]
     NotRandomlyEligible {},
 
-    #[error("The claiming phase didnot start. The random beacon is yet to be fetched")]
+    #[error("The claiming phase did not start. The random beacon is yet to be fetched")]
     RandomnessUnavailable {},
 
     #[error("Cannot migrate from different contract type: {previous_contract}")]
