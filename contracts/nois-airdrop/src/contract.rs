@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, Deps, DepsMut, Env,
+    ensure, ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, Deps, DepsMut, Env,
     HexBinary, MessageInfo, QueryResponse, Response, StdResult, Timestamp, Uint128, WasmMsg,
 };
 use nois::{NoisCallback, ProxyExecuteMsg};
@@ -19,6 +19,9 @@ const AIRDROP_DENOM: &str = "unois";
 
 /// The winning chance is 1/AIRDROP_ODDS
 const AIRDROP_ODDS: u64 = 3;
+
+/// This allows the manager to request the beacon up to 3 months in the future
+const RANDOM_BEACON_MAX_REQUEST_TIME_IN_THE_FUTURE: u64 = 7890000;
 
 #[entry_point]
 pub fn instantiate(
@@ -105,7 +108,7 @@ fn execute_update_config(
 // This function will call the proxy and ask for the randomness round
 pub fn execute_rand_drop(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     random_beacon_after: Timestamp,
 ) -> Result<Response, ContractError> {
@@ -117,6 +120,25 @@ pub fn execute_rand_drop(
     if MERKLE_ROOT.may_load(deps.storage)?.is_none() {
         return Err(ContractError::MerkleRootAbsent);
     }
+
+    // check that the timestamp is between now and the safety time
+    // to make sure the operator did not make a typo
+    let block_time = env.block.time;
+    ensure!(
+        block_time < random_beacon_after,
+        ContractError::RandomAfterIsInThePast {
+            block_time,
+            random_beacon_after
+        }
+    );
+    let max_allowed_beacon_time =
+        block_time.plus_seconds(RANDOM_BEACON_MAX_REQUEST_TIME_IN_THE_FUTURE);
+    ensure!(
+        max_allowed_beacon_time > random_beacon_after,
+        ContractError::RandomAfterIsTooMuchInTheFuture {
+            max_allowed_beacon_time
+        }
+    );
 
     let RandomnessParams {
         nois_proxy,
@@ -515,7 +537,7 @@ mod tests {
         let mut deps = instantiate_contract();
 
         let msg = ExecuteMsg::RandDrop {
-            random_beacon_after: Timestamp::from_seconds(11111111),
+            random_beacon_after: Timestamp::from_seconds(1571797419),
         };
         let info = mock_info("guest", &[]);
         // Only manager should be able to request the randomness
@@ -536,6 +558,28 @@ mod tests {
         execute(deps.as_mut(), mock_env(), info, msg_merkle).unwrap();
 
         let info = mock_info(MANAGER, &[]);
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        assert_eq!(
+            err,
+            ContractError::RandomAfterIsInThePast {
+                block_time: Timestamp::from_nanos(1571797419879305533),
+                random_beacon_after: Timestamp::from_seconds(1571797419)
+            }
+        );
+        let msg = ExecuteMsg::RandDrop {
+            random_beacon_after: Timestamp::from_seconds(1579687420),
+        };
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        assert_eq!(
+            err,
+            ContractError::RandomAfterIsTooMuchInTheFuture {
+                max_allowed_beacon_time: Timestamp::from_nanos(1579687419879305533),
+            }
+        );
+
+        let msg = ExecuteMsg::RandDrop {
+            random_beacon_after: Timestamp::from_seconds(1577565357),
+        };
         execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap();
 
         // Cannot request randomness more than once
@@ -618,7 +662,15 @@ mod tests {
             vec![
                 Attribute::new("action", "claim"),
                 Attribute::new("address", test_data.account.clone()),
-                Attribute::new("amount", test_data.amount)
+                Attribute::new("merkle_amount", test_data.amount),
+                Attribute::new(
+                    "send_amount",
+                    Coin {
+                        amount: test_data.amount * Uint128::new(AIRDROP_ODDS as u128),
+                        denom: "unois".to_string(),
+                    }
+                    .to_string()
+                ),
             ]
         );
 
