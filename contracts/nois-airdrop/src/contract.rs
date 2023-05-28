@@ -14,7 +14,9 @@ use crate::state::{Config, RandomnessParams, CLAIM, CONFIG, MERKLE_ROOT, NOIS_RA
 
 // The airdrop Denom, probably gonna be some IBCed Nois something like IBC/hashhashhashhashhashhash
 const AIRDROP_DENOM: &str = "unois";
-const AIRDROP_ODDS: u8 = 3;
+
+/// The winning chance is 1/AIRDROP_ODDS
+const AIRDROP_ODDS: u64 = 3;
 
 #[entry_point]
 pub fn instantiate(
@@ -215,10 +217,16 @@ fn is_randomly_eligible(sender: &Addr, randomness: [u8; 32]) -> bool {
     hasher.update(randomness);
     hasher.update(sender_hash);
     let hash = hasher.finalize();
-    let outcome = hash[0] % AIRDROP_ODDS;
+
+    // The u64 range is large compared to the modulo, so the distribution is expected to be good enough.
+    // See https://research.kudelskisecurity.com/2020/07/28/the-definitive-guide-to-modulo-bias-and-how-to-avoid-it/
+    let hash_u64 = u64::from_be_bytes([
+        hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7],
+    ]);
+    let outcome = hash_u64 % AIRDROP_ODDS == 0;
 
     // returns true if the address is eligible
-    outcome == 0
+    outcome
 }
 
 fn execute_register_merkle_root(
@@ -578,7 +586,7 @@ mod tests {
                 job_id: "123".to_string(),
                 published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex(
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa124",
+                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa127",
                 )
                 .unwrap(),
             },
@@ -701,10 +709,9 @@ mod tests {
                 num_lucky += 1;
             }
         }
-        // Normally we should tolerate some difference here but I guess with thislist we were lucky to get exactly the 3rd 17/51
-        assert_eq!(
-            num_lucky,
-            test_data.airdrop_list.len() / AIRDROP_ODDS as usize
-        );
+        // We have 51 participants. We accept +/- 20%.
+        let expected = test_data.airdrop_list.len() / AIRDROP_ODDS as usize;
+        assert!(num_lucky >= expected * 80 / 100, "{num_lucky} winners");
+        assert!(num_lucky <= expected * 120 / 100, "{num_lucky} winners");
     }
 }
