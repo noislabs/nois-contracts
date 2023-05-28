@@ -118,7 +118,7 @@ pub fn execute_rand_drop(
         nois_proxy,
         nois_randomness,
         requested,
-    } = NOIS_RANDOMNESS.load(deps.storage).unwrap();
+    } = NOIS_RANDOMNESS.load(deps.storage)?;
     // Prevents requesting randomness twice.
     if requested {
         return Err(ContractError::ImmutableRandomness);
@@ -157,7 +157,7 @@ pub fn execute_receive(
         nois_proxy,
         nois_randomness,
         requested,
-    } = NOIS_RANDOMNESS.load(deps.storage).unwrap();
+    } = NOIS_RANDOMNESS.load(deps.storage)?;
 
     // callback should only be allowed to be called by the proxy contract
     // otherwise anyone can cut the randomness workflow and cheat the randomness by sending the randomness directly to this contract
@@ -284,7 +284,7 @@ fn execute_claim(
     }
 
     // Check that the sender is lucky enough to be randomly eligible for the randdrop
-    let nois_randomness = NOIS_RANDOMNESS.load(deps.storage).unwrap().nois_randomness;
+    let nois_randomness = NOIS_RANDOMNESS.load(deps.storage)?.nois_randomness;
 
     match nois_randomness {
         Some(randomness) => match is_randomly_eligible(&info.sender, randomness) {
@@ -319,10 +319,11 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
         manager: config.manager.to_string(),
     })
 }
+
 fn query_is_lucky(deps: Deps, address: String) -> StdResult<IsLuckyResponse> {
     let address = deps.api.addr_validate(address.as_str())?;
     // Check if the address is lucky to be randomly selected for the randdrop
-    let nois_randomness = NOIS_RANDOMNESS.load(deps.storage).unwrap().nois_randomness;
+    let nois_randomness = NOIS_RANDOMNESS.load(deps.storage)?.nois_randomness;
 
     let is_lucky = nois_randomness.map(|randomness| is_randomly_eligible(&address, randomness));
     Ok(IsLuckyResponse { is_lucky })
