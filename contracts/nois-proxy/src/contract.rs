@@ -15,7 +15,9 @@ use nois_protocol::{
     REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
 };
 
-use crate::attributes::ATTR_ACTION;
+use crate::attributes::{
+    ATTR_ACTION, ATTR_CALLBACK_ERROR_MSG, ATTR_CALLBACK_SUCCESS, EVENT_TYPE_CALLBACK,
+};
 use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
@@ -550,13 +552,15 @@ pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contra
         REPLAY_ID_CALLBACK => {
             let mut attributes = vec![];
             match reply.result {
-                SubMsgResult::Ok(_) => attributes.push(Attribute::new("success", "true")),
-                SubMsgResult::Err(err) => {
-                    attributes.push(Attribute::new("success", "false"));
-                    attributes.push(Attribute::new("log", err));
+                SubMsgResult::Ok(_) => {
+                    attributes.push(Attribute::new(ATTR_CALLBACK_SUCCESS, "true"))
+                }
+                SubMsgResult::Err(err_msg) => {
+                    attributes.push(Attribute::new(ATTR_CALLBACK_SUCCESS, "false"));
+                    attributes.push(Attribute::new(ATTR_CALLBACK_ERROR_MSG, err_msg));
                 }
             };
-            let callback_event = Event::new("nois-callback").add_attributes(attributes);
+            let callback_event = Event::new(EVENT_TYPE_CALLBACK).add_attributes(attributes);
             Ok(Response::new().add_event(callback_event))
         }
         _ => Err(ContractError::UnknownReplyId { id: reply.id }),
