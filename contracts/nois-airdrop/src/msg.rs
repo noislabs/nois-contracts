@@ -16,6 +16,8 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     UpdateConfig {
         manager: Option<String>,
+        nois_proxy: Option<String>,
+        denom: Option<String>,
     },
     RegisterMerkleRoot {
         /// MerkleRoot is hex-encoded merkle root.
