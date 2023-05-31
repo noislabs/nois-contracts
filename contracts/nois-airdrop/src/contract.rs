@@ -37,13 +37,16 @@ pub fn instantiate(
     NOIS_RANDOMNESS.save(
         deps.storage,
         &RandomnessParams {
-            nois_proxy,
             nois_randomness: None,
             requested: false,
         },
     )?;
 
-    let config = Config { manager, denom };
+    let config = Config {
+        manager,
+        denom,
+        nois_proxy,
+    };
     CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::default())
@@ -57,7 +60,11 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::UpdateConfig { manager } => execute_update_config(deps, env, info, manager),
+        ExecuteMsg::UpdateConfig {
+            manager,
+            nois_proxy,
+            denom,
+        } => execute_update_config(deps, env, info, manager, denom, nois_proxy),
         ExecuteMsg::RegisterMerkleRoot { merkle_root } => {
             execute_register_merkle_root(deps, env, info, merkle_root)
         }
@@ -88,6 +95,8 @@ fn execute_update_config(
     _env: Env,
     info: MessageInfo,
     manager: Option<String>,
+    denom: Option<String>,
+    nois_proxy: Option<String>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
     // check the calling address is the authorised multisig
@@ -97,9 +106,20 @@ fn execute_update_config(
         Some(ma) => deps.api.addr_validate(&ma)?,
         None => config.manager,
     };
-    let denom = config.denom;
+    let nois_proxy = match nois_proxy {
+        Some(prx) => deps.api.addr_validate(&prx)?,
+        None => config.nois_proxy,
+    };
+    let denom = denom.unwrap_or(config.denom);
 
-    CONFIG.save(deps.storage, &Config { manager, denom })?;
+    CONFIG.save(
+        deps.storage,
+        &Config {
+            manager,
+            denom,
+            nois_proxy,
+        },
+    )?;
 
     Ok(Response::new().add_attribute("action", "update_config"))
 }
@@ -140,7 +160,6 @@ pub fn execute_randdrop(
     );
 
     let RandomnessParams {
-        nois_proxy,
         nois_randomness,
         requested,
     } = NOIS_RANDOMNESS.load(deps.storage)?;
@@ -151,14 +170,13 @@ pub fn execute_randdrop(
     NOIS_RANDOMNESS.save(
         deps.storage,
         &RandomnessParams {
-            nois_proxy: nois_proxy.clone(),
             nois_randomness,
             requested: true,
         },
     )?;
 
     let response = Response::new().add_message(WasmMsg::Execute {
-        contract_addr: nois_proxy.into(),
+        contract_addr: config.nois_proxy.into_string(),
         // GetRandomnessAfter requests the randomness from the proxy after a specific timestamp
         // The job id is needed to know what randomness we are referring to upon reception in the callback.
         // In this example we only need 1 random number so this can be hardcoded to "airdrop"
@@ -178,15 +196,19 @@ pub fn execute_receive(
     info: MessageInfo,
     callback: NoisCallback,
 ) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
     let RandomnessParams {
-        nois_proxy,
         nois_randomness,
         requested,
     } = NOIS_RANDOMNESS.load(deps.storage)?;
 
     // callback should only be allowed to be called by the proxy contract
     // otherwise anyone can cut the randomness workflow and cheat the randomness by sending the randomness directly to this contract
-    ensure_eq!(info.sender, nois_proxy, ContractError::UnauthorizedReceive);
+    ensure_eq!(
+        info.sender,
+        config.nois_proxy,
+        ContractError::UnauthorizedReceive
+    );
     let randomness: [u8; 32] = callback
         .randomness
         .to_array()
@@ -197,7 +219,6 @@ pub fn execute_receive(
         None => NOIS_RANDOMNESS.save(
             deps.storage,
             &RandomnessParams {
-                nois_proxy,
                 nois_randomness: Some(randomness),
                 requested,
             },
@@ -446,6 +467,8 @@ mod tests {
         let info = mock_info(MANAGER, &[]);
         let msg = ExecuteMsg::UpdateConfig {
             manager: Some("manager2".to_string()),
+            nois_proxy: None,
+            denom: None,
         };
 
         let res = execute(deps.as_mut(), env.clone(), info, msg).unwrap();
@@ -459,7 +482,11 @@ mod tests {
         // Unauthorized err
         let env = mock_env();
         let info = mock_info(MANAGER, &[]);
-        let msg = ExecuteMsg::UpdateConfig { manager: None };
+        let msg = ExecuteMsg::UpdateConfig {
+            manager: None,
+            nois_proxy: None,
+            denom: None,
+        };
 
         let res = execute(deps.as_mut(), env, info, msg).unwrap_err();
         assert_eq!(res, ContractError::Unauthorized {});

@@ -7,12 +7,12 @@ pub struct Config {
     /// manager that can change the manager , register merkle or withdraw funds
     pub manager: Addr,
     pub denom: String,
+    // The address of the nois-proxy contract deployed onthe same chain as this contract
+    pub nois_proxy: Addr,
 }
 
 #[cw_serde]
 pub struct RandomnessParams {
-    // The address of the nois-proxy contract deployed onthe same chain as this contract
-    pub nois_proxy: Addr,
     // The randomness beacon received from the proxy
     pub nois_randomness: Option<[u8; 32]>,
     // If the randomness has already been requested
