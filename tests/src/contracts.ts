@@ -117,6 +117,11 @@ export interface ProxyExecuteMsg {
     readonly amount: null | string;
     readonly address: string;
   };
+  readonly set_config?: {
+    readonly min_after?: null | string;
+    readonly max_after?: null | string;
+    // ... some more options, see contract
+  };
   // ... some more options, see contract
 }
 

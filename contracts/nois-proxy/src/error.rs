@@ -16,9 +16,15 @@ pub enum ContractError {
     #[error("Job ID exceeds length limit.")]
     JobIdTooLong,
 
-    #[error("The after value is in the past (now: {block_time}, after: {after}).")]
-    AfterInThePast {
-        block_time: Timestamp,
+    #[error("The after value is too low (min_after: {min_after}, after: {after}).")]
+    AfterTooLow {
+        min_after: Timestamp,
+        after: Timestamp,
+    },
+
+    #[error("The after value is too high (max_after: {max_after}, after: {after}).")]
+    AfterTooHigh {
+        max_after: Timestamp,
         after: Timestamp,
     },
 

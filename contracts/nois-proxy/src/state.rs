@@ -51,6 +51,14 @@ pub struct Config {
     /// This is an Option for compatibility with older versions of the contract.
     /// If set to None it means disabled.
     pub allowlist_enabled: Option<bool>,
+    /// The minimal value for `after` when requesting a beacon.
+    /// This aims to counter accidental misusage. Not all values in the allowed range are reasonable.
+    /// This is an Option for compatibility with older versions of the contract that did not have the field.
+    pub min_after: Option<Timestamp>,
+    /// The maximum value for `after` when requesting a beacon.
+    /// This aims to counter accidental misusage. Not all values in the allowed range are reasonable.
+    /// This is an Option for compatibility with older versions of the contract that did not have the field.
+    pub max_after: Option<Timestamp>,
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");

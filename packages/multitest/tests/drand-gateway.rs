@@ -220,6 +220,7 @@ fn integration_test() {
         .unwrap();
     //Checking that the contract has been well instantiated with the expected config
 
+    let instantiation_time = mock_env().block.time;
     assert_eq!(
         resp,
         nois_proxy::msg::ConfigResponse {
@@ -233,6 +234,8 @@ fn integration_test() {
                 nois_beacon_price_updated: Timestamp::from_seconds(0),
                 mode: nois_proxy::state::OperationalMode::Funded {},
                 allowlist_enabled: Some(false),
+                min_after: Some(instantiation_time),
+                max_after: Some(instantiation_time.plus_seconds(10 * 365 * 24 * 3600)),
             },
         }
     );

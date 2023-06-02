@@ -29,10 +29,16 @@ use crate::state::{Config, OperationalMode, ALLOWLIST, ALLOWLIST_MARKER, CONFIG,
 
 pub const REPLAY_ID_CALLBACK: u64 = 456;
 
+/// If not set otherwise, min_after is the genesis time of Nois mainnet
+const MIN_AFTER_FALLBACK: Timestamp = Timestamp::from_seconds(1680015600);
+/// 10 years in seconds
+const TEN_YEARS_S: u64 = 10 * 3600 * 24 * 365;
+const MAX_AFTER_FALLBACK: Timestamp = MIN_AFTER_FALLBACK.plus_seconds(TEN_YEARS_S);
+
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     msg: InstantiateMsg,
 ) -> StdResult<Response> {
@@ -63,6 +69,8 @@ pub fn instantiate(
         nois_beacon_price_updated: Timestamp::from_seconds(0),
         mode,
         allowlist_enabled: Some(allowlist_enabled),
+        min_after: Some(env.block.time),
+        max_after: Some(env.block.time.plus_seconds(TEN_YEARS_S)),
     };
 
     CONFIG.save(deps.storage, &config)?;
@@ -78,10 +86,20 @@ pub fn instantiate(
         .add_attribute("test_mode", test_mode.to_string()))
 }
 
-// This no-op migrate implementation allows us to upgrade within the 0.7 series.
-// No state changes expected.
 #[cfg_attr(not(feature = "library"), entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, env: Env, _msg: Empty) -> StdResult<Response> {
+    let mut config = CONFIG.load(deps.storage)?;
+
+    // If unset, set min_after and max_after to now and now+10y
+    if config.min_after.is_none() {
+        config.min_after = Some(env.block.time);
+    }
+    if config.max_after.is_none() {
+        config.max_after = Some(env.block.time.plus_seconds(TEN_YEARS_S));
+    }
+
+    CONFIG.save(deps.storage, &config)?;
+
     Ok(Response::default().add_attribute(ATTR_ACTION, "migtrate"))
 }
 
@@ -104,6 +122,8 @@ pub fn execute(
             callback_gas_limit,
             mode,
             allowlist_enabled,
+            min_after,
+            max_after,
         } => execute_set_config(
             deps,
             info,
@@ -115,6 +135,8 @@ pub fn execute(
             callback_gas_limit,
             mode,
             allowlist_enabled,
+            min_after,
+            max_after,
         ),
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
@@ -165,19 +187,6 @@ fn execute_get_randomness_after(
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
-    // This case is unsafe because the user is requesting a randomness that is
-    // already public. Depending on the application it might still be alright.
-    // But we can discourage the use of old beacons here to avoid a big class of
-    // accidental misusages, such as the wrong number of digits in the Timestamp.
-    // The `after == env.block.time` remains allowd as it gives dapps an easy way
-    // to skip the safety margin that `GetNextRandomness` adds.
-    if after < env.block.time {
-        return Err(ContractError::AfterInThePast {
-            block_time: env.block.time,
-            after,
-        });
-    }
-
     execute_get_randomness_impl(
         deps,
         env,
@@ -205,6 +214,16 @@ pub fn execute_get_randomness_impl(
     let allowlist_enabled = config.allowlist_enabled.unwrap_or(false);
     if allowlist_enabled && !ALLOWLIST.has(deps.storage, &info.sender) {
         return Err(ContractError::SenderNotAllowed);
+    }
+
+    let min_after = config.min_after.unwrap_or(MIN_AFTER_FALLBACK);
+    if after < min_after {
+        return Err(ContractError::AfterTooLow { min_after, after });
+    }
+
+    let max_after = config.max_after.unwrap_or(MAX_AFTER_FALLBACK);
+    if after > max_after {
+        return Err(ContractError::AfterTooHigh { max_after, after });
     }
 
     let packet = InPacket::RequestBeacon {
@@ -269,6 +288,8 @@ fn execute_set_config(
     callback_gas_limit: Option<u64>,
     mode: Option<OperationalMode>,
     allowlist_enabled: Option<bool>,
+    min_after: Option<Timestamp>,
+    max_after: Option<Timestamp>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -290,6 +311,8 @@ fn execute_set_config(
         callback_gas_limit,
         mode,
         allowlist_enabled,
+        min_after,
+        max_after,
     )
 }
 
@@ -365,6 +388,8 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             callback_gas_limit,
             mode,
             allowlist_enabled,
+            min_after,
+            max_after,
         } => sudo_set_config(
             deps,
             env,
@@ -375,6 +400,8 @@ pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractE
             callback_gas_limit,
             mode,
             allowlist_enabled,
+            min_after,
+            max_after,
         ),
     }
 }
@@ -418,6 +445,8 @@ fn sudo_set_config(
     callback_gas_limit: Option<u64>,
     mode: Option<OperationalMode>,
     allowlist_enabled: Option<bool>,
+    min_after: Option<Timestamp>,
+    max_after: Option<Timestamp>,
 ) -> Result<Response, ContractError> {
     set_config_unchecked(
         deps,
@@ -430,6 +459,8 @@ fn sudo_set_config(
         callback_gas_limit,
         mode,
         allowlist_enabled,
+        min_after,
+        max_after,
     )
 }
 
@@ -497,6 +528,8 @@ fn set_config_unchecked(
     callback_gas_limit: Option<u64>,
     mode: Option<OperationalMode>,
     allowlist_enabled: Option<bool>,
+    min_after: Option<Timestamp>,
+    max_after: Option<Timestamp>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
 
@@ -522,6 +555,15 @@ fn set_config_unchecked(
     let current_allowlist_enabled = config.allowlist_enabled.unwrap_or_default();
     let allowlist_enabled = allowlist_enabled.unwrap_or(current_allowlist_enabled);
 
+    let min_after = match min_after {
+        Some(new_value) => Some(new_value),
+        None => config.min_after,
+    };
+    let max_after = match max_after {
+        Some(new_value) => Some(new_value),
+        None => config.max_after,
+    };
+
     let new_config = Config {
         manager,
         prices,
@@ -532,6 +574,8 @@ fn set_config_unchecked(
         nois_beacon_price_updated,
         mode,
         allowlist_enabled: Some(allowlist_enabled),
+        min_after,
+        max_after,
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -1115,28 +1159,42 @@ mod tests {
         // Requires a channel to forward requests to
         setup_channel(deps.as_mut());
 
-        let now = mock_env().block.time;
+        let instantiate_time = mock_env().block.time;
 
-        // after == now works to support `ExecuteMsg::GetRandomnessAfter { after: env.block.time, ...` in the dapp.
-        // This is not always a good idea but let's not be too strict in validation.
+        // after == instantiate_time works
         let msg = ExecuteMsg::GetRandomnessAfter {
-            after: now,
+            after: instantiate_time,
             job_id: "foo".to_string(),
         };
         let info = mock_info("dapp", &coins(22334455, "unoisx"));
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        // after < now fails
+        // after < instantiate_time fails
         let msg = ExecuteMsg::GetRandomnessAfter {
-            after: now.minus_nanos(1),
+            after: instantiate_time.minus_nanos(1),
             job_id: "foo".to_string(),
         };
         let info = mock_info("dapp", &coins(22334455, "unoisx"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
-            ContractError::AfterInThePast { block_time, after } => {
-                assert_eq!(block_time, now);
-                assert_eq!(after, now.minus_nanos(1));
+            ContractError::AfterTooLow { min_after, after } => {
+                assert_eq!(min_after, instantiate_time);
+                assert_eq!(after, instantiate_time.minus_nanos(1));
+            }
+            err => panic!("Unexpected error: {:?}", err),
+        }
+
+        // after has one 0 too much
+        let msg = ExecuteMsg::GetRandomnessAfter {
+            after: Timestamp::from_nanos(15717974198793055330),
+            job_id: "foo".to_string(),
+        };
+        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        match err {
+            ContractError::AfterTooHigh { max_after, after } => {
+                assert_eq!(max_after, Timestamp::from_nanos(1887157419879305533));
+                assert_eq!(after, Timestamp::from_nanos(15717974198793055330));
             }
             err => panic!("Unexpected error: {:?}", err),
         }
@@ -1162,6 +1220,8 @@ mod tests {
             callback_gas_limit: None,
             mode: None,
             allowlist_enabled: None,
+            min_after: None,
+            max_after: None,
         };
         execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         let ConfigResponse { config } =
@@ -1177,6 +1237,8 @@ mod tests {
             callback_gas_limit: None,
             mode: None,
             allowlist_enabled: Some(true),
+            min_after: None,
+            max_after: None,
         };
         execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         let ConfigResponse { config } =
@@ -1198,6 +1260,8 @@ mod tests {
             callback_gas_limit: None,
             mode: None,
             allowlist_enabled: Some(false),
+            min_after: None,
+            max_after: None,
         };
         execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         let ConfigResponse { config } =
@@ -1219,6 +1283,8 @@ mod tests {
             callback_gas_limit: Some(800_000),
             mode: None,
             allowlist_enabled: None,
+            min_after: None,
+            max_after: None,
         };
         execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         let ConfigResponse { config } =
@@ -1331,6 +1397,8 @@ mod tests {
             callback_gas_limit: None,
             mode: None,
             allowlist_enabled: Some(false),
+            min_after: None,
+            max_after: None,
         };
 
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();

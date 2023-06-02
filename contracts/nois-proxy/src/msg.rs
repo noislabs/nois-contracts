@@ -54,6 +54,12 @@ pub enum ExecuteMsg {
         /// Toggle address allowlist to get randomness. When enabled, the allowlist is checked.
         /// Otherwise the allowlist entries are ignored.
         allowlist_enabled: Option<bool>,
+        /// The minimal value for `after` when requesting a beacon.
+        /// This aims to counter accidental misusage. Not all values in the allowed range are reasonable.
+        min_after: Option<Timestamp>,
+        /// The maximum value for `after` when requesting a beacon.
+        /// This aims to counter accidental misusage. Not all values in the allowed range are reasonable.
+        max_after: Option<Timestamp>,
     },
     // Withdraw the given amount to the withdrawal address
     Withdraw {
@@ -123,6 +129,12 @@ pub enum SudoMsg {
         /// Toggle address allowlist to get randomness. When enabled, the allowlist is checked.
         /// Otherwise the allowlist entries are ignored.
         allowlist_enabled: Option<bool>,
+        /// The minimal value for `after` when requesting a beacon.
+        /// This aims to counter accidental misusage. Not all values in the allowed range are reasonable.
+        min_after: Option<Timestamp>,
+        /// The maximum value for `after` when requesting a beacon.
+        /// This aims to counter accidental misusage. Not all values in the allowed range are reasonable.
+        max_after: Option<Timestamp>,
     },
 }
 
