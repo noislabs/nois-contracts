@@ -386,7 +386,11 @@ fn execute_add_round(
 
     let correct_group = Some(group(&info.sender)) == eligible_group(round);
 
-    let is_eligible = correct_group && is_registered && is_allowlisted && reward_points != 0; // Allowed and registered bot that gathered reward points get incentives
+    let is_eligible = correct_group
+        && is_registered
+        && is_allowlisted
+        && reward_points != 0
+        && is_incentivised_round(round);
 
     if !is_eligible {
         reward_points = 0;
@@ -446,6 +450,16 @@ fn execute_add_round(
     Ok(Response::new()
         .add_messages(out_msgs)
         .add_attributes(attributes))
+}
+
+// incentivise on modulo_10 and requested rounds
+fn is_incentivised_round(round: u64) -> bool {
+    round % 10 == 0 || is_round_requested_by_job(round)
+}
+
+// TODO check in gateway if there's a job requesting this round
+fn is_round_requested_by_job(_round: u64) -> bool {
+    false
 }
 
 fn execute_set_config(
@@ -608,25 +622,6 @@ mod tests {
             beacon.unwrap().randomness.to_hex(),
             "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
         );
-    }
-
-    #[test]
-    fn add_round_fails_when_round_invalid() {
-        let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg {
-            manager: TESTING_MANAGER.to_string(),
-            min_round: TESTING_MIN_ROUND,
-            incentive_point_price: Uint128::new(20_000),
-            incentive_denom: "unois".to_string(),
-        };
-        let info = mock_info("creator", &[]);
-        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        let msg = make_add_round_msg(8);
-        let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
-        assert!(matches!(err, ContractError::RoundInvalid { round: 8 }));
     }
 
     #[test]
@@ -1910,5 +1905,14 @@ mod tests {
                 incentive_denom: "unois".to_string(),
             }
         );
+    }
+
+    // TODO
+    #[test]
+    fn only_incentivising_rounds_give_incentives() {
+
+        // Assert modulo_10_rounds_give_incentives
+        // Assert requested_rounds_are_incentivised
+        // rounds that are not modulo_10 and are not requested are not incentivised
     }
 }

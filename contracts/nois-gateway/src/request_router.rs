@@ -3,7 +3,7 @@
 use cosmwasm_std::{
     to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
 };
-use drand_common::{time_of_round, valid_round_after, DRAND_CHAIN_HASH};
+use drand_common::{round_after, time_of_round, DRAND_CHAIN_HASH};
 use nois_protocol::{InPacketAck, OutPacket, StdAck, DELIVER_BEACON_PACKET_LIFETIME};
 
 use crate::{
@@ -160,7 +160,7 @@ fn create_deliver_beacon_ibc_message(
 
 /// Calculates the next round in the future, i.e. publish time > base time.
 fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
-    let round = valid_round_after(after);
+    let round = round_after(after);
     let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
     (round, source_id)
 }
@@ -173,32 +173,32 @@ mod tests {
     fn commit_to_drand_round_works() {
         // UNIX epoch
         let (round, source) = commit_to_drand_round(Timestamp::from_seconds(0));
-        assert_eq!(round, 10);
+        assert_eq!(round, 1);
         assert_eq!(
             source,
-            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:10"
+            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:1"
         );
 
         // Before Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
         let (round, source) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).minus_nanos(1));
-        assert_eq!(round, 10);
+        assert_eq!(round, 1);
         assert_eq!(
             source,
-            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:10"
+            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:1"
         );
 
         // At Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
         let (round, source) = commit_to_drand_round(Timestamp::from_seconds(1677685200));
-        assert_eq!(round, 10);
+        assert_eq!(round, 2);
         assert_eq!(
             source,
-            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:10"
+            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:2"
         );
 
         // After Drand genesis
         let (round, _) = commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_nanos(1));
-        assert_eq!(round, 10);
+        assert_eq!(round, 2);
 
         // Drand genesis +29s/30s/31s
         let (round, _) =
@@ -206,9 +206,9 @@ mod tests {
         assert_eq!(round, 10);
         let (round, _) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(27));
-        assert_eq!(round, 20);
+        assert_eq!(round, 11);
         let (round, _) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(28));
-        assert_eq!(round, 20);
+        assert_eq!(round, 11);
     }
 }
