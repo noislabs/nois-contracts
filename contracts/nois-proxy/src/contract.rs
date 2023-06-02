@@ -29,10 +29,11 @@ use crate::state::{Config, OperationalMode, ALLOWLIST, ALLOWLIST_MARKER, CONFIG,
 
 pub const REPLAY_ID_CALLBACK: u64 = 456;
 
-/// If not set otherwise, min_after is the genesis time of Nois mainnet
-const MIN_AFTER_FALLBACK: Timestamp = Timestamp::from_seconds(1680015600);
 /// 10 years in seconds
 const TEN_YEARS_S: u64 = 10 * 3600 * 24 * 365;
+
+/// If not set otherwise, min_after is the genesis time of Nois mainnet
+const MIN_AFTER_FALLBACK: Timestamp = Timestamp::from_seconds(1680015600);
 const MAX_AFTER_FALLBACK: Timestamp = MIN_AFTER_FALLBACK.plus_seconds(TEN_YEARS_S);
 
 #[cfg_attr(not(feature = "library"), entry_point)]
