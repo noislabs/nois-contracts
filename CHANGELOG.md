@@ -11,6 +11,8 @@ and this project adheres to
 ### Changed
 
 - proxy: Streamline event attributes
+- proxy: Ensure the `after` value is not in the past when using
+  `GetRandomnessAfter`.
 
 ## [0.13.4] - 2023-05-17
 

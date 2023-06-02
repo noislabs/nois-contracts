@@ -164,6 +164,20 @@ fn execute_get_randomness_after(
     job_id: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+
+    // This case is unsafe because the user is requesting a randomness that is
+    // already public. Depending on the application it might still be alright.
+    // But we can discourage the use of old beacons here to avoid a big class of
+    // accidental misusages, such as the wrong number of digits in the Timestamp.
+    // The `after == env.block.time` remains allowd as it gives dapps an easy way
+    // to skip the safety margin that `GetNextRandomness` adds.
+    if after < env.block.time {
+        return Err(ContractError::AfterInThePast {
+            block_time: env.block.time,
+            after,
+        });
+    }
+
     execute_get_randomness_impl(
         deps,
         env,
@@ -1092,6 +1106,40 @@ mod tests {
         };
         let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
+    }
+
+    #[test]
+    fn get_randomness_after_fails_for_after_values_out_of_range() {
+        let mut deps = setup(None);
+
+        // Requires a channel to forward requests to
+        setup_channel(deps.as_mut());
+
+        let now = mock_env().block.time;
+
+        // after == now works to support `ExecuteMsg::GetRandomnessAfter { after: env.block.time, ...` in the dapp.
+        // This is not always a good idea but let's not be too strict in validation.
+        let msg = ExecuteMsg::GetRandomnessAfter {
+            after: now,
+            job_id: "foo".to_string(),
+        };
+        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // after < now fails
+        let msg = ExecuteMsg::GetRandomnessAfter {
+            after: now.minus_nanos(1),
+            job_id: "foo".to_string(),
+        };
+        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        match err {
+            ContractError::AfterInThePast { block_time, after } => {
+                assert_eq!(block_time, now);
+                assert_eq!(after, now.minus_nanos(1));
+            }
+            err => panic!("Unexpected error: {:?}", err),
+        }
     }
 
     #[test]

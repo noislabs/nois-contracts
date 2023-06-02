@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use cosmwasm_std::StdError;
+use cosmwasm_std::{StdError, Timestamp};
 
 use nois_protocol::ChannelError;
 
@@ -15,6 +15,12 @@ pub enum ContractError {
 
     #[error("Job ID exceeds length limit.")]
     JobIdTooLong,
+
+    #[error("The after value is in the past (now: {block_time}, after: {after}).")]
+    AfterInThePast {
+        block_time: Timestamp,
+        after: Timestamp,
+    },
 
     #[error("No payment option is configured in this proxy.")]
     NoPaymentOption,
