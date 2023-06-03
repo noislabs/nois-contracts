@@ -3,7 +3,7 @@
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty,
     Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128,
-    WasmMsg,
+    WasmMsg, WasmQuery,
 };
 use cw_storage_plus::Bound;
 use drand_common::{is_valid, DRAND_MAINNET2_PUBKEY};
@@ -359,7 +359,7 @@ fn execute_add_round(
         Attribute::new(ATTR_BOT, info.sender.to_string()),
     ];
 
-    // Execute the callback jobs and incentivise the drand bot based on howmany jobs they process
+    // Execute the callback jobs and incentivise the drand bot based on how many jobs they process
 
     let mut out_msgs = Vec::<CosmosMsg>::new();
     if let Some(gateway) = config.gateway {
@@ -390,7 +390,7 @@ fn execute_add_round(
         && is_registered
         && is_allowlisted
         && reward_points != 0
-        && is_incentivised_round(round);
+        && is_incentivised_round(round, deps.as_ref());
 
     if !is_eligible {
         reward_points = 0;
@@ -453,13 +453,31 @@ fn execute_add_round(
 }
 
 // incentivise on modulo_10 and requested rounds
-fn is_incentivised_round(round: u64) -> bool {
-    round % 10 == 0 || is_round_requested_by_job(round)
+fn is_incentivised_round(round: u64, deps: Deps) -> bool {
+    round % 10 == 0 || is_round_requested_by_job(round, deps)
 }
 
-// TODO check in gateway if there's a job requesting this round
-fn is_round_requested_by_job(_round: u64) -> bool {
-    false
+fn is_round_requested_by_job(round: u64, deps: Deps) -> bool {
+    // TODO handle unsafe unwrap
+    get_drand_job_response(deps, round).unwrap().unprocessed > 0
+        || get_drand_job_response(deps, round).unwrap().processed > 0
+}
+
+fn get_drand_job_response(
+    deps: Deps,
+    round: u64,
+) -> StdResult<nois_gateway::msg::DrandJobStatsResponse> {
+    // Loading here config twice, a more optimised but less readable way is to pass the gateway info all along these functions as param to avoid calling the state twice
+    let config = CONFIG.load(deps.storage)?;
+    let msg = nois_gateway::msg::QueryMsg::DrandJobStats { round };
+    let wasm = WasmQuery::Smart {
+        // TODO handle this unsafe unwrap
+        contract_addr: config.gateway.unwrap().into_string(),
+        msg: to_binary(&msg)?,
+    };
+    let drand_job_response: nois_gateway::msg::DrandJobStatsResponse =
+        deps.querier.query(&wasm.into())?;
+    Ok(drand_job_response)
 }
 
 fn execute_set_config(
