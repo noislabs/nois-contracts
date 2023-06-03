@@ -11,6 +11,7 @@ import {
   GatewayExecuteMsg,
   GatewayInstantiateMsg,
   NoisContractPaths,
+  ProxyExecuteMsg,
   ProxyInstantiateMsg,
   ProxyOperationalMode,
   SinkInstantiateMsg,
@@ -97,6 +98,16 @@ export async function instantiateAndConnectIbc(
     "auto",
     { funds: coins(1_000, "ucosm") } // some funds to test withdrawals
   );
+
+  const updateProxyConfig: ProxyExecuteMsg = {
+    set_config: {
+      // drand genesis https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info
+      // to allow old rounds in tests
+      min_after: "1677685200000000000",
+    },
+  };
+  await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, updateProxyConfig, "auto");
+
   if (options.enablePayment == "ibc_pay") {
     // fund the proxy such that it can pay in NOIS
     const wallet = await DirectSecp256k1HdWallet.fromMnemonic(nois.faucet.mnemonic, { prefix: nois.prefix });
