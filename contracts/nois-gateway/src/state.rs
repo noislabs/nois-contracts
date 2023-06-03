@@ -93,3 +93,31 @@ pub struct Customer {
 
 /// A map from channel ID to customer information
 pub const CUSTOMERS: Map<&str, Customer> = Map::new("customers");
+
+/// A beacon request
+#[cw_serde]
+pub struct ProcessedRequest {
+    pub origin: Binary,
+    /// height and tx_index of the transaction in which this was added
+    pub tx: (u64, Option<u32>),
+    /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
+    pub source_id: String,
+    /// This is true if the request was queued, i.e. the randomness is not yet available.
+    /// It is false if the request is already available.
+    pub queued: bool,
+}
+
+/// Add an element to the unprocessed drand jobs queue of this round
+pub fn requests_add(
+    storage: &mut dyn Storage,
+    channel_id: &str,
+    request: &ProcessedRequest,
+) -> StdResult<()> {
+    let prefix = requests_key(channel_id);
+    Deque::new(&prefix).push_back(storage, request)
+}
+
+#[inline]
+fn requests_key(channel_id: &str) -> String {
+    format!("r_{channel_id}")
+}

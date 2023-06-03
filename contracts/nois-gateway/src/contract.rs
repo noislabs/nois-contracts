@@ -22,7 +22,8 @@ use crate::msg::{
 };
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_drand_jobs, unprocessed_drand_jobs_len, Config, Customer, CONFIG, CUSTOMERS,
+    get_processed_drand_jobs, requests_add, unprocessed_drand_jobs_len, Config, Customer,
+    ProcessedRequest, CONFIG, CUSTOMERS,
 };
 
 #[entry_point]
@@ -319,9 +320,29 @@ fn receive_request_beacon(
 
     let router = RequestRouter::new();
     let RoutingReceipt {
+        queued,
+        source_id,
         acknowledgement,
         mut msgs,
-    } = router.route(deps.branch(), env, channel_id.clone(), after, origin)?;
+    } = router.route(
+        deps.branch(),
+        &env,
+        channel_id.clone(),
+        after,
+        origin.clone(),
+    )?;
+
+    // Store request
+    requests_add(
+        deps.storage,
+        &channel_id,
+        &ProcessedRequest {
+            origin,
+            tx: (env.block.height, env.transaction.map(|ti| ti.index)),
+            source_id,
+            queued,
+        },
+    )?;
 
     // Pay time
     let mut customer = CUSTOMERS.load(deps.storage, &channel_id)?;
