@@ -18,12 +18,12 @@ use crate::error::ContractError;
 use crate::job_id::validate_origin;
 use crate::msg::{
     ConfigResponse, CustomerResponse, CustomersResponse, DrandJobStatsResponse, ExecuteMsg,
-    InstantiateMsg, QueriedCustomer, QueryMsg,
+    InstantiateMsg, QueriedCustomer, QueryMsg, RequestsResponse,
 };
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_drand_jobs, requests_add, unprocessed_drand_jobs_len, Config, Customer,
-    ProcessedRequest, CONFIG, CUSTOMERS,
+    get_processed_drand_jobs, requests_add, requests_get_asc, requests_get_desc,
+    unprocessed_drand_jobs_len, Config, Customer, ProcessedRequest, CONFIG, CUSTOMERS,
 };
 
 #[entry_point]
@@ -104,6 +104,16 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Customers { start_after, limit } => {
             to_binary(&query_customers(deps, start_after, limit)?)?
         }
+        QueryMsg::RequestsAsc {
+            channel_id,
+            offset,
+            limit,
+        } => to_binary(&query_requests_asc(deps, channel_id, offset, limit)?)?,
+        QueryMsg::RequestsDesc {
+            channel_id,
+            offset,
+            limit,
+        } => to_binary(&query_requests_desc(deps, channel_id, offset, limit)?)?,
     };
     Ok(response)
 }
@@ -148,6 +158,30 @@ fn query_customers(
         .collect::<Result<_, _>>()?;
 
     Ok(CustomersResponse { customers })
+}
+
+fn query_requests_asc(
+    deps: Deps,
+    channel_id: String,
+    offset: Option<u32>,
+    limit: Option<u32>,
+) -> StdResult<RequestsResponse> {
+    let offset = offset.unwrap_or(0) as usize;
+    let limit = limit.unwrap_or(50) as usize;
+    let requests: Vec<_> = requests_get_asc(deps.storage, &channel_id, offset, limit)?;
+    Ok(RequestsResponse { requests })
+}
+
+fn query_requests_desc(
+    deps: Deps,
+    channel_id: String,
+    offset: Option<u32>,
+    limit: Option<u32>,
+) -> StdResult<RequestsResponse> {
+    let offset = offset.unwrap_or(0) as usize;
+    let limit = limit.unwrap_or(50) as usize;
+    let requests: Vec<_> = requests_get_desc(deps.storage, &channel_id, offset, limit)?;
+    Ok(RequestsResponse { requests })
 }
 
 #[entry_point]
@@ -1257,6 +1291,178 @@ mod tests {
                 round: ROUND2,
                 processed: 2,
                 unprocessed: 18,
+            }
+        );
+    }
+
+    #[test]
+    fn query_requests_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            manager: MANAGER.to_string(),
+            price: Coin::new(1, "unois"),
+            payment_code_id: PAYMENT,
+            payment_initial_funds: payment_initial(),
+            sink: SINK.to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        const DRAND: &str = "drand_verifier_7";
+        const CHANNEL: &str = "channel-321";
+
+        // Set drand contract
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            price: None,
+            drand_addr: Some(DRAND.to_string()),
+            payment_initial_funds: None,
+        };
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+
+        fn requests_asc(deps: Deps, channel_id: &str) -> RequestsResponse {
+            from_binary(
+                &query(
+                    deps,
+                    mock_env(),
+                    QueryMsg::RequestsAsc {
+                        channel_id: channel_id.to_string(),
+                        offset: None,
+                        limit: None,
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap()
+        }
+
+        fn requests_desc(deps: Deps, channel_id: &str) -> RequestsResponse {
+            from_binary(
+                &query(
+                    deps,
+                    mock_env(),
+                    QueryMsg::RequestsDesc {
+                        channel_id: channel_id.to_string(),
+                        offset: None,
+                        limit: None,
+                    },
+                )
+                .unwrap(),
+            )
+            .unwrap()
+        }
+
+        // No requests by default
+        assert_eq!(
+            requests_asc(deps.as_ref(), CHANNEL),
+            RequestsResponse { requests: vec![] }
+        );
+        assert_eq!(
+            requests_desc(deps.as_ref(), CHANNEL),
+            RequestsResponse { requests: vec![] }
+        );
+
+        // Create one job
+        let msg = mock_ibc_packet_recv(
+            CHANNEL,
+            &InPacket::RequestBeacon {
+                after: AFTER1,
+                origin: origin(1),
+            },
+        )
+        .unwrap();
+        let receive_env = mock_env();
+        ibc_packet_receive(deps.as_mut(), receive_env.clone(), msg).unwrap();
+
+        // One unprocessed job
+        let expected_tx_1 = (
+            receive_env.block.height,
+            receive_env.transaction.map(|ti| ti.index),
+        );
+        assert_eq!(
+            requests_asc(deps.as_ref(), CHANNEL),
+            RequestsResponse {
+                requests: vec![ProcessedRequest {
+                    origin: origin(1),
+                    queued: true,
+                    source_id:
+                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                            .to_string(),
+                    tx: expected_tx_1
+                }]
+            }
+        );
+        assert_eq!(
+            requests_desc(deps.as_ref(), CHANNEL),
+            RequestsResponse {
+                requests: vec![ProcessedRequest {
+                    origin: origin(1),
+                    queued: true,
+                    source_id:
+                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                            .to_string(),
+                    tx: expected_tx_1
+                }]
+            }
+        );
+
+        // Create second job
+        let msg = mock_ibc_packet_recv(
+            CHANNEL,
+            &InPacket::RequestBeacon {
+                after: AFTER2,
+                origin: origin(2),
+            },
+        )
+        .unwrap();
+        let mut receive_env = mock_env();
+        receive_env.block.height += 1;
+        ibc_packet_receive(deps.as_mut(), receive_env.clone(), msg).unwrap();
+
+        // two results now
+        let expected_tx_2 = (
+            receive_env.block.height,
+            receive_env.transaction.map(|ti| ti.index),
+        );
+        assert_eq!(
+            requests_asc(deps.as_ref(), CHANNEL),
+            RequestsResponse {
+                requests: vec![ProcessedRequest {
+                    origin: origin(1),
+                    queued: true,
+                    source_id:
+                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                            .to_string(),
+                    tx: expected_tx_1
+                }, ProcessedRequest {
+                    origin: origin(2),
+                    queued: true,
+                    source_id:
+                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
+                            .to_string(),
+                    tx: expected_tx_2
+                }]
+            }
+        );
+        assert_eq!(
+            requests_desc(deps.as_ref(), CHANNEL),
+            RequestsResponse {
+                requests: vec![ProcessedRequest {
+                    origin: origin(2),
+                    queued: true,
+                    source_id:
+                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
+                            .to_string(),
+                    tx: expected_tx_2
+                  }, ProcessedRequest {
+                    origin: origin(1),
+                    queued: true,
+                    source_id:
+                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                            .to_string(),
+                    tx: expected_tx_1
+                }]
             }
         );
     }

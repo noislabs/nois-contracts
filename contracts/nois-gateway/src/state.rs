@@ -117,6 +117,35 @@ pub fn requests_add(
     Deque::new(&prefix).push_back(storage, request)
 }
 
+pub fn requests_get_asc(
+    storage: &dyn Storage,
+    channel_id: &str,
+    offset: usize,
+    limit: usize,
+) -> StdResult<Vec<ProcessedRequest>> {
+    let prefix = requests_key(channel_id);
+    Deque::new(&prefix)
+        .iter(storage)?
+        .skip(offset)
+        .take(limit)
+        .collect()
+}
+
+pub fn requests_get_desc(
+    storage: &dyn Storage,
+    channel_id: &str,
+    offset: usize,
+    limit: usize,
+) -> StdResult<Vec<ProcessedRequest>> {
+    let prefix = requests_key(channel_id);
+    Deque::new(&prefix)
+        .iter(storage)?
+        .rev()
+        .skip(offset)
+        .take(limit)
+        .collect()
+}
+
 #[inline]
 fn requests_key(channel_id: &str) -> String {
     format!("r_{channel_id}")
