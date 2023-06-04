@@ -35,7 +35,7 @@ pub fn valid_round_after(base: Timestamp) -> u64 {
 }
 
 /// Returns true if and only if the round number is valid for Nois.
-/// For mainnet launch, every 5th round is considered valid.
+/// For mainnet launch, every 3rd round is considered valid.
 ///
 /// If round is 0, this returns false because there is no 0 round in drand.
 #[inline]
