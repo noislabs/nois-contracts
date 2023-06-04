@@ -39,7 +39,7 @@ test.serial("drand: bot can submit", async (t) => {
   t.truthy(drandAddress);
 
   const before = await noisClient.sign.queryContractSmart(drandAddress, {
-    beacon: { round: 890 },
+    beacon: { round: 891 },
   });
   t.deepEqual(before, { beacon: null });
 
@@ -49,13 +49,14 @@ test.serial("drand: bot can submit", async (t) => {
   await bot.register("joe");
 
   // Submit
-  const addRundRes = await bot.submitRound(890);
+  const addRundRes = await bot.submitRound(891);
   t.log(`Gas used: ${addRundRes.gasUsed}/${addRundRes.gasWanted}`);
 
   const after = await noisClient.sign.queryContractSmart(drandAddress, {
-    beacon: { round: 890 },
+    beacon: { round: 891 },
   });
-  t.regex(after.beacon.published, /^1677687867000000000$/);
+  console.log(after);
+  t.regex(after.beacon.published, /^1677687870000000000$/);
   t.regex(after.beacon.verified, /^1[0-9]{18}$/);
-  t.is(after.beacon.randomness, "a96bc028106ba9c03d2af47130f907282af36a900f4fc60a20c5a99cf12d639d");
+  t.is(after.beacon.randomness, "70071e72119e6b7a73c57e84c3f3f95eac474477e6d151d5973a61d3a285c277");
 });
