@@ -116,7 +116,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     assertPacketsFromB(info, 0, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:830" },
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:825" },
     });
   }
 
