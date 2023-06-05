@@ -13,6 +13,10 @@ and this project adheres to
 - proxy: Streamline event attributes
 - proxy: Add `min_after`/`max_after` configs in proxy to ensure the `after`
   value for RequestBeacon packets is in a somewhat reasonable range.
+- gateway: Write a log of beacon requests per customer to state to be able to
+  query them later on ([#250]).
+
+[#250]: https://github.com/noislabs/nois-contracts/pull/250
 
 ## [0.13.4] - 2023-05-17
 
