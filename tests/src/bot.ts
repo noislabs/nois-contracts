@@ -238,7 +238,7 @@ export class Bot {
   private readonly address: string;
   private readonly client: SigningCosmWasmClient;
   private readonly drandAddress: string;
-  private nextRound = 800;
+  private nextRound = 801;
 
   private constructor(address: string, client: SigningCosmWasmClient, drandAddress: string) {
     this.address = address;
@@ -248,7 +248,7 @@ export class Bot {
 
   public async submitNext(): Promise<ExecuteResult> {
     const round = this.nextRound;
-    this.nextRound += 10;
+    this.nextRound += 3;
     return this.submitRound(round);
   }
 
@@ -289,7 +289,7 @@ export class MockBot {
   public readonly address: string;
   private readonly client: SigningCosmWasmClient;
   private gatewayAddress: string | undefined;
-  private nextRound = 800;
+  private nextRound = 801;
 
   private constructor(address: string, client: SigningCosmWasmClient) {
     this.address = address;
@@ -302,7 +302,7 @@ export class MockBot {
 
   public async submitNext(): Promise<ExecuteResult> {
     const round = this.nextRound;
-    this.nextRound += 10;
+    this.nextRound += 3;
     return this.submitRound(round);
   }
 
