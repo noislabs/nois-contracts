@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Coin, HexBinary};
 
-use crate::state::{Config, Customer};
+use crate::state::{Config, Customer, RequestLogEntry};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -54,6 +54,18 @@ pub enum QueryMsg {
         start_after: Option<String>,
         limit: Option<u32>,
     },
+    #[returns(RequestsLogResponse)]
+    RequestsLogAsc {
+        channel_id: String,
+        offset: Option<u32>,
+        limit: Option<u32>,
+    },
+    #[returns(RequestsLogResponse)]
+    RequestsLogDesc {
+        channel_id: String,
+        offset: Option<u32>,
+        limit: Option<u32>,
+    },
 }
 
 // We define a custom struct for each query response
@@ -96,4 +108,9 @@ pub struct CustomerResponse {
 #[cw_serde]
 pub struct CustomersResponse {
     pub customers: Vec<QueriedCustomer>,
+}
+
+#[cw_serde]
+pub struct RequestsLogResponse {
+    pub requests: Vec<RequestLogEntry>,
 }

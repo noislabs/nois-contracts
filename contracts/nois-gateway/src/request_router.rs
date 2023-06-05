@@ -23,6 +23,8 @@ const MAX_JOBS_PER_SUBMISSION_WITH_VERIFICATION: u32 = 2;
 const MAX_JOBS_PER_SUBMISSION_WITHOUT_VERIFICATION: u32 = 14;
 
 pub struct RoutingReceipt {
+    pub queued: bool,
+    pub source_id: String,
     pub acknowledgement: StdAck,
     pub msgs: Vec<CosmosMsg>,
 }
@@ -43,7 +45,7 @@ impl RequestRouter {
     pub fn route(
         &self,
         deps: DepsMut,
-        env: Env,
+        env: &Env,
         channel: String,
         after: Timestamp,
         origin: Binary,
@@ -55,7 +57,7 @@ impl RequestRouter {
     fn handle_drand(
         &self,
         deps: DepsMut,
-        env: Env,
+        env: &Env,
         channel: String,
         after: Timestamp,
         origin: Binary,
@@ -72,20 +74,32 @@ impl RequestRouter {
 
         let mut msgs = Vec::<CosmosMsg>::new();
 
-        let acknowledgement = if let Some(randomness) = existing_randomness {
+        let queued = if let Some(randomness) = existing_randomness {
             //If the drand round already exists we send it
             increment_processed_drand_jobs(deps.storage, round)?;
             let published = time_of_round(round);
             let msg =
                 create_deliver_beacon_ibc_message(env.block.time, job, published, randomness)?;
             msgs.push(msg.into());
-            StdAck::success(&InPacketAck::RequestProcessed { source_id })
+            false
         } else {
             unprocessed_drand_jobs_enqueue(deps.storage, round, &job)?;
-            StdAck::success(&InPacketAck::RequestQueued { source_id })
+            true
+        };
+
+        let acknowledgement = if queued {
+            StdAck::success(&InPacketAck::RequestQueued {
+                source_id: source_id.clone(),
+            })
+        } else {
+            StdAck::success(&InPacketAck::RequestProcessed {
+                source_id: source_id.clone(),
+            })
         };
 
         Ok(RoutingReceipt {
+            queued,
+            source_id,
             acknowledgement,
             msgs,
         })
