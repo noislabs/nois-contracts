@@ -10,6 +10,7 @@ and this project adheres to
 
 ### Changed
 
+- all: Accept every 3rd drand round instead of every 10th ([#251]).
 - proxy: Streamline event attributes
 - proxy: Add `min_after`/`max_after` configs in proxy to ensure the `after`
   value for RequestBeacon packets is in a somewhat reasonable range.
@@ -17,6 +18,7 @@ and this project adheres to
   query them later on ([#250]).
 
 [#250]: https://github.com/noislabs/nois-contracts/pull/250
+[#251]: https://github.com/noislabs/nois-contracts/pull/251
 
 ## [0.13.4] - 2023-05-17
 
