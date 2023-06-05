@@ -181,48 +181,50 @@ fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     #[test]
     fn commit_to_drand_round_works() {
         // UNIX epoch
         let (round, source) = commit_to_drand_round(Timestamp::from_seconds(0));
-        assert_eq!(round, 10);
+        assert_eq!(round, 3);
         assert_eq!(
             source,
-            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:10"
+            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:3"
         );
 
         // Before Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
         let (round, source) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).minus_nanos(1));
-        assert_eq!(round, 10);
+        assert_eq!(round, 3);
         assert_eq!(
             source,
-            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:10"
+            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:3"
         );
 
         // At Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
         let (round, source) = commit_to_drand_round(Timestamp::from_seconds(1677685200));
-        assert_eq!(round, 10);
+        assert_eq!(round, 3);
         assert_eq!(
             source,
-            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:10"
+            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:3"
         );
 
         // After Drand genesis
         let (round, _) = commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_nanos(1));
-        assert_eq!(round, 10);
+        assert_eq!(round, 3);
 
-        // Drand genesis +29s/30s/31s
+        // Drand genesis +24s/32s/33s
         let (round, _) =
-            commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(26));
-        assert_eq!(round, 10);
+            commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(24));
+        assert_eq!(round, 12);
         let (round, _) =
-            commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(27));
-        assert_eq!(round, 20);
+            commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(32));
+        assert_eq!(round, 12);
+        // 9 seconds after  the +24 we get the new valid round
         let (round, _) =
-            commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(28));
-        assert_eq!(round, 20);
+            commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(33));
+        assert_eq!(round, 15);
     }
 }

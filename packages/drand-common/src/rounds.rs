@@ -1,6 +1,6 @@
 use cosmwasm_std::Timestamp;
 
-use crate::{DRAND_GENESIS, DRAND_ROUND_LENGTH};
+use crate::{DRAND_GENESIS, DRAND_ROUND_DIVISOR, DRAND_ROUND_LENGTH};
 
 // See TimeOfRound implementation: https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L30-L33
 pub fn time_of_round(round: u64) -> Timestamp {
@@ -31,16 +31,16 @@ fn round_after_divisor(base: Timestamp, divisor: u64) -> u64 {
 }
 
 pub fn valid_round_after(base: Timestamp) -> u64 {
-    round_after_divisor(base, 10)
+    round_after_divisor(base, DRAND_ROUND_DIVISOR)
 }
 
 /// Returns true if and only if the round number is valid for Nois.
-/// For mainnet launch, every 10th round is considered valid.
+/// For mainnet launch, every 3rd round is considered valid.
 ///
 /// If round is 0, this returns false because there is no 0 round in drand.
 #[inline]
 pub fn is_valid(round: u64) -> bool {
-    round != 0 && round % 10 == 0
+    round != 0 && round % DRAND_ROUND_DIVISOR == 0
 }
 
 #[cfg(test)]
@@ -118,31 +118,31 @@ mod tests {
         assert!(!is_valid(0)); // no 0 round exists in drand
         assert!(!is_valid(1));
         assert!(!is_valid(2));
-        assert!(!is_valid(3));
+        assert!(is_valid(3));
         assert!(!is_valid(4));
         assert!(!is_valid(5));
-        assert!(!is_valid(6));
+        assert!(is_valid(6));
         assert!(!is_valid(7));
         assert!(!is_valid(8));
-        assert!(!is_valid(9));
-        assert!(is_valid(10));
+        assert!(is_valid(9));
+        assert!(!is_valid(10));
         assert!(!is_valid(11));
-        assert!(!is_valid(12));
+        assert!(is_valid(12));
         assert!(!is_valid(13));
         assert!(!is_valid(14));
-        assert!(!is_valid(15));
+        assert!(is_valid(15));
         assert!(!is_valid(16));
         assert!(!is_valid(17));
-        assert!(!is_valid(18));
+        assert!(is_valid(18));
         assert!(!is_valid(19));
-        assert!(is_valid(20));
-        assert!(!is_valid(21));
+        assert!(!is_valid(20));
+        assert!(is_valid(21));
         assert!(!is_valid(22));
         assert!(!is_valid(23));
-        assert!(!is_valid(24));
+        assert!(is_valid(24));
         assert!(!is_valid(25));
         assert!(!is_valid(26));
-        assert!(!is_valid(27));
+        assert!(is_valid(27));
         assert!(!is_valid(28));
         assert!(!is_valid(29));
         assert!(is_valid(30));
