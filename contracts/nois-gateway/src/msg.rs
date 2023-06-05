@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Coin, HexBinary};
 
-use crate::state::{Config, Customer, ProcessedRequest};
+use crate::state::{Config, Customer, RequestLogEntry};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -54,14 +54,14 @@ pub enum QueryMsg {
         start_after: Option<String>,
         limit: Option<u32>,
     },
-    #[returns(RequestsResponse)]
-    RequestsAsc {
+    #[returns(RequestsLogResponse)]
+    RequestsLogAsc {
         channel_id: String,
         offset: Option<u32>,
         limit: Option<u32>,
     },
-    #[returns(RequestsResponse)]
-    RequestsDesc {
+    #[returns(RequestsLogResponse)]
+    RequestsLogDesc {
         channel_id: String,
         offset: Option<u32>,
         limit: Option<u32>,
@@ -111,6 +111,6 @@ pub struct CustomersResponse {
 }
 
 #[cw_serde]
-pub struct RequestsResponse {
-    pub requests: Vec<ProcessedRequest>,
+pub struct RequestsLogResponse {
+    pub requests: Vec<RequestLogEntry>,
 }

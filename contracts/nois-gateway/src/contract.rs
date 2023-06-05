@@ -18,12 +18,12 @@ use crate::error::ContractError;
 use crate::job_id::validate_origin;
 use crate::msg::{
     ConfigResponse, CustomerResponse, CustomersResponse, DrandJobStatsResponse, ExecuteMsg,
-    InstantiateMsg, QueriedCustomer, QueryMsg, RequestsResponse,
+    InstantiateMsg, QueriedCustomer, QueryMsg, RequestsLogResponse,
 };
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_drand_jobs, requests_add, requests_get_asc, requests_get_desc,
-    unprocessed_drand_jobs_len, Config, Customer, ProcessedRequest, CONFIG, CUSTOMERS,
+    get_processed_drand_jobs, requests_log_add, requests_log_asc, requests_log_desc,
+    unprocessed_drand_jobs_len, Config, Customer, RequestLogEntry, CONFIG, CUSTOMERS,
 };
 
 #[entry_point]
@@ -104,12 +104,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Customers { start_after, limit } => {
             to_binary(&query_customers(deps, start_after, limit)?)?
         }
-        QueryMsg::RequestsAsc {
+        QueryMsg::RequestsLogAsc {
             channel_id,
             offset,
             limit,
         } => to_binary(&query_requests_asc(deps, channel_id, offset, limit)?)?,
-        QueryMsg::RequestsDesc {
+        QueryMsg::RequestsLogDesc {
             channel_id,
             offset,
             limit,
@@ -165,11 +165,11 @@ fn query_requests_asc(
     channel_id: String,
     offset: Option<u32>,
     limit: Option<u32>,
-) -> StdResult<RequestsResponse> {
+) -> StdResult<RequestsLogResponse> {
     let offset = offset.unwrap_or(0) as usize;
     let limit = limit.unwrap_or(50) as usize;
-    let requests: Vec<_> = requests_get_asc(deps.storage, &channel_id, offset, limit)?;
-    Ok(RequestsResponse { requests })
+    let requests: Vec<_> = requests_log_asc(deps.storage, &channel_id, offset, limit)?;
+    Ok(RequestsLogResponse { requests })
 }
 
 fn query_requests_desc(
@@ -177,11 +177,11 @@ fn query_requests_desc(
     channel_id: String,
     offset: Option<u32>,
     limit: Option<u32>,
-) -> StdResult<RequestsResponse> {
+) -> StdResult<RequestsLogResponse> {
     let offset = offset.unwrap_or(0) as usize;
     let limit = limit.unwrap_or(50) as usize;
-    let requests: Vec<_> = requests_get_desc(deps.storage, &channel_id, offset, limit)?;
-    Ok(RequestsResponse { requests })
+    let requests: Vec<_> = requests_log_desc(deps.storage, &channel_id, offset, limit)?;
+    Ok(RequestsLogResponse { requests })
 }
 
 #[entry_point]
@@ -367,10 +367,10 @@ fn receive_request_beacon(
     )?;
 
     // Store request
-    requests_add(
+    requests_log_add(
         deps.storage,
         &channel_id,
-        &ProcessedRequest {
+        &RequestLogEntry {
             origin,
             tx: (env.block.height, env.transaction.map(|ti| ti.index)),
             source_id,
@@ -1321,12 +1321,12 @@ mod tests {
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
-        fn requests_asc(deps: Deps, channel_id: &str) -> RequestsResponse {
+        fn requests_asc(deps: Deps, channel_id: &str) -> RequestsLogResponse {
             from_binary(
                 &query(
                     deps,
                     mock_env(),
-                    QueryMsg::RequestsAsc {
+                    QueryMsg::RequestsLogAsc {
                         channel_id: channel_id.to_string(),
                         offset: None,
                         limit: None,
@@ -1337,12 +1337,12 @@ mod tests {
             .unwrap()
         }
 
-        fn requests_desc(deps: Deps, channel_id: &str) -> RequestsResponse {
+        fn requests_desc(deps: Deps, channel_id: &str) -> RequestsLogResponse {
             from_binary(
                 &query(
                     deps,
                     mock_env(),
-                    QueryMsg::RequestsDesc {
+                    QueryMsg::RequestsLogDesc {
                         channel_id: channel_id.to_string(),
                         offset: None,
                         limit: None,
@@ -1356,11 +1356,11 @@ mod tests {
         // No requests by default
         assert_eq!(
             requests_asc(deps.as_ref(), CHANNEL),
-            RequestsResponse { requests: vec![] }
+            RequestsLogResponse { requests: vec![] }
         );
         assert_eq!(
             requests_desc(deps.as_ref(), CHANNEL),
-            RequestsResponse { requests: vec![] }
+            RequestsLogResponse { requests: vec![] }
         );
 
         // Create one job
@@ -1382,8 +1382,8 @@ mod tests {
         );
         assert_eq!(
             requests_asc(deps.as_ref(), CHANNEL),
-            RequestsResponse {
-                requests: vec![ProcessedRequest {
+            RequestsLogResponse {
+                requests: vec![RequestLogEntry {
                     origin: origin(1),
                     queued: true,
                     source_id:
@@ -1395,8 +1395,8 @@ mod tests {
         );
         assert_eq!(
             requests_desc(deps.as_ref(), CHANNEL),
-            RequestsResponse {
-                requests: vec![ProcessedRequest {
+            RequestsLogResponse {
+                requests: vec![RequestLogEntry {
                     origin: origin(1),
                     queued: true,
                     source_id:
@@ -1427,15 +1427,15 @@ mod tests {
         );
         assert_eq!(
             requests_asc(deps.as_ref(), CHANNEL),
-            RequestsResponse {
-                requests: vec![ProcessedRequest {
+            RequestsLogResponse {
+                requests: vec![RequestLogEntry {
                     origin: origin(1),
                     queued: true,
                     source_id:
                         "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
                             .to_string(),
                     tx: expected_tx_1
-                }, ProcessedRequest {
+                }, RequestLogEntry {
                     origin: origin(2),
                     queued: true,
                     source_id:
@@ -1447,15 +1447,15 @@ mod tests {
         );
         assert_eq!(
             requests_desc(deps.as_ref(), CHANNEL),
-            RequestsResponse {
-                requests: vec![ProcessedRequest {
+            RequestsLogResponse {
+                requests: vec![RequestLogEntry {
                     origin: origin(2),
                     queued: true,
                     source_id:
                         "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
                             .to_string(),
                     tx: expected_tx_2
-                  }, ProcessedRequest {
+                  }, RequestLogEntry {
                     origin: origin(1),
                     queued: true,
                     source_id:
