@@ -76,7 +76,7 @@ pub const GATEWAY_CHANNEL: Item<String> = Item::new("gateway_channel");
 
 /// We use this value to get publish times that are independent of the current clock
 /// in test mode. We want the following rounds to be the result. To get there we use
-/// a starting time of 1677687597000000000 - 1 nanoseconds and then increment by 30 seconds.
+/// a starting time of 1677687600000000000 - 1 nanoseconds and then increment by 9 seconds.
 ///
 /// ```plain
 /// Publish times (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=4d0d6d84cdb9b48260594e3b74aa86ae)
@@ -184,5 +184,6 @@ pub const GATEWAY_CHANNEL: Item<String> = Item::new("gateway_channel");
 /// ```
 pub const TEST_MODE_NEXT_AFTER: Item<Timestamp> = Item::new("test_mode_next_after");
 
-pub const TEST_MODE_NEXT_AFTER_INIT: Timestamp = Timestamp::from_nanos(1677687597000000000 - 1);
-pub const TEST_MODE_NEXT_AFTER_INCREMENT_SECONDS: u64 = 30;
+/// An `after` value that will read to round 801
+pub const TEST_MODE_NEXT_AFTER_INIT: Timestamp = Timestamp::from_nanos(1677687600000000000 - 1);
+pub const TEST_MODE_NEXT_AFTER_INCREMENT_SECONDS: u64 = 9;

@@ -68,9 +68,9 @@ mod tests {
 
     #[test]
     fn calculate_after_works_for_test_mode() {
-        const TEST_VAL1: u64 = 1677687596999999999;
-        const TEST_VAL2: u64 = 1677687626999999999;
-        const TEST_VAL3: u64 = 1677687656999999999;
+        const TEST_VAL1: u64 = 1677687599999999999;
+        const TEST_VAL2: u64 = TEST_VAL1 + 9_000000000;
+        const TEST_VAL3: u64 = TEST_VAL2 + 9_000000000;
 
         let mut deps = mock_dependencies();
         let s = deps.as_mut().storage;
