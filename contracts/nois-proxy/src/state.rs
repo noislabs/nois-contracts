@@ -50,14 +50,17 @@ pub struct Config {
     /// Enable whitelist of addresses allowed to get randomness.
     /// This is an Option for compatibility with older versions of the contract.
     /// If set to None it means disabled.
+    /// From instances running version 0.13.5 onwards, the value is always set to Some(..).
     pub allowlist_enabled: Option<bool>,
     /// The minimal value for `after` when requesting a beacon.
     /// This aims to counter accidental misusage. Not all values in the allowed range are reasonable.
     /// This is an Option for compatibility with older versions of the contract that did not have the field.
+    /// From instances running version 0.13.5 onwards, the value is always set to Some(..).
     pub min_after: Option<Timestamp>,
     /// The maximum value for `after` when requesting a beacon.
     /// This aims to counter accidental misusage. Not all values in the allowed range are reasonable.
     /// This is an Option for compatibility with older versions of the contract that did not have the field.
+    /// From instances running version 0.13.5 onwards, the value is always set to Some(..).
     pub max_after: Option<Timestamp>,
 }
 

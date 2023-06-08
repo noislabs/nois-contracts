@@ -98,6 +98,9 @@ pub fn migrate(deps: DepsMut, env: Env, _msg: Empty) -> StdResult<Response> {
     if config.max_after.is_none() {
         config.max_after = Some(env.block.time.plus_seconds(TEN_YEARS_S));
     }
+    if config.allowlist_enabled.is_none() {
+        config.allowlist_enabled = Some(false);
+    }
 
     CONFIG.save(deps.storage, &config)?;
 
