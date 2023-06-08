@@ -581,15 +581,15 @@ mod tests {
     const PAYMENT2: u64 = 37;
     const SINK: &str = "sink";
 
-    // Consecutive timestamps for the rounds 810,813, 816, 819
+    // Consecutive timestamps for the rounds 810, 820, 830, 840
     const AFTER1: Timestamp = Timestamp::from_seconds(1677687627 - 1);
-    const AFTER2: Timestamp = Timestamp::from_seconds(1677687636 - 1);
-    const AFTER3: Timestamp = Timestamp::from_seconds(1677687645 - 1);
-    const AFTER4: Timestamp = Timestamp::from_seconds(1677687654 - 1);
+    const AFTER2: Timestamp = Timestamp::from_seconds(1677687657 - 1);
+    const AFTER3: Timestamp = Timestamp::from_seconds(1677687687 - 1);
+    const AFTER4: Timestamp = Timestamp::from_seconds(1677687717 - 1);
     const ROUND1: u64 = 810;
-    const ROUND2: u64 = 813;
-    const ROUND3: u64 = 816;
-    const ROUND4: u64 = 819;
+    const ROUND2: u64 = 820;
+    const ROUND3: u64 = 830;
+    const ROUND4: u64 = 840;
 
     fn payment_initial() -> Option<Coin> {
         Some(coin(2_000000, "unois"))
@@ -631,29 +631,29 @@ mod tests {
                 .unwrap(),
                 is_verifying_tx,
             },
-            813 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/813
-                round: 813,
+            820 => ExecuteMsg::AddVerifiedRound {
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/820
+                round: 820,
                 randomness: HexBinary::from_hex(
-                    "196ef4312fb5345d9e3932816690893cbe5445361713ee43465bb856a81532d1",
+                    "32f614c72e9a382540f6cdca5f4d58537ea11de9b692bcdef7b10e892690d233",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
-            816 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/816
-                round: 816,
+            830 => ExecuteMsg::AddVerifiedRound {
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/830
+                round: 830,
                 randomness: HexBinary::from_hex(
-                    "402a3c21b50a4a87c1737c0f61302e7f3ab160d3eed1320281260de3070aaffb",
+                    "9e8d112e4c9b66e17ca3cd78aca91e6c076a42917a03fe1fe837f7eaf2fa8b86",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
-            819 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/819
-                round: 819,
+            840 => ExecuteMsg::AddVerifiedRound {
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/840
+                round: 840,
                 randomness: HexBinary::from_hex(
-                    "2b7d8b620455434ca1abed70966d3db860c0236bffce4ddb687182702f8f907d",
+                    "59b949f6455a6d7319232f8fe085cbba884727cccf79fa5239579078c0a19cd4",
                 )
                 .unwrap(),
                 is_verifying_tx,
@@ -1439,7 +1439,7 @@ mod tests {
                     origin: origin(2),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:813"
+                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
                             .to_string(),
                     tx: expected_tx_2
                 }]
@@ -1452,7 +1452,7 @@ mod tests {
                     origin: origin(2),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:813"
+                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
                             .to_string(),
                     tx: expected_tx_2
                   }, RequestLogEntry {

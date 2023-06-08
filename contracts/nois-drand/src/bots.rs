@@ -1,5 +1,4 @@
 use cosmwasm_std::Addr;
-use drand_common::DRAND_ROUND_DIVISOR;
 use sha2::{Digest, Sha256};
 
 use crate::error::ContractError;
@@ -68,11 +67,11 @@ pub fn eligible_group(round: u64) -> Option<Group> {
         return None;
     }
 
-    if round % DRAND_ROUND_DIVISOR != 0 {
+    if round % 10 != 0 {
         return None;
     }
 
-    if round % (DRAND_ROUND_DIVISOR * 2) == 0 {
+    if round % 20 == 0 {
         Some(Group::B)
     } else {
         Some(Group::A)
@@ -121,43 +120,43 @@ mod tests {
         assert_eq!(eligible_group(0), None);
         assert_eq!(eligible_group(1), None);
         assert_eq!(eligible_group(2), None);
-        assert_eq!(eligible_group(3), Some(Group::A));
+        assert_eq!(eligible_group(3), None);
         assert_eq!(eligible_group(4), None);
         assert_eq!(eligible_group(5), None);
-        assert_eq!(eligible_group(6), Some(Group::B));
+        assert_eq!(eligible_group(6), None);
         assert_eq!(eligible_group(7), None);
         assert_eq!(eligible_group(8), None);
-        assert_eq!(eligible_group(9), Some(Group::A));
-        assert_eq!(eligible_group(10), None);
+        assert_eq!(eligible_group(9), None);
+        assert_eq!(eligible_group(10), Some(Group::A));
         assert_eq!(eligible_group(11), None);
-        assert_eq!(eligible_group(12), Some(Group::B));
+        assert_eq!(eligible_group(12), None);
         assert_eq!(eligible_group(13), None);
         assert_eq!(eligible_group(14), None);
-        assert_eq!(eligible_group(15), Some(Group::A));
+        assert_eq!(eligible_group(15), None);
         assert_eq!(eligible_group(16), None);
         assert_eq!(eligible_group(17), None);
-        assert_eq!(eligible_group(18), Some(Group::B));
+        assert_eq!(eligible_group(18), None);
         assert_eq!(eligible_group(19), None);
-        assert_eq!(eligible_group(20), None);
-        assert_eq!(eligible_group(21), Some(Group::A));
+        assert_eq!(eligible_group(20), Some(Group::B));
+        assert_eq!(eligible_group(21), None);
         assert_eq!(eligible_group(22), None);
         assert_eq!(eligible_group(23), None);
-        assert_eq!(eligible_group(24), Some(Group::B));
+        assert_eq!(eligible_group(24), None);
         assert_eq!(eligible_group(25), None);
         assert_eq!(eligible_group(26), None);
-        assert_eq!(eligible_group(27), Some(Group::A));
+        assert_eq!(eligible_group(27), None);
         assert_eq!(eligible_group(28), None);
         assert_eq!(eligible_group(29), None);
-        assert_eq!(eligible_group(30), Some(Group::B));
+        assert_eq!(eligible_group(30), Some(Group::A));
         assert_eq!(eligible_group(31), None);
         assert_eq!(eligible_group(32), None);
-        assert_eq!(eligible_group(33), Some(Group::A));
+        assert_eq!(eligible_group(33), None);
         assert_eq!(eligible_group(34), None);
         assert_eq!(eligible_group(35), None);
-        assert_eq!(eligible_group(36), Some(Group::B));
+        assert_eq!(eligible_group(36), None);
         assert_eq!(eligible_group(37), None);
         assert_eq!(eligible_group(38), None);
-        assert_eq!(eligible_group(39), Some(Group::A));
-        assert_eq!(eligible_group(40), None);
+        assert_eq!(eligible_group(39), None);
+        assert_eq!(eligible_group(40), Some(Group::B));
     }
 }
