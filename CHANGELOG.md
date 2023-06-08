@@ -8,17 +8,20 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.13.5] - 2023-06-09
+
 ### Changed
 
 - proxy: Streamline event attributes
 - proxy: Add `min_after`/`max_after` configs in proxy to ensure the `after`
   value for RequestBeacon packets is in a somewhat reasonable range.
 - proxy: Ensure the `allowlist_enabled`/`min_after`/`max_after` config fields
-  are always set to `Some` value.
+  are always set to `Some` value. ([#255])
 - gateway: Write a log of beacon requests per customer to state to be able to
   query them later on ([#250]).
 
 [#250]: https://github.com/noislabs/nois-contracts/pull/250
+[#255]: https://github.com/noislabs/nois-contracts/pull/255
 
 ## [0.13.4] - 2023-05-17
 
@@ -180,7 +183,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.4...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.5...HEAD
+[0.13.5]: https://github.com/noislabs/nois-contracts/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/noislabs/nois-contracts/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/noislabs/nois-contracts/compare/v0.13.2...v0.13.3
 [0.13.2]: https://github.com/noislabs/nois-contracts/compare/v0.13.1...v0.13.2
