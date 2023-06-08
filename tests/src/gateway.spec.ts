@@ -136,11 +136,14 @@ test.serial("submit randomness for various job counts", async (t) => {
   }
 
   const afterValues = [
-    before("1677687600000000000"), // round 801
-    before("1677687609000000000"), // round 804
-    before("1677687618000000000"), // round 807
+    before("1677687597000000000"), // round 800
     before("1677687627000000000"), // round 810
-    before("1677687636000000000"), // round 813
+    before("1677687657000000000"), // round 820
+    before("1677687687000000000"), // round 830
+    before("1677687717000000000"), // round 840
+    before("1677687747000000000"), // round 850
+    before("1677687777000000000"), // round 860
+    before("1677687807000000000"), // round 870
   ];
 
   for (const [i, jobs] of [0, 1, 2, 3, 4].entries()) {
