@@ -13,6 +13,8 @@ and this project adheres to
 - proxy: Streamline event attributes
 - proxy: Add `min_after`/`max_after` configs in proxy to ensure the `after`
   value for RequestBeacon packets is in a somewhat reasonable range.
+- proxy: Ensure the `allowlist_enabled`/`min_after`/`max_after` config fields
+  are always set to `Some` value.
 - gateway: Write a log of beacon requests per customer to state to be able to
   query them later on ([#250]).
 
