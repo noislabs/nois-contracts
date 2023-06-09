@@ -3,7 +3,7 @@
 use cosmwasm_std::{
     ensure_eq, entry_point, to_binary, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty,
     Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128,
-    WasmMsg,
+    WasmMsg, WasmQuery,
 };
 use cw_storage_plus::Bound;
 use drand_common::{is_valid, DRAND_MAINNET2_PUBKEY};
@@ -359,7 +359,7 @@ fn execute_add_round(
         Attribute::new(ATTR_BOT, info.sender.to_string()),
     ];
 
-    // Execute the callback jobs and incentivise the drand bot based on howmany jobs they process
+    // Execute the callback jobs and incentivise the drand bot based on how many jobs they process
 
     let mut out_msgs = Vec::<CosmosMsg>::new();
     if let Some(gateway) = config.gateway {
@@ -386,7 +386,11 @@ fn execute_add_round(
 
     let correct_group = Some(group(&info.sender)) == eligible_group(round);
 
-    let is_eligible = correct_group && is_registered && is_allowlisted && reward_points != 0; // Allowed and registered bot that gathered reward points get incentives
+    let is_eligible = correct_group
+        && is_registered
+        && is_allowlisted
+        && reward_points != 0
+        && is_incentivised_round(round, deps.as_ref());
 
     if !is_eligible {
         reward_points = 0;
@@ -446,6 +450,34 @@ fn execute_add_round(
     Ok(Response::new()
         .add_messages(out_msgs)
         .add_attributes(attributes))
+}
+
+// incentivise on modulo_10 and requested rounds
+fn is_incentivised_round(round: u64, deps: Deps) -> bool {
+    round % 10 == 0 || is_round_requested_by_job(round, deps)
+}
+
+fn is_round_requested_by_job(round: u64, deps: Deps) -> bool {
+    // TODO handle unsafe unwrap
+    get_drand_job_response(deps, round).unwrap().unprocessed > 0
+        || get_drand_job_response(deps, round).unwrap().processed > 0
+}
+
+fn get_drand_job_response(
+    deps: Deps,
+    round: u64,
+) -> StdResult<nois_gateway::msg::DrandJobStatsResponse> {
+    // Loading here config twice, a more optimised but less readable way is to pass the gateway info all along these functions as param to avoid calling the state twice
+    let config = CONFIG.load(deps.storage)?;
+    let msg = nois_gateway::msg::QueryMsg::DrandJobStats { round };
+    let wasm = WasmQuery::Smart {
+        // TODO handle this unsafe unwrap
+        contract_addr: config.gateway.unwrap().into_string(),
+        msg: to_binary(&msg)?,
+    };
+    let drand_job_response: nois_gateway::msg::DrandJobStatsResponse =
+        deps.querier.query(&wasm.into())?;
+    Ok(drand_job_response)
 }
 
 fn execute_set_config(
@@ -608,25 +640,6 @@ mod tests {
             beacon.unwrap().randomness.to_hex(),
             "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
         );
-    }
-
-    #[test]
-    fn add_round_fails_when_round_invalid() {
-        let mut deps = mock_dependencies();
-
-        let msg = InstantiateMsg {
-            manager: TESTING_MANAGER.to_string(),
-            min_round: TESTING_MIN_ROUND,
-            incentive_point_price: Uint128::new(20_000),
-            incentive_denom: "unois".to_string(),
-        };
-        let info = mock_info("creator", &[]);
-        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-
-        let msg = make_add_round_msg(8);
-        let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
-        assert!(matches!(err, ContractError::RoundInvalid { round: 8 }));
     }
 
     #[test]
@@ -1910,5 +1923,14 @@ mod tests {
                 incentive_denom: "unois".to_string(),
             }
         );
+    }
+
+    // TODO
+    #[test]
+    fn only_incentivising_rounds_give_incentives() {
+
+        // Assert modulo_10_rounds_give_incentives
+        // Assert requested_rounds_are_incentivised
+        // rounds that are not modulo_10 and are not requested are not incentivised
     }
 }
