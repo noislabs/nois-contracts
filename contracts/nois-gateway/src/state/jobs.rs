@@ -42,3 +42,23 @@ pub fn unprocessed_drand_jobs_len(storage: &dyn Storage, round: u64) -> StdResul
     let prefix = unprocessed_drand_jobs_key(round);
     Deque::<Job>::new(&prefix).len(storage)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unprocessed_drand_jobs_key_works() {
+        assert_eq!(unprocessed_drand_jobs_key(0), "drand_jobs_up_0000000000");
+        assert_eq!(unprocessed_drand_jobs_key(1), "drand_jobs_up_0000000001");
+        assert_eq!(unprocessed_drand_jobs_key(42), "drand_jobs_up_0000000042");
+        assert_eq!(
+            unprocessed_drand_jobs_key(2879178),
+            "drand_jobs_up_0002879178"
+        );
+        assert_eq!(
+            unprocessed_drand_jobs_key(9876543210),
+            "drand_jobs_up_9876543210"
+        );
+    }
+}
