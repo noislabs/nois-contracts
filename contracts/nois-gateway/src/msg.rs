@@ -1,7 +1,7 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Coin, HexBinary};
 
-use crate::state::{Config, Customer, RequestLogEntry};
+use crate::state::{Config, Customer, Job, RequestLogEntry};
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -52,6 +52,20 @@ pub enum QueryMsg {
     Customers {
         /// The channel ID after which to start
         start_after: Option<String>,
+        limit: Option<u32>,
+    },
+    /// Queries all unprocessed jobs across all rounds.
+    /// Jobs are sorted by round first and then enqueue order.
+    #[returns(JobsResponse)]
+    JobsAsc {
+        offset: Option<u32>,
+        limit: Option<u32>,
+    },
+    /// Queries all unprocessed jobs across all rounds.
+    /// Jobs are sorted by round first and then enqueue order.
+    #[returns(JobsResponse)]
+    JobsDesc {
+        offset: Option<u32>,
         limit: Option<u32>,
     },
     #[returns(RequestsLogResponse)]
@@ -108,6 +122,11 @@ pub struct CustomerResponse {
 #[cw_serde]
 pub struct CustomersResponse {
     pub customers: Vec<QueriedCustomer>,
+}
+
+#[cw_serde]
+pub struct JobsResponse {
+    pub jobs: Vec<Job>,
 }
 
 #[cw_serde]
