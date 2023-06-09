@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+## Added
+
+- gateway: Add query to get all jobs, no matter which round they are in.
+
 ## [0.13.5] - 2023-06-09
 
 ### Changed
