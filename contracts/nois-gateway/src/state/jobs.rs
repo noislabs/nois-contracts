@@ -1,6 +1,13 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Binary, StdResult, Storage};
+use cosmwasm_std::{from_slice, Binary, Order, StdResult, Storage};
 use cw_storage_plus::Deque;
+
+const UNPROCESSED_DRAND_JOBS_KEY_LEN: u16 = 24;
+
+/// This is the length of the storage key of a meta field
+/// of the Deque storage type. The 2 is the length-prefixed encoding.
+/// The 1 is the "h" or "t".
+const DEQUE_META_FIELD_LEN: usize = 2 + (UNPROCESSED_DRAND_JOBS_KEY_LEN as usize) + 1;
 
 #[cw_serde]
 pub struct Job {
@@ -15,7 +22,9 @@ pub struct Job {
 fn unprocessed_drand_jobs_key(round: u64) -> String {
     // "up" for unprocessed
     // At a frequency of 1 beacon/second, 10 decimal places is sufficient for 300 years.
-    format!("drand_jobs_up_{:0>10}", round)
+    let key = format!("drand_jobs_up_{:0>10}", round);
+    debug_assert_eq!(key.len(), UNPROCESSED_DRAND_JOBS_KEY_LEN as usize);
+    key
 }
 
 /// Add an element to the unprocessed drand jobs queue of this round
@@ -43,8 +52,27 @@ pub fn unprocessed_drand_jobs_len(storage: &dyn Storage, round: u64) -> StdResul
     Deque::<Job>::new(&prefix).len(storage)
 }
 
+pub fn all_unprocessed_drand_jobs(
+    storage: &dyn Storage,
+    order: Order,
+    offset: usize,
+    limit: usize,
+) -> StdResult<Vec<Job>> {
+    let start = b"\x00\x18drand_jobs_up_0000000000";
+    let end = b"\x00\x18drand_jobs_up_9999999999";
+    storage
+        .range(Some(start), Some(end), order)
+        .filter(|(key, _value)| key.len() != DEQUE_META_FIELD_LEN)
+        .skip(offset)
+        .take(limit)
+        .map(|(_key, value)| from_slice::<Job>(&value))
+        .collect::<StdResult<Vec<_>>>()
+}
+
 #[cfg(test)]
 mod tests {
+    use cosmwasm_std::testing::MockStorage;
+
     use super::*;
 
     #[test]
@@ -60,5 +88,67 @@ mod tests {
             unprocessed_drand_jobs_key(9876543210),
             "drand_jobs_up_9876543210"
         );
+    }
+
+    #[test]
+    fn all_unprocessed_drand_jobs_works() {
+        let mut storage = MockStorage::default();
+
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Ascending, 0, 100).unwrap();
+        assert_eq!(jobs, []);
+
+        let job1 = Job {
+            channel: "chan-123".to_string(),
+            source_id: "drannd:foo:bar".to_string(),
+            origin: Binary::from([1, 2, 1, 2]),
+        };
+        unprocessed_drand_jobs_enqueue(&mut storage, 3, &job1).unwrap();
+
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Ascending, 0, 100).unwrap();
+        assert_eq!(jobs, &[job1.clone()]);
+
+        let job2 = Job {
+            channel: "chan-123".to_string(),
+            source_id: "drannd:foo:baz".to_string(),
+            origin: Binary::from([17, 4]),
+        };
+        unprocessed_drand_jobs_enqueue(&mut storage, 3, &job2).unwrap();
+
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Ascending, 0, 100).unwrap();
+        assert_eq!(jobs, &[job1.clone(), job2.clone()]);
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Ascending, 0, 1).unwrap();
+        assert_eq!(jobs, &[job1.clone()]);
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Ascending, 1, 100).unwrap();
+        assert_eq!(jobs, &[job2.clone()]);
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Descending, 0, 100).unwrap();
+        assert_eq!(jobs, &[job2.clone(), job1.clone()]);
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Descending, 0, 1).unwrap();
+        assert_eq!(jobs, &[job2.clone()]);
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Descending, 1, 100).unwrap();
+        assert_eq!(jobs, &[job1.clone()]);
+
+        let _ = unprocessed_drand_jobs_dequeue(&mut storage, 3).unwrap();
+
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Ascending, 0, 100).unwrap();
+        assert_eq!(jobs, &[job2.clone()]);
+
+        // new job in higher round
+        let job3 = Job {
+            channel: "chan-123".to_string(),
+            source_id: "drannd:foo:test".to_string(),
+            origin: Binary::from([42, 42]),
+        };
+        unprocessed_drand_jobs_enqueue(&mut storage, 4, &job3).unwrap();
+
+        // new job in lower round
+        let job4 = Job {
+            channel: "chan-123".to_string(),
+            source_id: "drannd:foo:test".to_string(),
+            origin: Binary::from([12, 21]),
+        };
+        unprocessed_drand_jobs_enqueue(&mut storage, 2, &job4).unwrap();
+
+        let jobs = all_unprocessed_drand_jobs(&storage, Order::Ascending, 0, 100).unwrap();
+        assert_eq!(jobs, &[job4, job2, job3]);
     }
 }
