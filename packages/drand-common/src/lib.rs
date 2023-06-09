@@ -1,6 +1,8 @@
+mod jobs;
 mod rounds;
 pub mod testing;
 
+pub use jobs::{DrandJobStats, DrandJobStatsResponse};
 pub use rounds::{is_valid, round_after, time_of_round};
 
 use cosmwasm_std::Timestamp;

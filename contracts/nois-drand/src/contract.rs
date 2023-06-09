@@ -6,7 +6,7 @@ use cosmwasm_std::{
     WasmMsg, WasmQuery,
 };
 use cw_storage_plus::Bound;
-use drand_common::{is_valid, DRAND_MAINNET2_PUBKEY};
+use drand_common::{is_valid, DrandJobStats, DrandJobStatsResponse, DRAND_MAINNET2_PUBKEY};
 use drand_verify::{derive_randomness, G2Pubkey, Pubkey};
 
 use crate::attributes::{
@@ -390,7 +390,7 @@ fn execute_add_round(
         && is_registered
         && is_allowlisted
         && reward_points != 0
-        && is_incentivised_round(round, deps.as_ref());
+        && is_round_requested_by_job(round, deps.as_ref());
 
     if !is_eligible {
         reward_points = 0;
@@ -453,9 +453,6 @@ fn execute_add_round(
 }
 
 // incentivise on modulo_10 and requested rounds
-fn is_incentivised_round(round: u64, deps: Deps) -> bool {
-    round % 10 == 0 || is_round_requested_by_job(round, deps)
-}
 
 fn is_round_requested_by_job(round: u64, deps: Deps) -> bool {
     // TODO handle unsafe unwrap
@@ -463,20 +460,16 @@ fn is_round_requested_by_job(round: u64, deps: Deps) -> bool {
         || get_drand_job_response(deps, round).unwrap().processed > 0
 }
 
-fn get_drand_job_response(
-    deps: Deps,
-    round: u64,
-) -> StdResult<nois_gateway::msg::DrandJobStatsResponse> {
+fn get_drand_job_response(deps: Deps, round: u64) -> StdResult<DrandJobStatsResponse> {
     // Loading here config twice, a more optimised but less readable way is to pass the gateway info all along these functions as param to avoid calling the state twice
     let config = CONFIG.load(deps.storage)?;
-    let msg = nois_gateway::msg::QueryMsg::DrandJobStats { round };
+    let msg = DrandJobStats { round };
     let wasm = WasmQuery::Smart {
         // TODO handle this unsafe unwrap
         contract_addr: config.gateway.unwrap().into_string(),
         msg: to_binary(&msg)?,
     };
-    let drand_job_response: nois_gateway::msg::DrandJobStatsResponse =
-        deps.querier.query(&wasm.into())?;
+    let drand_job_response: DrandJobStatsResponse = deps.querier.query(&wasm.into())?;
     Ok(drand_job_response)
 }
 

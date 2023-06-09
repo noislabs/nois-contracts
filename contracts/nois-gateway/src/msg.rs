@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Coin, HexBinary};
+use drand_common::DrandJobStatsResponse;
 
 use crate::state::{Config, Customer};
 
@@ -58,15 +59,6 @@ pub enum QueryMsg {
 
 // We define a custom struct for each query response
 pub type ConfigResponse = Config;
-
-#[cw_serde]
-pub struct DrandJobStatsResponse {
-    pub round: u64,
-    /// Number of unprocessed jobs
-    pub unprocessed: u32,
-    /// Number of processed jobs
-    pub processed: u32,
-}
 
 #[cw_serde]
 pub struct QueriedCustomer {

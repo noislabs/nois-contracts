@@ -336,6 +336,7 @@ dependencies = [
 name = "drand-common"
 version = "0.13.4"
 dependencies = [
+ "cosmwasm-schema",
  "cosmwasm-std",
 ]
 
@@ -584,7 +585,6 @@ dependencies = [
  "drand-verify",
  "hex",
  "nois",
- "nois-gateway",
  "serde",
  "sha2 0.10.6",
  "thiserror",

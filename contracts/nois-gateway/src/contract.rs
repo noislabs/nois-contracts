@@ -8,6 +8,7 @@ use cosmwasm_std::{
     WasmQuery,
 };
 use cw_storage_plus::Bound;
+use drand_common::DrandJobStatsResponse;
 use nois_protocol::{
     check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
     BEACON_PRICE_PACKET_LIFETIME, IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
@@ -17,8 +18,8 @@ use sha2::{Digest, Sha256};
 use crate::error::ContractError;
 use crate::job_id::validate_origin;
 use crate::msg::{
-    ConfigResponse, CustomerResponse, CustomersResponse, DrandJobStatsResponse, ExecuteMsg,
-    InstantiateMsg, QueriedCustomer, QueryMsg,
+    ConfigResponse, CustomerResponse, CustomersResponse, ExecuteMsg, InstantiateMsg,
+    QueriedCustomer, QueryMsg,
 };
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
