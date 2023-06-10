@@ -18,12 +18,13 @@ use crate::error::ContractError;
 use crate::job_id::validate_origin;
 use crate::msg::{
     ConfigResponse, CustomerResponse, CustomersResponse, DrandJobStatsResponse, ExecuteMsg,
-    InstantiateMsg, QueriedCustomer, QueryMsg, RequestsLogResponse,
+    InstantiateMsg, JobsResponse, QueriedCustomer, QueryMsg, RequestsLogResponse,
 };
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    get_processed_drand_jobs, requests_log_add, requests_log_asc, requests_log_desc,
-    unprocessed_drand_jobs_len, Config, Customer, RequestLogEntry, CONFIG, CUSTOMERS,
+    all_unprocessed_drand_jobs, get_processed_drand_jobs, requests_log_add, requests_log_asc,
+    requests_log_desc, unprocessed_drand_jobs_len, Config, Customer, RequestLogEntry, CONFIG,
+    CUSTOMERS,
 };
 
 #[entry_point]
@@ -104,6 +105,12 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Customers { start_after, limit } => {
             to_binary(&query_customers(deps, start_after, limit)?)?
         }
+        QueryMsg::JobsAsc { offset, limit } => {
+            to_binary(&query_jobs(deps, Order::Ascending, offset, limit)?)?
+        }
+        QueryMsg::JobsDesc { offset, limit } => {
+            to_binary(&query_jobs(deps, Order::Descending, offset, limit)?)?
+        }
         QueryMsg::RequestsLogAsc {
             channel_id,
             offset,
@@ -158,6 +165,18 @@ fn query_customers(
         .collect::<Result<_, _>>()?;
 
     Ok(CustomersResponse { customers })
+}
+
+fn query_jobs(
+    deps: Deps,
+    order: Order,
+    offset: Option<u32>,
+    limit: Option<u32>,
+) -> StdResult<JobsResponse> {
+    let offset = offset.unwrap_or(0) as usize;
+    let limit = limit.unwrap_or(50) as usize;
+    let jobs: Vec<_> = all_unprocessed_drand_jobs(deps.storage, order, offset, limit)?;
+    Ok(JobsResponse { jobs })
 }
 
 fn query_requests_asc(
