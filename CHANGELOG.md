@@ -11,6 +11,10 @@ and this project adheres to
 ## Added
 
 - gateway: Add query to get all jobs, no matter which round they are in.
+- nois-proxy-governance-owned: New wrapper contract around nois-proxy with the
+  `governance_owned` feature enabled. ([#257])
+
+[#257]: https://github.com/noislabs/nois-contracts/pull/257
 
 ## [0.13.5] - 2023-06-09
 
