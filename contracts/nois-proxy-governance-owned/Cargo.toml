@@ -1,0 +1,25 @@
+[package]
+name = "nois-proxy-governance-owned"
+version = "0.13.5"
+authors = []
+edition = "2021"
+publish = false
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+# for quicker tests, cargo test --lib
+# for more explicit tests, cargo test --features=backtraces
+backtraces = ["nois-proxy/backtraces"]
+# use library feature to disable all instantiate/execute/query exports
+library = ["nois-proxy/library"]
+
+[dependencies]
+nois-proxy = { path = "../../contracts/nois-proxy", features = ["governance_owned"]}
+
+[dev-dependencies]
+cosmwasm-schema = { version = "1.2.5" }

@@ -625,6 +625,7 @@ dependencies = [
  "nois-icecube",
  "nois-payment",
  "nois-proxy",
+ "nois-proxy-governance-owned",
 ]
 
 [[package]]
@@ -664,6 +665,14 @@ dependencies = [
  "nois-protocol",
  "serde",
  "thiserror",
+]
+
+[[package]]
+name = "nois-proxy-governance-owned"
+version = "0.13.5"
+dependencies = [
+ "cosmwasm-schema",
+ "nois-proxy",
 ]
 
 [[package]]

@@ -14,6 +14,7 @@ workflows:
       - contract_nois_sink
       - contract_nois_payment
       - contract_nois_proxy
+      - contract_nois_proxy_governance_owned
       - contract_nois_monitoring
       - coverage
       - cw-multitest
@@ -110,6 +111,36 @@ jobs:
             - ~/project/target/debug/build
             - ~/project/target/debug/deps
           key: v2-contract_nois_proxy-rust:1.68.2-{{ checksum "~/project/Cargo.lock" }}
+
+  contract_nois_proxy_governance_owned:
+    docker:
+      - image: rust:1.68.2
+    working_directory: ~/project/contracts/nois-proxy-governance-owned
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - restore_cache:
+          keys:
+            - v2-contract_nois_proxy_governance_owned-rust:1.68.2-{{ checksum "~/project/Cargo.lock" }}
+            - v2-contract_nois_proxy_governance_owned-rust:1.68.2-
+      - run:
+          name: Unit Tests
+          environment:
+            RUST_BACKTRACE: 1
+          command: cargo unit-test --locked
+      - run:
+          name: Build and run schema generator
+          command: cargo schema --locked
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - ~/project/target/debug/.fingerprint
+            - ~/project/target/debug/build
+            - ~/project/target/debug/deps
+          key: v2-contract_nois_proxy_governance_owned-rust:1.68.2-{{ checksum "~/project/Cargo.lock" }}
 
   contract_nois_monitoring:
     docker:
@@ -462,6 +493,7 @@ jobs:
             - nois_drand.wasm
             - nois_icecube.wasm
             - nois_proxy.wasm
+            - nois_proxy_governance_owned.wasm
             - nois_gateway.wasm
             - nois_sink.wasm
             - nois_payment.wasm
