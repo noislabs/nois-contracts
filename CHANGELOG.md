@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.13.6] - 2023-06-17
+
 ## Added
 
 - gateway: Add query to get all jobs, no matter which round they are in.
@@ -191,7 +193,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.5...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.6...HEAD
+[0.13.6]: https://github.com/noislabs/nois-contracts/compare/v0.13.5...v0.13.6
 [0.13.5]: https://github.com/noislabs/nois-contracts/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/noislabs/nois-contracts/compare/v0.13.3...v0.13.4
 [0.13.3]: https://github.com/noislabs/nois-contracts/compare/v0.13.2...v0.13.3
