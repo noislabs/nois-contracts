@@ -139,7 +139,7 @@ export interface NoisContractPaths {
 }
 
 export const wasmContracts: WasmdContractPaths = {
-  proxy: "./internal/nois_proxy.wasm",
+  proxy: "./internal/nois_proxy_governance_owned.wasm",
   demo: "./internal/nois_demo.wasm",
 };
 
