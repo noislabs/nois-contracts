@@ -724,7 +724,7 @@ pub fn ibc_channel_connect(
 
     let channel_id = channel.endpoint.channel_id;
 
-    if GATEWAY_CHANNEL.may_load(deps.storage)?.is_some() {
+    if GATEWAY_CHANNEL.exists(deps.storage) {
         return Err(ContractError::ChannelAlreadySet);
     }
 
