@@ -132,7 +132,7 @@ fn integration_test() {
             &nois_proxy::msg::InstantiateMsg {
                 manager: Some("manager".to_string()),
                 prices: vec![Coin::new(1_000_000, "unoisx")],
-                test_mode: false,
+                test_mode: None,
                 callback_gas_limit: 500_000,
                 mode: nois_proxy::state::OperationalMode::Funded {},
                 allowlist_enabled: None,
