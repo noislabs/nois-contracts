@@ -430,7 +430,7 @@ fn receive_pull_beacon_price(deps: DepsMut, env: Env) -> Result<IbcReceiveRespon
     let config = CONFIG.load(deps.storage)?;
 
     let Coin { amount, denom } = config.price;
-    let ack = StdAck::success(&InPacketAck::PullBeaconPrice {
+    let ack = StdAck::success(InPacketAck::PullBeaconPrice {
         timestamp: env.block.time,
         amount,
         denom,
