@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- Upgrade Rust to 1.69.0 and workspace-optimizer to 0.13.0.
+
 ## [0.13.6] - 2023-06-17
 
 ## Added
