@@ -88,11 +88,11 @@ impl RequestRouter {
         };
 
         let acknowledgement = if queued {
-            StdAck::success(&InPacketAck::RequestQueued {
+            StdAck::success(InPacketAck::RequestQueued {
                 source_id: source_id.clone(),
             })
         } else {
-            StdAck::success(&InPacketAck::RequestProcessed {
+            StdAck::success(InPacketAck::RequestProcessed {
                 source_id: source_id.clone(),
             })
         };
