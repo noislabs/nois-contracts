@@ -13,7 +13,9 @@ pub struct InstantiateMsg {
     pub prices: Vec<Coin>,
     pub manager: Option<String>,
     /// In test mode the min publish time calculation is detached from the clock.
-    pub test_mode: bool,
+    /// This is for testing only. Setting the field to `None` equals `Some(false)`.
+    /// Using an optional type allows omitting the field in JSON instantiation messages.
+    pub test_mode: Option<bool>,
     /// The amount of gas that the callback to the dapp can consume
     pub callback_gas_limit: u64,
     pub mode: OperationalMode,

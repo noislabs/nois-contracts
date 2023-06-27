@@ -11,6 +11,7 @@ and this project adheres to
 ### Changed
 
 - Upgrade Rust to 1.69.0 and workspace-optimizer to 0.13.0.
+- proxy: make `test_mode` optional in `InstantiateMsg`.
 
 ## [0.13.6] - 2023-06-17
 

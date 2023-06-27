@@ -56,6 +56,7 @@ pub fn instantiate(
         Some(ma) => Some(deps.api.addr_validate(&ma)?),
         None => None,
     };
+    let test_mode = test_mode.unwrap_or(false);
     let allowlist_enabled = allowlist_enabled.unwrap_or_default();
     let allowlist = allowlist.unwrap_or_default();
 
@@ -974,7 +975,7 @@ mod tests {
         let msg = instantiate_msg.unwrap_or_else(|| InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: true,
+            test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: None,
@@ -1011,7 +1012,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: false,
+            test_mode: None,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: None,
@@ -1067,7 +1068,7 @@ mod tests {
         let mut deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: true,
+            test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(true),
@@ -1099,7 +1100,7 @@ mod tests {
         let mut deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: true,
+            test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(true),
@@ -1367,7 +1368,7 @@ mod tests {
         let msg = InstantiateMsg {
             manager: None,
             prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: false,
+            test_mode: None,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: None,
@@ -1478,7 +1479,7 @@ mod tests {
         let deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: true,
+            test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(true),
@@ -1494,7 +1495,7 @@ mod tests {
         let deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: true,
+            test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(true),
@@ -1514,7 +1515,7 @@ mod tests {
         let deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: true,
+            test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(true),
@@ -1557,7 +1558,7 @@ mod tests {
         let deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
             prices: vec![Coin::new(1_000000, "unoisx")],
-            test_mode: true,
+            test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(false),
