@@ -1,13 +1,6 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{from_slice, Binary, Order, StdResult, Storage};
-use cw_storage_plus::Deque;
-
-const UNPROCESSED_DRAND_JOBS_KEY_LEN: u16 = 24;
-
-/// This is the length of the storage key of a meta field
-/// of the Deque storage type. The 2 is the length-prefixed encoding.
-/// The 1 is the "h" or "t".
-const DEQUE_META_FIELD_LEN: usize = 2 + (UNPROCESSED_DRAND_JOBS_KEY_LEN as usize) + 1;
+use cosmwasm_std::{Binary, Order, StdResult, Storage};
+use cw_storage_plus::Map;
 
 #[cw_serde]
 pub struct Job {
@@ -18,14 +11,9 @@ pub struct Job {
     pub origin: Binary,
 }
 
-#[inline]
-fn unprocessed_drand_jobs_key(round: u64) -> String {
-    // "up" for unprocessed
-    // At a frequency of 1 beacon/second, 10 decimal places is sufficient for 300 years.
-    let key = format!("drand_jobs_up_{:0>10}", round);
-    debug_assert_eq!(key.len(), UNPROCESSED_DRAND_JOBS_KEY_LEN as usize);
-    key
-}
+/// A map from (round, job ID) here job ID is a round specific auto incrementing ID
+const JOBS: Map<(u32, u16), Job> = Map::new("jobs");
+const LAST_JOB_ID: Map<u32, u16> = Map::new("jids");
 
 /// Add an element to the unprocessed drand jobs queue of this round
 pub fn unprocessed_drand_jobs_enqueue(
@@ -33,8 +21,11 @@ pub fn unprocessed_drand_jobs_enqueue(
     round: u64,
     value: &Job,
 ) -> StdResult<()> {
-    let prefix = unprocessed_drand_jobs_key(round);
-    Deque::new(&prefix).push_back(storage, value)
+    let round: u32 = round.try_into().expect("round must not exceed u32 range");
+    let new_id = LAST_JOB_ID.may_load(storage, round)?.unwrap_or_default() + 1;
+    JOBS.save(storage, (round, new_id), value)?;
+    LAST_JOB_ID.save(storage, round, &new_id)?;
+    Ok(())
 }
 
 /// Remove an element from the unprocessed drand jobs queue of this round
@@ -42,14 +33,27 @@ pub fn unprocessed_drand_jobs_dequeue(
     storage: &mut dyn Storage,
     round: u64,
 ) -> StdResult<Option<Job>> {
-    let prefix = unprocessed_drand_jobs_key(round);
-    Deque::new(&prefix).pop_front(storage)
+    let round: u32 = round.try_into().expect("round must not exceed u32 range");
+    let first = JOBS
+        .prefix(round)
+        .range(storage, None, None, Order::Ascending)
+        .next();
+    let Some(found) = first else {
+        return Ok(None);
+    };
+    let (id, job) = found?;
+    JOBS.remove(storage, (round, id));
+    Ok(Some(job))
 }
 
 /// Gets the number of unprocessed drand jobs queue of this round
 pub fn unprocessed_drand_jobs_len(storage: &dyn Storage, round: u64) -> StdResult<u32> {
-    let prefix = unprocessed_drand_jobs_key(round);
-    Deque::<Job>::new(&prefix).len(storage)
+    let round: u32 = round.try_into().expect("round must not exceed u32 range");
+    let count = JOBS
+        .prefix(round)
+        .keys_raw(storage, None, None, Order::Ascending)
+        .count();
+    Ok(count as u32)
 }
 
 pub fn all_unprocessed_drand_jobs(
@@ -58,14 +62,10 @@ pub fn all_unprocessed_drand_jobs(
     offset: usize,
     limit: usize,
 ) -> StdResult<Vec<Job>> {
-    let start = b"\x00\x18drand_jobs_up_0000000000";
-    let end = b"\x00\x18drand_jobs_up_9999999999";
-    storage
-        .range(Some(start), Some(end), order)
-        .filter(|(key, _value)| key.len() != DEQUE_META_FIELD_LEN)
+    JOBS.range_raw(storage, None, None, order)
         .skip(offset)
         .take(limit)
-        .map(|(_key, value)| from_slice::<Job>(&value))
+        .map(|res| res.map(|ok| ok.1))
         .collect::<StdResult<Vec<_>>>()
 }
 
@@ -74,21 +74,6 @@ mod tests {
     use cosmwasm_std::testing::MockStorage;
 
     use super::*;
-
-    #[test]
-    fn unprocessed_drand_jobs_key_works() {
-        assert_eq!(unprocessed_drand_jobs_key(0), "drand_jobs_up_0000000000");
-        assert_eq!(unprocessed_drand_jobs_key(1), "drand_jobs_up_0000000001");
-        assert_eq!(unprocessed_drand_jobs_key(42), "drand_jobs_up_0000000042");
-        assert_eq!(
-            unprocessed_drand_jobs_key(2879178),
-            "drand_jobs_up_0002879178"
-        );
-        assert_eq!(
-            unprocessed_drand_jobs_key(9876543210),
-            "drand_jobs_up_9876543210"
-        );
-    }
 
     #[test]
     fn all_unprocessed_drand_jobs_works() {
