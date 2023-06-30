@@ -22,9 +22,8 @@ use crate::msg::{
 };
 use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
-    all_unprocessed_drand_jobs, get_processed_drand_jobs, requests_log_add, requests_log_asc,
-    requests_log_desc, unprocessed_drand_jobs_len, Config, Customer, RequestLogEntry, CONFIG,
-    CUSTOMERS,
+    drand_jobs2, get_processed_drand_jobs, requests_log_add, requests_log_asc, requests_log_desc,
+    Config, Customer, RequestLogEntry, CONFIG, CUSTOMERS,
 };
 
 #[entry_point]
@@ -132,7 +131,7 @@ fn query_config(deps: Deps) -> StdResult<ConfigResponse> {
 
 /// Query drand job stats by drand round
 fn query_drand_job_stats(deps: Deps, round: u64) -> StdResult<DrandJobStatsResponse> {
-    let unprocessed = unprocessed_drand_jobs_len(deps.storage, round)?;
+    let unprocessed = drand_jobs2::unprocessed_drand_jobs_len(deps.storage, round)?;
     let processed = get_processed_drand_jobs(deps.storage, round)?;
     Ok(DrandJobStatsResponse {
         round,
@@ -175,7 +174,7 @@ fn query_jobs(
 ) -> StdResult<JobsResponse> {
     let offset = offset.unwrap_or(0) as usize;
     let limit = limit.unwrap_or(50) as usize;
-    let jobs: Vec<_> = all_unprocessed_drand_jobs(deps.storage, order, offset, limit)?;
+    let jobs: Vec<_> = drand_jobs2::all_unprocessed_drand_jobs(deps.storage, order, offset, limit)?;
     Ok(JobsResponse { jobs })
 }
 

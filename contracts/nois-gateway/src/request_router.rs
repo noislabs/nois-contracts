@@ -8,10 +8,7 @@ use nois_protocol::{InPacketAck, OutPacket, StdAck, DELIVER_BEACON_PACKET_LIFETI
 
 use crate::{
     drand_archive::{archive_lookup, archive_store},
-    state::{
-        increment_processed_drand_jobs, unprocessed_drand_jobs_dequeue,
-        unprocessed_drand_jobs_enqueue, unprocessed_drand_jobs_len, Job,
-    },
+    state::{drand_jobs2, increment_processed_drand_jobs, Job},
 };
 
 /// The number of jobs that are processed per submission. Use this limit
@@ -83,7 +80,7 @@ impl RequestRouter {
             msgs.push(msg.into());
             false
         } else {
-            unprocessed_drand_jobs_enqueue(deps.storage, round, &job)?;
+            drand_jobs2::unprocessed_drand_jobs_enqueue(deps.storage, round, &job)?;
             true
         };
 
@@ -124,7 +121,7 @@ impl RequestRouter {
         let mut msgs = Vec::<CosmosMsg>::new();
         let mut jobs_processed = 0;
         // let max_jobs_per_submission
-        while let Some(job) = unprocessed_drand_jobs_dequeue(deps.storage, round)? {
+        while let Some(job) = drand_jobs2::unprocessed_drand_jobs_dequeue(deps.storage, round)? {
             increment_processed_drand_jobs(deps.storage, round)?;
             let published = time_of_round(round);
             // Use IbcMsg::SendPacket to send packages to the proxies.
@@ -140,7 +137,7 @@ impl RequestRouter {
                 break;
             }
         }
-        let jobs_left = unprocessed_drand_jobs_len(deps.storage, round)?;
+        let jobs_left = drand_jobs2::unprocessed_drand_jobs_len(deps.storage, round)?;
         Ok(NewDrand {
             msgs,
             jobs_processed,

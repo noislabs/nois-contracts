@@ -1,19 +1,11 @@
-use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Binary, Order, StdResult, Storage};
+use cosmwasm_std::{Order, StdResult, Storage};
 use cw_storage_plus::Map;
 
-#[cw_serde]
-pub struct Job {
-    /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
-    pub source_id: String,
-    // The channel the job came from and we have to send the response to
-    pub channel: String,
-    pub origin: Binary,
-}
+use super::Job;
 
 /// A map from (round, job ID) here job ID is a round specific auto incrementing ID
-const JOBS: Map<(u32, u16), Job> = Map::new("jobs");
-const LAST_JOB_ID: Map<u32, u16> = Map::new("jids");
+const JOBS: Map<(u32, u16), Job> = Map::new("djobs");
+const LAST_JOB_ID: Map<u32, u16> = Map::new("djids");
 
 /// Add an element to the unprocessed drand jobs queue of this round
 pub fn unprocessed_drand_jobs_enqueue(
@@ -71,7 +63,7 @@ pub fn all_unprocessed_drand_jobs(
 
 #[cfg(test)]
 mod tests {
-    use cosmwasm_std::testing::MockStorage;
+    use cosmwasm_std::{testing::MockStorage, Binary};
 
     use super::*;
 
