@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.13.7] - 2023-07-01
+
 ### Changed
 
 - Upgrade cosmwasm to 1.2.7
@@ -206,7 +208,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.6...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.7...HEAD
+[0.13.7]: https://github.com/noislabs/nois-contracts/compare/v0.13.6...v0.13.7
 [0.13.6]: https://github.com/noislabs/nois-contracts/compare/v0.13.5...v0.13.6
 [0.13.5]: https://github.com/noislabs/nois-contracts/compare/v0.13.4...v0.13.5
 [0.13.4]: https://github.com/noislabs/nois-contracts/compare/v0.13.3...v0.13.4
