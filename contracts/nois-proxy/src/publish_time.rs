@@ -4,7 +4,10 @@ use crate::state::{
     TEST_MODE_NEXT_AFTER, TEST_MODE_NEXT_AFTER_INCREMENT_SECONDS, TEST_MODE_NEXT_AFTER_INIT,
 };
 
-const SAFETY_MARGIN: u64 = 3_000000000; // 3 seconds
+/// The publishing time must be at least `SAFETY_MARGIN` in the future. This ensures
+/// that in case of clock drifts between consumer chain and wall time only rounds are requested
+/// that have not been published yet.
+const SAFETY_MARGIN: u64 = 5_000000000; // 5 seconds
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum AfterMode {
@@ -40,7 +43,7 @@ mod tests {
     #[test]
     fn safety_margin_is_correct() {
         let actual = Timestamp::from_nanos(SAFETY_MARGIN);
-        let expected = Timestamp::from_nanos(0).plus_seconds(3);
+        let expected = Timestamp::from_nanos(0).plus_seconds(5);
         assert_eq!(actual, expected);
     }
 
