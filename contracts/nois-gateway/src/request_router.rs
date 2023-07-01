@@ -10,7 +10,7 @@ use crate::{
     drand_archive::{archive_lookup, archive_store},
     state::{
         increment_processed_drand_jobs, unprocessed_drand_jobs_dequeue,
-        unprocessed_drand_jobs_enqueue, unprocessed_drand_jobs_len, Job,
+        unprocessed_drand_jobs_enqueue, Job,
     },
 };
 
@@ -32,7 +32,6 @@ pub struct RoutingReceipt {
 pub struct NewDrand {
     pub msgs: Vec<CosmosMsg>,
     pub jobs_processed: u32,
-    pub jobs_left: u32,
 }
 
 pub struct RequestRouter {}
@@ -140,11 +139,9 @@ impl RequestRouter {
                 break;
             }
         }
-        let jobs_left = unprocessed_drand_jobs_len(deps.storage, round)?;
         Ok(NewDrand {
             msgs,
             jobs_processed,
-            jobs_left,
         })
     }
 }

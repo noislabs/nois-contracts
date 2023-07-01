@@ -497,10 +497,8 @@ fn execute_add_verified_round(
     let NewDrand {
         msgs,
         jobs_processed,
-        jobs_left,
     } = router.new_drand(deps, env, round, &randomness, is_verifying_tx)?;
     attributes.push(Attribute::new("jobs_processed", jobs_processed.to_string()));
-    attributes.push(Attribute::new("jobs_left", jobs_left.to_string()));
 
     Ok(Response::new()
         .add_messages(msgs)
@@ -1059,8 +1057,6 @@ mod tests {
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "0");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
 
         // Process one job
         let msg = make_add_verified_round_msg(ROUND2, true);
@@ -1073,8 +1069,6 @@ mod tests {
         ));
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
 
         // Create 2 job
         for i in 0..2 {
@@ -1105,8 +1099,6 @@ mod tests {
         ));
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "2");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
 
         // Create 21 job
         for i in 0..21 {
@@ -1128,8 +1120,6 @@ mod tests {
         assert_eq!(res.messages.len(), 2);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "2");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "19");
 
         // Process next 2 jobs
         let msg = make_add_verified_round_msg(ROUND4, true);
@@ -1137,8 +1127,6 @@ mod tests {
         assert_eq!(res.messages.len(), 2);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "2");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "17");
 
         // Process next 2 jobs
         let msg = make_add_verified_round_msg(ROUND4, true);
@@ -1146,8 +1134,6 @@ mod tests {
         assert_eq!(res.messages.len(), 2);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "2");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "15");
 
         // Process next 14 jobs
         let msg = make_add_verified_round_msg(ROUND4, false);
@@ -1155,8 +1141,6 @@ mod tests {
         assert_eq!(res.messages.len(), 14);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "14");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "1");
 
         // Process last 1 jobs
         let msg = make_add_verified_round_msg(ROUND4, false);
@@ -1164,8 +1148,6 @@ mod tests {
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
 
         // No jobs left for later submissions
         let msg = make_add_verified_round_msg(ROUND4, true);
@@ -1173,8 +1155,6 @@ mod tests {
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "0");
-        let jobs_left = first_attr(&res.attributes, "jobs_left").unwrap();
-        assert_eq!(jobs_left, "0");
     }
 
     //
