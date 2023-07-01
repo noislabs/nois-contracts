@@ -12,6 +12,7 @@ pub const JOB_DELIVERIES: Map<&str, JobLifecycleDelivery> = Map::new("job_delive
 pub struct JobLifecycleRequest {
     pub height: u64,
     pub tx_index: Option<u32>,
+    /// Safety margin in nanoseconds
     pub safety_margin: u64,
     // Requested beacon with publish time > after
     pub after: Timestamp,

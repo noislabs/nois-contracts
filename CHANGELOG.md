@@ -17,6 +17,7 @@ and this project adheres to
   ([#263])
 - gateway: do not emit `jobs_left` attribute on a when beacon is added since
   this cannot efficiently be queried. ([#263])
+- proxy/monitoring: increase safety margin to 5s.
 
 [#263]: https://github.com/noislabs/nois-contracts/pull/263
 

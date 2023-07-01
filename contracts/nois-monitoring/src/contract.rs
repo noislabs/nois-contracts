@@ -11,7 +11,10 @@ use crate::state::{
     NOIS_PROXY,
 };
 
-const SAFETY_MARGIN: u64 = 3_000000000; // 3 seconds
+/// The publishing time must be at least `SAFETY_MARGIN` in the future. This ensures
+/// that in case of clock drifts between consumer chain and wall time only rounds are requested
+/// that have not been published yet.
+const SAFETY_MARGIN: u64 = 5_000000000; // 5 seconds
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -63,12 +66,13 @@ pub fn execute_roll_dice(
     }
     validate_job_id(&job_id)?;
 
-    let after = env.block.time.plus_nanos(SAFETY_MARGIN);
+    let safety_margin = SAFETY_MARGIN;
+    let after = env.block.time.plus_nanos(safety_margin);
 
     let job_lifecycle = JobLifecycleRequest {
         height: env.block.height,
         tx_index: env.transaction.map(|t| t.index),
-        safety_margin: SAFETY_MARGIN,
+        safety_margin,
         after,
     };
     JOB_REQUESTS.save(deps.storage, &job_id, &job_lifecycle)?;
