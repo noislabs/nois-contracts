@@ -12,6 +12,8 @@ and this project adheres to
 
 - Upgrade Rust to 1.69.0 and workspace-optimizer to 0.13.0.
 - proxy: make `test_mode` optional in `InstantiateMsg`.
+- gateway: Use new storage layout to allow an efficient query of all jobs.
+  ([#263])
 - gateway: do not emit `jobs_left` attribute on a when beacon is added since
   this cannot efficiently be queried. ([#263])
 
