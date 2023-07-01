@@ -10,6 +10,8 @@ pub use drand_jobs2::all_unprocessed_drand_jobs;
 // New jobs always go to v2
 pub use drand_jobs2::unprocessed_drand_jobs_enqueue;
 
+/// Gets the number of unprocessed drand jobs queue of this round.
+/// This is inefficient for many jobs in a single round.
 pub fn unprocessed_drand_jobs_len(storage: &dyn Storage, round: u64) -> StdResult<u32> {
     let l1 = drand_jobs1::unprocessed_drand_jobs_len(storage, round)?;
     let l2 = drand_jobs2::unprocessed_drand_jobs_len(storage, round)?;

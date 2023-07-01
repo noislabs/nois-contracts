@@ -12,6 +12,10 @@ and this project adheres to
 
 - Upgrade Rust to 1.69.0 and workspace-optimizer to 0.13.0.
 - proxy: make `test_mode` optional in `InstantiateMsg`.
+- gateway: do not emit `jobs_left` attribute on a when beacon is added since
+  this cannot efficiently be queried. ([#263])
+
+[#263]: https://github.com/noislabs/nois-contracts/pull/263
 
 ## [0.13.6] - 2023-06-17
 

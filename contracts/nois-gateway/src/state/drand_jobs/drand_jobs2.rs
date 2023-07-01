@@ -38,7 +38,8 @@ pub fn unprocessed_drand_jobs_dequeue(
     Ok(Some(job))
 }
 
-/// Gets the number of unprocessed drand jobs queue of this round
+/// Gets the number of unprocessed drand jobs queue of this round.
+/// This is inefficient for many jobs in a single round.
 pub fn unprocessed_drand_jobs_len(storage: &dyn Storage, round: u64) -> StdResult<u32> {
     let round: u32 = round.try_into().expect("round must not exceed u32 range");
     let count = JOBS
