@@ -1,5 +1,7 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{from_slice, Binary, Order, StdResult, Storage};
+#[cfg(test)]
+use cosmwasm_std::{from_slice, Order};
+use cosmwasm_std::{Binary, StdResult, Storage};
 use cw_storage_plus::Deque;
 
 const UNPROCESSED_DRAND_JOBS_KEY_LEN: u16 = 24;
@@ -7,6 +9,7 @@ const UNPROCESSED_DRAND_JOBS_KEY_LEN: u16 = 24;
 /// This is the length of the storage key of a meta field
 /// of the Deque storage type. The 2 is the length-prefixed encoding.
 /// The 1 is the "h" or "t".
+#[cfg(test)]
 const DEQUE_META_FIELD_LEN: usize = 2 + (UNPROCESSED_DRAND_JOBS_KEY_LEN as usize) + 1;
 
 #[cw_serde]
@@ -28,6 +31,7 @@ fn unprocessed_drand_jobs_key(round: u64) -> String {
 }
 
 /// Add an element to the unprocessed drand jobs queue of this round
+#[cfg(test)]
 pub fn unprocessed_drand_jobs_enqueue(
     storage: &mut dyn Storage,
     round: u64,
@@ -52,6 +56,7 @@ pub fn unprocessed_drand_jobs_len(storage: &dyn Storage, round: u64) -> StdResul
     Deque::<Job>::new(&prefix).len(storage)
 }
 
+#[cfg(test)]
 pub fn all_unprocessed_drand_jobs(
     storage: &dyn Storage,
     order: Order,
