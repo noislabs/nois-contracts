@@ -22,7 +22,9 @@ mkdir -p ./tests/internal
 for SRC in ./target/wasm32-unknown-unknown/release/*.wasm; do
   FILENAME=$(basename "$SRC")
   if command -v wasm-opt >/dev/null ; then
-    wasm-opt -Os "$SRC" -o "./tests/internal/$FILENAME"
+    # We use --signext-lowering to avoid sign extension problems with CosmWasm < 1.3.
+    # Also using -O1 instead of -Os here saves time during development.
+    wasm-opt -O1 --signext-lowering "$SRC" -o "./tests/internal/$FILENAME"
     chmod -x "./tests/internal/$FILENAME"
   else
     cp "$SRC" "./tests/internal/$FILENAME"
