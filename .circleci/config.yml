@@ -492,7 +492,7 @@ jobs:
             mkdir -p ./wasm-out
             for SRC in ./target/wasm32-unknown-unknown/release/*.wasm; do
               FILENAME=$(basename "$SRC")
-              wasm-opt -Os "$SRC" -o "./wasm-out/$FILENAME"
+              wasm-opt -Os --signext-lowering "$SRC" -o "./wasm-out/$FILENAME"
               chmod -x "./wasm-out/$FILENAME"
             done
             ls -lA ./wasm-out
