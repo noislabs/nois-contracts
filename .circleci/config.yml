@@ -473,13 +473,31 @@ jobs:
           name: Add wasm32 target
           command: rustup target add wasm32-unknown-unknown
       - run:
-          name: Build Wasm Release
+          name: Install wasm-opt
           command: |
-            for C in ./contracts/*/
-            do
+            wget https://github.com/WebAssembly/binaryen/releases/download/version_114/binaryen-version_114-x86_64-linux.tar.gz
+            tar -xf ./binaryen-version_*-x86_64-linux.tar.gz
+            mv ./binaryen-version_*/bin/wasm-opt /usr/local/bin
+            wasm-opt --version
+      - run:
+          name: Build Wasm
+          command: |
+            for C in ./contracts/*/; do
               echo "Compiling `basename $C`..."
-              (cd $C && RUSTFLAGS='-C link-arg=-s' cargo build --release --target wasm32-unknown-unknown --locked)
+              (cd "$C" && RUSTFLAGS='-C link-arg=-s' cargo build --release --target wasm32-unknown-unknown --locked)
             done
+      - run:
+          name: Optimizing Wasm
+          # We use --signext-lowering to avoid sign extension problems with CosmWasm < 1.3.
+          # Also using -O1 instead of -Os here saves a lot of CI time.
+          command: |
+            mkdir -p ./wasm-out
+            for SRC in ./target/wasm32-unknown-unknown/release/*.wasm; do
+              FILENAME=$(basename "$SRC")
+              wasm-opt -O1 --signext-lowering "$SRC" -o "./wasm-out/$FILENAME"
+              chmod -x "./wasm-out/$FILENAME"
+            done
+            ls -lA ./wasm-out
       - save_cache:
           paths:
             - /usr/local/cargo/registry
@@ -487,7 +505,7 @@ jobs:
           key: v2-wasm_build-rust:1.69.0-{{ checksum "~/project/Cargo.lock" }}
       - persist_to_workspace:
           name: Save wasm contracts for integration test usage
-          root: ./target/wasm32-unknown-unknown/release
+          root: ./wasm-out
           paths:
             - nois_demo.wasm
             - nois_drand.wasm
