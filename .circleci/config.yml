@@ -480,21 +480,21 @@ jobs:
             mv ./binaryen-version_*/bin/wasm-opt /usr/local/bin
             wasm-opt --version
       - run:
-          name: Build Wasm Release
+          name: Build Wasm
           command: |
-            for C in ./contracts/*/
-            do
+            for C in ./contracts/*/; do
               echo "Compiling `basename $C`..."
               (cd "$C" && RUSTFLAGS='-C link-arg=-s' cargo build --release --target wasm32-unknown-unknown --locked)
             done
-
+      - run:
+          name: Optimizing Wasm
+          command: |
             mkdir -p ./wasm-out
             for SRC in ./target/wasm32-unknown-unknown/release/*.wasm; do
               FILENAME=$(basename "$SRC")
               wasm-opt -Os "$SRC" -o "./wasm-out/$FILENAME"
               chmod -x "./wasm-out/$FILENAME"
             done
-
             ls -lA ./wasm-out
       - save_cache:
           paths:
