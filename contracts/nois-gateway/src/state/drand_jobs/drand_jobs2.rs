@@ -1,11 +1,13 @@
 use cosmwasm_std::{Order, StdResult, Storage};
 use cw_storage_plus::Map;
 
+use crate::state::TopKey;
+
 use super::Job;
 
 /// A map from (round, job ID) here job ID is a round specific auto incrementing ID
-const JOBS: Map<(u32, u16), Job> = Map::new("djobs");
-const LAST_JOB_ID: Map<u32, u16> = Map::new("djids");
+const JOBS: Map<(u32, u16), Job> = Map::new(TopKey::Jobs.as_str());
+const LAST_JOB_ID: Map<u32, u16> = Map::new(TopKey::JobsLastId.as_str());
 
 /// Add an element to the unprocessed drand jobs queue of this round
 pub fn unprocessed_drand_jobs_enqueue(

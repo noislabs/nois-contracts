@@ -1,9 +1,12 @@
 use cosmwasm_std::{StdResult, Storage};
 use cw_storage_plus::Map;
 
+use super::TopKey;
+
 /// A map from drand rounds to number of jobs.
 /// "pc" is short for processed count.
-const PROCESSED_DRAND_JOBS_COUNT: Map<u64, u32> = Map::new("drand_jobs_pc");
+const PROCESSED_DRAND_JOBS_COUNT: Map<u64, u32> =
+    Map::new(TopKey::ProcessedDrandJobsCount.as_str());
 
 /// Add an element to the processed drand jobs queue of this round
 pub fn get_processed_drand_jobs(storage: &dyn Storage, round: u64) -> StdResult<u32> {
