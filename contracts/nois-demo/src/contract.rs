@@ -124,7 +124,7 @@ mod tests {
     use super::*;
     use cosmwasm_std::{
         testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-        Empty, HexBinary, OwnedDeps, Timestamp,
+        Addr, Empty, HexBinary, OwnedDeps, Timestamp,
     };
 
     const CREATOR: &str = "creator";
@@ -185,6 +185,7 @@ mod tests {
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
                 .unwrap(),
+                relayer: Addr::unchecked("relayer"),
             },
         };
         let info = mock_info(PROXY_ADDRESS, &[]);
@@ -203,6 +204,7 @@ mod tests {
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
                 .unwrap(),
+                relayer: Addr::unchecked("relayer"),
             },
         };
         let info = mock_info("guest", &[]);

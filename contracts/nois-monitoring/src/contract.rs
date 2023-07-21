@@ -116,6 +116,7 @@ pub fn execute_receive(
         job_id,
         published,
         randomness,
+        relayer: _,
     } = callback;
 
     let randomness: [u8; 32] = randomness
@@ -185,7 +186,7 @@ mod tests {
     use cosmwasm_std::testing::{
         mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
     };
-    use cosmwasm_std::{coins, Empty, HexBinary, OwnedDeps, Timestamp};
+    use cosmwasm_std::{coins, Addr, Empty, HexBinary, OwnedDeps, Timestamp};
 
     const CREATOR: &str = "creator";
     const PROXY_ADDRESS: &str = "the proxy of choice";
@@ -255,6 +256,7 @@ mod tests {
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
                 .unwrap(),
+                relayer: Addr::unchecked("relayer"),
             },
         };
         let info = mock_info(PROXY_ADDRESS, &[]);
@@ -268,6 +270,7 @@ mod tests {
                     "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
                 )
                 .unwrap(),
+                relayer: Addr::unchecked("relayer"),
             },
         };
         let info = mock_info(PROXY_ADDRESS, &[]);
@@ -287,6 +290,7 @@ mod tests {
                 job_id: "round_1".to_string(),
                 published: Timestamp::from_seconds(1682086395),
                 randomness: HexBinary::from_hex("ffffffff").unwrap(),
+                relayer: Addr::unchecked("relayer"),
             },
         };
         let info = mock_info(PROXY_ADDRESS, &[]);
@@ -312,6 +316,7 @@ mod tests {
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
                 .unwrap(),
+                relayer: Addr::unchecked("relayer"),
             },
         };
         let info = mock_info(PROXY_ADDRESS, &[]);
@@ -339,6 +344,7 @@ mod tests {
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
                 .unwrap(),
+                relayer: Addr::unchecked("relayer"),
             },
         };
         let info = mock_info("guest", &[]);
@@ -363,6 +369,7 @@ mod tests {
                     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 )
                 .unwrap(),
+                relayer: Addr::unchecked("relayer"),
             },
         };
         let info = mock_info(PROXY_ADDRESS, &[]);

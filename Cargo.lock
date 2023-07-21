@@ -534,8 +534,6 @@ dependencies = [
 [[package]]
 name = "nois"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f2f7aff53bda03e2f301e6a53aa4e76bb992b599c3163a3f18c1d3169e6341a"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -543,6 +541,7 @@ dependencies = [
  "rand",
  "rand_xoshiro",
  "serde",
+ "sha2 0.10.6",
  "thiserror",
  "xxhash-rust",
 ]
