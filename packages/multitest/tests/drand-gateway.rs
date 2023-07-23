@@ -121,6 +121,7 @@ fn integration_test() {
         resp,
         nois_gateway::msg::ConfigResponse {
             drand: None,
+            trusted_sources: None,
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
             payment_code_id: code_id_nois_payment,
@@ -166,6 +167,7 @@ fn integration_test() {
             manager: None,
             price: None,
             drand_addr: Some(addr_nois_drand.to_string()),
+            trusted_sources: Some(vec![addr_nois_drand.to_string()]),
             payment_initial_funds: None,
         },
         &[],
@@ -179,6 +181,7 @@ fn integration_test() {
         resp,
         nois_gateway::msg::ConfigResponse {
             drand: Some(addr_nois_drand.clone()),
+            trusted_sources: Some(vec![addr_nois_drand.clone()]),
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
             payment_code_id: code_id_nois_payment,

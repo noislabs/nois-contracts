@@ -5,8 +5,11 @@ use cw_storage_plus::Item;
 #[cw_serde]
 pub struct Config {
     /// The address of the drand contract.
-    /// As long as this is unset, noone can submit randomness.
     pub drand: Option<Addr>,
+    /// Addresses which are trusted for providing randomness to the gateway.
+    /// None and an empty vector means the same. This is just an Option for compatibility
+    /// with previous versions of the contract.
+    pub trusted_sources: Option<Vec<Addr>>,
     /// Manager to set the price and drand address
     pub manager: Addr,
     /// The price to pay in order to register the randomness job
