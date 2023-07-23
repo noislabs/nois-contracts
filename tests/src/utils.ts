@@ -89,7 +89,7 @@ export function assertAckSuccess(acks: AckWithMetadata[]) {
   for (const ack of acks) {
     const parsed = JSON.parse(fromUtf8(ack.acknowledgement));
     if (parsed.error) {
-      throw new Error(`Unexpected error in ack: ${parsed.error}`);
+      throw new Error(`Unexpected error in ack: ${parsed.error}; Events: ${JSON.stringify(ack.txEvents)}`);
     }
     if (!parsed.result) {
       throw new Error(`Ack result unexpectedly empty`);
