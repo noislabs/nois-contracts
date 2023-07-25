@@ -10,13 +10,32 @@ pub enum InPacket {
     RequestBeacon {
         /// Beacon publish time must be > `after`
         after: Timestamp,
+        /// The callback data set by the proxy in a proxy specific format.
+        callback: Binary,
+    },
+    RequestScheduleJob {
+        /// Schedule at time
+        after: Timestamp,
         /// The origin data set by the proxy in a proxy specific format.
-        origin: Binary,
+        callback: Binary,
     },
     /// Requests the current price per beacon. This can change over time and potentially
     /// change per channel ID.
     /// The proxy can pull the beacon price but should also expect price updates to get pushed.
     PullBeaconPrice {},
+}
+
+pub enum RequestType {
+    Randomness,
+    AtJob,
+}
+impl RequestType {
+    pub fn to_string(&self) -> &str {
+        match self {
+            Self::Randomness => "randomness request",
+            Self::AtJob => "at-job request",
+        }
+    }
 }
 
 #[cw_serde]

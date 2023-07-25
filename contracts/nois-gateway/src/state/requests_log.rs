@@ -10,7 +10,7 @@ pub struct RequestLogEntry {
     /// height and tx_index of the transaction in which this was added
     pub tx: (u64, Option<u32>),
     /// A RNG specific randomness source identifier, e.g. `drand:<network id>:<round>`
-    pub source_id: String,
+    pub source_id: Option<String>,
     /// This is true if the request was queued, i.e. the randomness is not yet available.
     /// It is false if the request is already available.
     pub queued: bool,

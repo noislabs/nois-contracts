@@ -9,8 +9,8 @@ use cosmwasm_std::{
 };
 use cw_storage_plus::Bound;
 use nois_protocol::{
-    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
-    BEACON_PRICE_PACKET_LIFETIME, IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
+    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, RequestType,
+    StdAck, BEACON_PRICE_PACKET_LIFETIME, IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
 };
 use sha2::{Digest, Sha256};
 
@@ -344,10 +344,26 @@ pub fn ibc_packet_receive(
     (|| {
         let op: InPacket = from_binary(&packet.data)?;
         match op {
-            InPacket::RequestBeacon { after, origin } => {
-                receive_request_beacon(deps, env, channel_id, relayer, after, origin)
-            }
+            InPacket::RequestBeacon { after, callback } => receive_job_request(
+                deps,
+                env,
+                channel_id,
+                relayer,
+                after,
+                callback,
+                RequestType::Randomness,
+            ),
+            InPacket::RequestScheduleJob { after, callback } => receive_job_request(
+                deps,
+                env,
+                channel_id,
+                relayer,
+                after,
+                callback,
+                RequestType::AtJob,
+            ),
             InPacket::PullBeaconPrice {} => receive_pull_beacon_price(deps, env),
+
             _ => Err(ContractError::UnsupportedPacketType),
         }
     })()
@@ -361,15 +377,16 @@ pub fn ibc_packet_receive(
     })
 }
 
-fn receive_request_beacon(
+fn receive_job_request(
     mut deps: DepsMut,
     env: Env,
     channel_id: String,
     relayer: Addr,
     after: Timestamp,
-    origin: Binary,
+    callback: Binary,
+    request_type: RequestType,
 ) -> Result<IbcReceiveResponse, ContractError> {
-    validate_origin(&origin)?;
+    validate_origin(&callback)?;
 
     let router = RequestRouter::new();
     let RoutingReceipt {
@@ -382,7 +399,8 @@ fn receive_request_beacon(
         &env,
         channel_id.clone(),
         after,
-        origin.clone(),
+        callback.clone(),
+        request_type,
     )?;
 
     // Store request
@@ -390,7 +408,7 @@ fn receive_request_beacon(
         deps.storage,
         &channel_id,
         &RequestLogEntry {
-            origin,
+            origin: callback,
             tx: (env.block.height, env.transaction.map(|ti| ti.index)),
             source_id,
             queued,
@@ -1045,7 +1063,7 @@ mod tests {
             "foo",
             &InPacket::RequestBeacon {
                 after: AFTER2,
-                origin: origin(1),
+                callback: origin(1),
             },
         )
         .unwrap();
@@ -1076,7 +1094,7 @@ mod tests {
                 "foo",
                 &InPacket::RequestBeacon {
                     after: AFTER3,
-                    origin: origin(i),
+                    callback: origin(i),
                 },
             )
             .unwrap();
@@ -1106,7 +1124,7 @@ mod tests {
                 "foo",
                 &InPacket::RequestBeacon {
                     after: AFTER4,
-                    origin: origin(i),
+                    callback: origin(i),
                 },
             )
             .unwrap();
@@ -1206,7 +1224,7 @@ mod tests {
             "foo",
             &InPacket::RequestBeacon {
                 after: AFTER1,
-                origin: origin(1),
+                callback: origin(1),
             },
         )
         .unwrap();
@@ -1240,7 +1258,7 @@ mod tests {
             "foo",
             &InPacket::RequestBeacon {
                 after: AFTER1,
-                origin: origin(2),
+                callback: origin(2),
             },
         )
         .unwrap();
@@ -1262,7 +1280,7 @@ mod tests {
                 "foo",
                 &InPacket::RequestBeacon {
                     after: AFTER2,
-                    origin: origin(i),
+                    callback: origin(i),
                 },
             )
             .unwrap();
@@ -1367,7 +1385,7 @@ mod tests {
             CHANNEL,
             &InPacket::RequestBeacon {
                 after: AFTER1,
-                origin: origin(1),
+                callback: origin(1),
             },
         )
         .unwrap();
@@ -1386,8 +1404,8 @@ mod tests {
                     origin: origin(1),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
-                            .to_string(),
+                        Some("drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                            .to_string()),
                     tx: expected_tx_1
                 }]
             }
@@ -1399,8 +1417,8 @@ mod tests {
                     origin: origin(1),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
-                            .to_string(),
+                        Some("drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                            .to_string()),
                     tx: expected_tx_1
                 }]
             }
@@ -1411,7 +1429,7 @@ mod tests {
             CHANNEL,
             &InPacket::RequestBeacon {
                 after: AFTER2,
-                origin: origin(2),
+                callback: origin(2),
             },
         )
         .unwrap();
@@ -1431,15 +1449,15 @@ mod tests {
                     origin: origin(1),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
-                            .to_string(),
+                    Some("drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                            .to_string()),
                     tx: expected_tx_1
                 }, RequestLogEntry {
                     origin: origin(2),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
-                            .to_string(),
+                    Some("drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
+                            .to_string()),
                     tx: expected_tx_2
                 }]
             }
@@ -1451,15 +1469,15 @@ mod tests {
                     origin: origin(2),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
-                            .to_string(),
+                    Some("drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
+                            .to_string()),
                     tx: expected_tx_2
                   }, RequestLogEntry {
                     origin: origin(1),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
-                            .to_string(),
+                    Some("drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                            .to_string()),
                     tx: expected_tx_1
                 }]
             }
@@ -1653,7 +1671,7 @@ mod tests {
             CHANNEL_ID,
             &InPacket::RequestBeacon {
                 after: AFTER1,
-                origin: origin(1),
+                callback: origin(1),
             },
         )
         .unwrap();
@@ -1670,7 +1688,7 @@ mod tests {
             CHANNEL_ID,
             &InPacket::RequestBeacon {
                 after: AFTER1,
-                origin: origin(2),
+                callback: origin(2),
             },
         )
         .unwrap();
@@ -1685,7 +1703,7 @@ mod tests {
                 CHANNEL_ID,
                 &InPacket::RequestBeacon {
                     after: AFTER2,
-                    origin: origin(i),
+                    callback: origin(i),
                 },
             )
             .unwrap();

@@ -38,6 +38,13 @@ pub enum ExecuteMsg {
         after: Timestamp,
         job_id: String,
     },
+    // This will schedule a job to call the dapp contract at a specific date
+    ScheduleJobAt {
+        after: Timestamp,
+        job_id: String,
+        // if the callback_addr is None, default to info.sender
+        callback_addr: Option<String>,
+    },
     /// Set the config
     SetConfig {
         manager: Option<String>,
@@ -202,13 +209,13 @@ pub struct IsAllowlistedResponse {
 }
 
 /// This struct contains information about the origin of the beacon request. It helps the
-/// proxy to route the beacon response to the final destination.
+/// proxy to route the beacon response to the final callback_contract.
 /// The IBC communication between proxy and gateway does not need this information. It is
 /// just passed along.
 #[cw_serde]
-pub struct RequestBeaconOrigin {
-    /// The address of the dapp that requested the beacon. This is used by the proxy
+pub struct RequestBeaconCallback {
+    /// The address of the dapp that will receive the beacon. This is used by the proxy
     /// to send the callback.
-    pub sender: String,
+    pub callback_contract: String,
     pub job_id: String,
 }
