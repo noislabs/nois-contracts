@@ -65,7 +65,6 @@ impl RequestRouter {
         after: Timestamp,
         origin: Binary,
     ) -> StdResult<RoutingReceipt> {
-        // For now  this looks
         let (round, source_id) = commit_to_drand_round(after);
 
         let existing_randomness = archive_lookup(deps.storage, round);
