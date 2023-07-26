@@ -168,8 +168,8 @@ export async function instantiateAndConnectIbc(
   }
 
   if (options.mockDrandAddr) {
-    const setDrandMsg: GatewayExecuteMsg = { set_config: { drand_addr: options.mockDrandAddr } };
-    await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setDrandMsg, "auto");
+    const setConfigMsg: GatewayExecuteMsg = { set_config: { trusted_sources: [options.mockDrandAddr] } };
+    await noisClient.sign.execute(noisClient.senderAddress, noisGatewayAddress, setConfigMsg, "auto");
   }
 
   const [noisProxyInfo, noisGatewayInfo] = await Promise.all([
