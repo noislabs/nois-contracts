@@ -105,7 +105,7 @@ pub fn migrate(deps: DepsMut, env: Env, _msg: Empty) -> StdResult<Response> {
 
     CONFIG.save(deps.storage, &config)?;
 
-    Ok(Response::default().add_attribute(ATTR_ACTION, "migtrate"))
+    Ok(Response::default().add_attribute(ATTR_ACTION, "migrate"))
 }
 
 #[cfg_attr(not(feature = "library"), entry_point)]

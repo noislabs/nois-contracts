@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- proxy: Fix typo in action attribute: "migtrate" -> "migrate"
+
 ## [0.13.7] - 2023-07-01
 
 ### Changed
