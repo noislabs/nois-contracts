@@ -67,6 +67,12 @@ pub enum QueryMsg {
         /// When unset, an implementation defined default will be used.
         limit: Option<u32>,
     },
+    #[returns(IsIncentivizedResponse)]
+    IsIncentivized {
+        /// The address of the sender (bot) for which the requested rounds are incentivized or not.
+        sender: String,
+        rounds: Vec<u64>,
+    },
     #[returns(SubmissionsResponse)]
     Submissions { round: u64 },
     /// Get a specific bot by address
@@ -159,6 +165,12 @@ impl QueriedSubmission {
             tx_index,
         }
     }
+}
+
+#[cw_serde]
+pub struct IsIncentivizedResponse {
+    /// A list of results, one element pre requested round
+    pub incentivized: Vec<bool>,
 }
 
 #[cw_serde]

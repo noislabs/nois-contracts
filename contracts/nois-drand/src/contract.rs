@@ -16,8 +16,8 @@ use crate::bots::{eligible_group, group, validate_moniker};
 use crate::error::ContractError;
 use crate::msg::{
     AllowlistResponse, BeaconResponse, BeaconsResponse, BotResponse, BotsResponse, ConfigResponse,
-    ExecuteMsg, InstantiateMsg, IsAllowlistedResponse, NoisGatewayExecuteMsg, QueriedSubmission,
-    QueryMsg, SubmissionsResponse,
+    ExecuteMsg, InstantiateMsg, IsAllowlistedResponse, IsIncentivizedResponse,
+    NoisGatewayExecuteMsg, QueriedSubmission, QueryMsg, SubmissionsResponse,
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
@@ -106,6 +106,9 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::BeaconsDesc { start_after, limit } => {
             to_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
         }
+        QueryMsg::IsIncentivized { sender, rounds } => {
+            to_binary(&query_is_incentivized(deps, sender, rounds)?)?
+        }
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
@@ -147,6 +150,19 @@ fn query_beacons(
         .map(|c| c.map(|(round, beacon)| QueriedBeacon::make(beacon, round)))
         .collect::<Result<_, _>>()?;
     Ok(BeaconsResponse { beacons })
+}
+
+fn query_is_incentivized(
+    deps: Deps,
+    sender: String,
+    rounds: Vec<u64>,
+) -> StdResult<IsIncentivizedResponse> {
+    let sender = deps.api.addr_validate(&sender)?;
+    let mut incentivized = Vec::<bool>::with_capacity(rounds.len());
+    for round in rounds {
+        incentivized.push(is_incentivized(deps, &sender, round)?);
+    }
+    Ok(IsIncentivizedResponse { incentivized })
 }
 
 /// Query submissions by round.

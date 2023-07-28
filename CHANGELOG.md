@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Added
+
+- drand: Add `IsIncentivized` query
+
 ### Fixed
 
 - proxy: Fix typo in action attribute: "migtrate" -> "migrate"
