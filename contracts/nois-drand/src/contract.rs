@@ -1,9 +1,9 @@
 #![allow(deprecated)]
 
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty,
-    Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128,
-    WasmMsg,
+    ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut,
+    Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
+    Uint128, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drand_common::{is_valid, DRAND_MAINNET2_PUBKEY};
@@ -384,9 +384,10 @@ fn execute_add_round(
     // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
 
-    let correct_group = Some(group(&info.sender)) == eligible_group(round);
-
-    let is_eligible = correct_group && is_registered && is_allowlisted && reward_points != 0; // Allowed and registered bot that gathered reward points get incentives
+    let is_eligible = is_incentivized(deps.as_ref(), &info.sender, round)?
+        && is_registered
+        && is_allowlisted
+        && reward_points != 0; // Allowed and registered bot that gathered reward points get incentives
 
     if !is_eligible {
         reward_points = 0;
@@ -485,6 +486,15 @@ fn execute_set_config(
     CONFIG.save(deps.storage, &new_config)?;
 
     Ok(Response::default())
+}
+
+/// Returns true if this round is incentivized for the given `sender`.
+/// Being incentivized for the bot is a basic property of a round a bot
+/// should check. However, it does not guarantee an incentive. Further checks
+/// like bot registration and allowlisting, available balance and order of
+/// submissions are applied after that.
+fn is_incentivized(_deps: Deps, sender: &Addr, round: u64) -> StdResult<bool> {
+    Ok(Some(group(sender)) == eligible_group(round))
 }
 
 #[cfg(test)]
