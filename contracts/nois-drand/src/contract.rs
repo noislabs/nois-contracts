@@ -158,9 +158,10 @@ fn query_is_incentivized(
     rounds: Vec<u64>,
 ) -> StdResult<IsIncentivizedResponse> {
     let sender = deps.api.addr_validate(&sender)?;
+    let config = CONFIG.load(deps.storage)?;
     let mut incentivized = Vec::<bool>::with_capacity(rounds.len());
     for round in rounds {
-        incentivized.push(is_incentivized(deps, &sender, round)?);
+        incentivized.push(is_incentivized(deps, &sender, round, config.min_round)?);
     }
     Ok(IsIncentivizedResponse { incentivized })
 }
@@ -400,7 +401,7 @@ fn execute_add_round(
     // We can easily make unregistered bots eligible for incentives as well by changing
     // the following line
 
-    let is_eligible = is_incentivized(deps.as_ref(), &info.sender, round)?
+    let is_eligible = is_incentivized(deps.as_ref(), &info.sender, round, config.min_round)?
         && is_registered
         && is_allowlisted
         && reward_points != 0; // Allowed and registered bot that gathered reward points get incentives
@@ -509,7 +510,10 @@ fn execute_set_config(
 /// should check. However, it does not guarantee an incentive. Further checks
 /// like bot registration and allowlisting, available balance and order of
 /// submissions are applied after that.
-fn is_incentivized(_deps: Deps, sender: &Addr, round: u64) -> StdResult<bool> {
+fn is_incentivized(_deps: Deps, sender: &Addr, round: u64, min_round: u64) -> StdResult<bool> {
+    if round < min_round {
+        return Ok(false);
+    }
     Ok(Some(group(sender)) == eligible_group(round))
 }
 
@@ -1499,6 +1503,167 @@ mod tests {
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
         assert_eq!(response_rounds, Vec::<u64>::new());
+    }
+
+    #[test]
+    fn query_is_incentivized_works() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_point_price: Uint128::new(20_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        const BOT1: &str = "beta1";
+        const BOT2: &str = "gamma2";
+
+        // No rounds
+        let response: IsIncentivizedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsIncentivized {
+                    sender: BOT1.to_string(),
+                    rounds: vec![],
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.incentivized, Vec::<bool>::new());
+
+        // One round
+        let response: IsIncentivizedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsIncentivized {
+                    sender: BOT1.to_string(),
+                    rounds: vec![TESTING_MIN_ROUND + 10],
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.incentivized, vec![true]);
+
+        let response: IsIncentivizedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsIncentivized {
+                    sender: BOT1.to_string(),
+                    rounds: vec![TESTING_MIN_ROUND + 20],
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.incentivized, vec![false]);
+
+        // multiple
+        let response: IsIncentivizedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsIncentivized {
+                    sender: BOT1.to_string(),
+                    rounds: vec![
+                        TESTING_MIN_ROUND,
+                        TESTING_MIN_ROUND + 10,
+                        TESTING_MIN_ROUND + 20,
+                    ],
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.incentivized, vec![false, true, false]);
+
+        // bot 2 gets different results
+        let response: IsIncentivizedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsIncentivized {
+                    sender: BOT2.to_string(),
+                    rounds: vec![
+                        TESTING_MIN_ROUND,
+                        TESTING_MIN_ROUND + 10,
+                        TESTING_MIN_ROUND + 20,
+                    ],
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.incentivized, vec![true, false, true]);
+
+        // many
+        let response: IsIncentivizedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsIncentivized {
+                    sender: BOT1.to_string(),
+                    rounds: vec![
+                        TESTING_MIN_ROUND,
+                        TESTING_MIN_ROUND + 10,
+                        TESTING_MIN_ROUND + 11,
+                        TESTING_MIN_ROUND + 12,
+                        TESTING_MIN_ROUND + 13,
+                        TESTING_MIN_ROUND + 14,
+                        TESTING_MIN_ROUND + 15,
+                        TESTING_MIN_ROUND + 16,
+                        TESTING_MIN_ROUND + 17,
+                        TESTING_MIN_ROUND + 18,
+                        TESTING_MIN_ROUND + 19,
+                        TESTING_MIN_ROUND + 20,
+                    ],
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            response.incentivized,
+            vec![false, true, false, false, false, false, false, false, false, false, false, false]
+        );
+
+        // Very many. It should be up to the node operator to limit query cost using the gas settings.
+        // There might be cases in which you want to mass query this.
+        let response: IsIncentivizedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsIncentivized {
+                    sender: BOT1.to_string(),
+                    rounds: (TESTING_MIN_ROUND..TESTING_MIN_ROUND + 999).collect(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.incentivized.len(), 999);
+
+        // Values below min_round are always false
+        let response: IsIncentivizedResponse = from_binary(
+            &query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::IsIncentivized {
+                    sender: BOT1.to_string(),
+                    rounds: (TESTING_MIN_ROUND - 200..TESTING_MIN_ROUND).collect(),
+                },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(response.incentivized, vec![false; 200]);
     }
 
     #[test]
