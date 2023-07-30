@@ -11,6 +11,7 @@ and this project adheres to
 ### Added
 
 - drand: Add `IsIncentivized` query
+- gateway: Add `ExecuteMsg::Cleanup` to cleanup outdated state
 
 ### Fixed
 

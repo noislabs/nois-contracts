@@ -2,7 +2,7 @@ mod drand_jobs1;
 mod drand_jobs2;
 
 use cosmwasm_std::{StdResult, Storage};
-pub use drand_jobs1::Job;
+pub use drand_jobs1::{Job, DRAND_JOBS_V1_END, DRAND_JOBS_V1_START};
 
 // This is too inefficient for drand_jobs1 and only used in an informational query
 pub use drand_jobs2::all_unprocessed_drand_jobs;

@@ -35,6 +35,13 @@ pub enum ExecuteMsg {
         /// To deactivate it later on, send Some(Coin::new(0, "unois")) here.
         payment_initial_funds: Option<Coin>,
     },
+    /// Cleans up the given number of elements of obsolete data.
+    /// Call this multiple times to increamentally clean up state.
+    Cleanup {
+        /// The number of state elements to delete.
+        /// Using None will fall back to a default value that is subject to change (currently 20).
+        limit: Option<u32>,
+    },
 }
 
 #[cw_serde]
