@@ -6,6 +6,9 @@ use cw_storage_plus::Deque;
 
 const UNPROCESSED_DRAND_JOBS_KEY_LEN: u16 = 24;
 
+pub const DRAND_JOBS_V1_START: &[u8] = b"\x00\x18drand_jobs_up_0000000000";
+pub const DRAND_JOBS_V1_END: &[u8] = b"\x00\x18drand_jobs_up_9999999999";
+
 /// This is the length of the storage key of a meta field
 /// of the Deque storage type. The 2 is the length-prefixed encoding.
 /// The 1 is the "h" or "t".
@@ -63,10 +66,8 @@ pub fn all_unprocessed_drand_jobs(
     offset: usize,
     limit: usize,
 ) -> StdResult<Vec<Job>> {
-    let start = b"\x00\x18drand_jobs_up_0000000000";
-    let end = b"\x00\x18drand_jobs_up_9999999999";
     storage
-        .range(Some(start), Some(end), order)
+        .range(Some(DRAND_JOBS_V1_START), Some(DRAND_JOBS_V1_END), order)
         .filter(|(key, _value)| key.len() != DEQUE_META_FIELD_LEN)
         .skip(offset)
         .take(limit)

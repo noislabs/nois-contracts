@@ -11,6 +11,7 @@ and this project adheres to
 ### Added
 
 - drand: Add `IsIncentivized` query
+- gateway: Add `ExecuteMsg::Cleanup` to cleanup outdated state
 
 ### Fixed
 
@@ -20,6 +21,7 @@ and this project adheres to
 
 - payment/drand: Add `library` feature
 - gateway: Use nois-payment dependency with `library` feature
+- Upgrade cosmwasm to 1.3.1
 
 ## [0.13.7] - 2023-07-01
 
