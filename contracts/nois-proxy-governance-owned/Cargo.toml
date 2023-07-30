@@ -1,6 +1,6 @@
 [package]
 name = "nois-proxy-governance-owned"
-version = "0.13.7"
+version = "0.13.8"
 authors = []
 edition = "2021"
 publish = false

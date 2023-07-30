@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.13.8] - 2023-07-30
+
 ### Added
 
 - drand: Add `IsIncentivized` query
@@ -223,7 +225,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.7...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.8...HEAD
+[0.13.8]: https://github.com/noislabs/nois-contracts/compare/v0.13.7...v0.13.8
 [0.13.7]: https://github.com/noislabs/nois-contracts/compare/v0.13.6...v0.13.7
 [0.13.6]: https://github.com/noislabs/nois-contracts/compare/v0.13.5...v0.13.6
 [0.13.5]: https://github.com/noislabs/nois-contracts/compare/v0.13.4...v0.13.5
