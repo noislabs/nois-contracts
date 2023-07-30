@@ -16,6 +16,11 @@ and this project adheres to
 
 - proxy: Fix typo in action attribute: "migtrate" -> "migrate"
 
+### Changed
+
+- payment/drand: Add `library` feature
+- gateway: Use nois-payment dependency with `library` feature
+
 ## [0.13.7] - 2023-07-01
 
 ### Changed
