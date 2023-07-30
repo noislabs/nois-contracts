@@ -1,9 +1,8 @@
 #![allow(deprecated)]
 
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut,
-    Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
-    Uint128, WasmMsg,
+    ensure_eq, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
+    HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drand_common::{is_valid, DRAND_MAINNET2_PUBKEY};
@@ -36,7 +35,7 @@ const NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND: u16 = 3;
 const INCENTIVE_POINTS_FOR_VERIFICATION: u64 = 35;
 const INCENTIVE_POINTS_FOR_FAST_BOT: u64 = 15;
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     _env: Env,
@@ -57,12 +56,12 @@ pub fn instantiate(
 
 // This no-op migrate implementation allows us to upgrade within the 0.7 series.
 // No state changes expected.
-#[entry_point]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
     Ok(Response::default())
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -95,7 +94,7 @@ pub fn execute(
     }
 }
 
-#[entry_point]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
