@@ -1,14 +1,12 @@
 use anybuf::Anybuf;
 use cosmwasm_std::{
     attr, ensure_eq, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Deps, DepsMut, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
-    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
-    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order,
-    QueryResponse, Reply, Response, StdResult, Storage, SubMsg, SubMsgResult, Timestamp, Uint128,
-    WasmMsg,
+    CosmosMsg, Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse,
+    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
+    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
+    Never, Order, QueryResponse, Reply, Response, StdResult, Storage, SubMsg, SubMsgResult,
+    Timestamp, Uint128, WasmMsg,
 };
-#[cfg(not(feature = "library"))]
-use cosmwasm_std::{entry_point, Empty};
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
     check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
@@ -36,7 +34,7 @@ const TEN_YEARS_S: u64 = 10 * 3600 * 24 * 365;
 const MIN_AFTER_FALLBACK: Timestamp = Timestamp::from_seconds(1680015600);
 const MAX_AFTER_FALLBACK: Timestamp = MIN_AFTER_FALLBACK.plus_seconds(TEN_YEARS_S);
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
@@ -88,7 +86,7 @@ pub fn instantiate(
         .add_attribute("test_mode", test_mode.to_string()))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn migrate(deps: DepsMut, env: Env, _msg: Empty) -> StdResult<Response> {
     let mut config = CONFIG.load(deps.storage)?;
 
@@ -108,7 +106,7 @@ pub fn migrate(deps: DepsMut, env: Env, _msg: Empty) -> StdResult<Response> {
     Ok(Response::default().add_attribute(ATTR_ACTION, "migrate"))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn execute(
     deps: DepsMut,
     env: Env,
@@ -370,7 +368,7 @@ fn update_allowlist(
     Ok(())
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 #[allow(unused)]
 pub fn sudo(deps: DepsMut, env: Env, msg: SudoMsg) -> Result<Response, ContractError> {
     match msg {
@@ -609,7 +607,7 @@ fn encode_msg_fund_community_pool(amount: &Coin, depositor: &Addr) -> Vec<u8> {
         .into_vec()
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, ContractError> {
     match reply.id {
         REPLAY_ID_CALLBACK => {
@@ -630,7 +628,7 @@ pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contra
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     match msg {
         QueryMsg::Config {} => to_binary(&query_config(deps)?),
@@ -689,7 +687,7 @@ fn query_is_allowlisted(deps: Deps, addr: String) -> StdResult<IsAllowlistedResp
     })
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 /// enforces ordering and versioing constraints
 pub fn ibc_channel_open(
     _deps: DepsMut,
@@ -707,7 +705,7 @@ pub fn ibc_channel_open(
     Ok(None)
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 /// Once established we store the channel ID to look up
 /// the destination address later.
 pub fn ibc_channel_connect(
@@ -735,7 +733,7 @@ pub fn ibc_channel_connect(
         .add_attribute("channel_id", channel_id))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn ibc_channel_close(
     deps: DepsMut,
     _env: Env,
@@ -759,7 +757,7 @@ pub fn ibc_channel_close(
     }
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn ibc_packet_receive(
     deps: DepsMut,
     env: Env,
@@ -865,7 +863,7 @@ fn receive_push_beacon_price(
         .add_attribute(ATTR_ACTION, "receive_push_beacon_price"))
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn ibc_packet_ack(
     deps: DepsMut,
     _env: Env,
@@ -931,7 +929,7 @@ fn update_nois_beacon_price(
     Ok(())
 }
 
-#[cfg_attr(not(feature = "library"), entry_point)]
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 /// we just ignore these now. shall we store some info?
 pub fn ibc_packet_timeout(
     _deps: DepsMut,
