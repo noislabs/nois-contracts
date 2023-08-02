@@ -22,6 +22,9 @@ workflows:
       - lint
       - wasm_build
       - ts-build
+      - check-wasm:
+          requires:
+            - wasm_build
       - integration:
           requires:
             - wasm_build
@@ -515,6 +518,36 @@ jobs:
             - nois_gateway.wasm
             - nois_sink.wasm
             - nois_payment.wasm
+
+  check-wasm:
+    docker:
+      - image: rust:1.69.0
+    environment:
+      CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+    steps:
+      - checkout:
+          path: ~/project
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - attach_workspace:
+          at: wasms
+      - restore_cache:
+          keys:
+            - v2-check-wasm-rust:1.69.0-{{ checksum "~/project/Cargo.lock" }}
+            - v2-check-wasm-rust:1.69.0-
+      - run:
+          name: Install cosmwasm-check
+          command: cargo install --debug cosmwasm-check --version 1.3.1
+      - run:
+          name: Check Wasms
+          command: |
+            cosmwasm-check --available-capabilities cosmwasm_1_1,cosmwasm_1_2,iterator,staking,stargate wasms/*.wasm
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - ~/project/target
+          key: v2-check-wasm-rust:1.69.0-{{ checksum "~/project/Cargo.lock" }}
 
   ts-build:
     docker:
