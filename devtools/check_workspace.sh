@@ -5,6 +5,13 @@ command -v shellcheck >/dev/null && shellcheck "$0"
 cargo check
 cargo check --features governance_owned
 
+for contract in nois-drand nois-payment nois-proxy nois-proxy-governance-owned; do
+  (
+    cd "./contracts/$contract"
+    cargo check --features library
+  )
+done
+
 cargo test
 
 cargo clippy --all-targets
