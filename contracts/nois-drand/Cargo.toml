@@ -30,4 +30,4 @@ sha2 = "0.10.6"
 
 # Drand dependencies
 hex = { version = "0.4" }
-drand-verify = "0.5.0"
+drand-verify = { git = "https://github.com/noislabs/drand-verify", branch = "arkworks", default-features = false, features = ["arkworks"] }
