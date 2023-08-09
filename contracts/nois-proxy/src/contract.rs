@@ -9,8 +9,8 @@ use cosmwasm_std::{
 };
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
-    REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
+    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, RequestType,
+    StdAck, REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
 };
 
 use crate::attributes::{
@@ -20,7 +20,7 @@ use crate::error::ContractError;
 use crate::jobs::{validate_job_id, validate_payment};
 use crate::msg::{
     AllowlistResponse, ConfigResponse, ExecuteMsg, GatewayChannelResponse, InstantiateMsg,
-    IsAllowlistedResponse, PriceResponse, PricesResponse, QueryMsg, RequestBeaconOrigin, SudoMsg,
+    IsAllowlistedResponse, PriceResponse, PricesResponse, QueryMsg, RequestBeaconCallback, SudoMsg,
 };
 use crate::publish_time::{calculate_after, AfterMode};
 use crate::state::{Config, OperationalMode, ALLOWLIST, ALLOWLIST_MARKER, CONFIG, GATEWAY_CHANNEL};
@@ -144,6 +144,11 @@ pub fn execute(
         ExecuteMsg::GetRandomnessAfter { after, job_id } => {
             execute_get_randomness_after(deps, env, info, after, job_id)
         }
+        ExecuteMsg::ScheduleJobAt {
+            after,
+            job_id,
+            callback_addr,
+        } => execute_schedule_job_at(deps, env, info, after, job_id, callback_addr),
         ExecuteMsg::Withdraw {
             denom,
             amount,
@@ -162,6 +167,7 @@ fn execute_get_next_randomness(
     job_id: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+    let callback_address = info.clone().sender;
 
     let mode = if config.test_mode {
         AfterMode::Test
@@ -170,14 +176,15 @@ fn execute_get_next_randomness(
     };
     let after = calculate_after(deps.storage, mode)?;
 
-    execute_get_randomness_impl(
+    execute_request_impl(
         deps,
         env,
         info,
-        "execute_get_next_randomness",
         config,
         after,
         job_id,
+        callback_address,
+        RequestType::Randomness,
     )
 }
 
@@ -189,26 +196,54 @@ fn execute_get_randomness_after(
     job_id: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
+    let callback_address = info.clone().sender;
 
-    execute_get_randomness_impl(
+    execute_request_impl(
         deps,
         env,
         info,
-        "execute_get_randomness_after",
         config,
         after,
         job_id,
+        callback_address,
+        RequestType::Randomness,
     )
 }
 
-pub fn execute_get_randomness_impl(
+fn execute_schedule_job_at(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
-    action: &str,
+    after: Timestamp,
+    job_id: String,
+    callback_address: Option<String>,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let callback_address = callback_address.unwrap_or(info.sender.to_string());
+    let callback_address = deps.api.addr_validate(&callback_address)?;
+
+    execute_request_impl(
+        deps,
+        env,
+        info,
+        config,
+        after,
+        job_id,
+        callback_address,
+        RequestType::AtJob,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn execute_request_impl(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
     config: Config,
     after: Timestamp,
     job_id: String,
+    callback_address: Addr,
+    request_type: RequestType,
 ) -> Result<Response, ContractError> {
     validate_job_id(&job_id)?;
     validate_payment(&config.prices, &info.funds)?;
@@ -228,14 +263,6 @@ pub fn execute_get_randomness_impl(
     if after > max_after {
         return Err(ContractError::AfterTooHigh { max_after, after });
     }
-
-    let packet = InPacket::RequestBeacon {
-        after,
-        origin: to_binary(&RequestBeaconOrigin {
-            sender: info.sender.into(),
-            job_id,
-        })?,
-    };
     let channel_id = get_gateway_channel(deps.storage)?;
 
     let mut msgs: Vec<CosmosMsg> = Vec::with_capacity(2);
@@ -259,6 +286,36 @@ pub fn execute_get_randomness_impl(
             }
         }
     }
+    let res = match &request_type {
+        RequestType::Randomness => {
+            execute_get_randomness_impl(deps, env, info, &request_type, after, job_id, channel_id)
+        }
+        RequestType::AtJob => {
+            execute_schedule_job_impl(deps, env, &callback_address, after, job_id, channel_id)
+        }
+    }?;
+
+    Ok(res)
+}
+
+pub fn execute_get_randomness_impl(
+    _deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    request_type: &RequestType,
+    after: Timestamp,
+    job_id: String,
+    channel_id: String,
+) -> Result<Response, ContractError> {
+    let packet = InPacket::RequestBeacon {
+        after,
+        callback: to_binary(&RequestBeaconCallback {
+            callback_contract: info.sender.into(),
+            job_id,
+        })?,
+    };
+
+    let mut msgs: Vec<CosmosMsg> = Vec::with_capacity(2);
 
     msgs.push(
         IbcMsg::SendPacket {
@@ -275,7 +332,44 @@ pub fn execute_get_randomness_impl(
 
     let res = Response::new()
         .add_messages(msgs)
-        .add_attribute(ATTR_ACTION, action);
+        .add_attribute(ATTR_ACTION, request_type.to_string());
+    Ok(res)
+}
+
+pub fn execute_schedule_job_impl(
+    _deps: DepsMut,
+    env: Env,
+    callback_address: &Addr,
+    after: Timestamp,
+    job_id: String,
+    channel_id: String,
+) -> Result<Response, ContractError> {
+    let packet = InPacket::RequestScheduleJob {
+        after,
+        callback: to_binary(&RequestBeaconCallback {
+            callback_contract: callback_address.to_string(),
+            job_id,
+        })?,
+    };
+
+    let mut msgs: Vec<CosmosMsg> = Vec::with_capacity(2);
+
+    msgs.push(
+        IbcMsg::SendPacket {
+            channel_id,
+            data: to_binary(&packet)?,
+            timeout: env
+                .block
+                .time
+                .plus_seconds(REQUEST_BEACON_PACKET_LIFETIME)
+                .into(),
+        }
+        .into(),
+    );
+
+    let res = Response::new()
+        .add_messages(msgs)
+        .add_attribute(ATTR_ACTION, "jobAt");
     Ok(res)
 }
 
@@ -707,7 +801,7 @@ pub fn ibc_channel_open(
 
 #[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 /// Once established we store the channel ID to look up
-/// the destination address later.
+/// the callback_contract address later.
 pub fn ibc_channel_connect(
     deps: DepsMut,
     _env: Env,
@@ -797,13 +891,16 @@ fn receive_deliver_beacon(
     deps: DepsMut,
     published: Timestamp,
     randomness: HexBinary,
-    origin: Binary,
+    callback: Binary,
 ) -> Result<IbcReceiveResponse, ContractError> {
     let Config {
         callback_gas_limit, ..
     } = CONFIG.load(deps.storage)?;
 
-    let RequestBeaconOrigin { sender, job_id } = from_slice(&origin)?;
+    let RequestBeaconCallback {
+        callback_contract,
+        job_id,
+    } = from_slice(&callback)?;
 
     // Create the message for executing the callback.
     // This can fail for various reasons, like
@@ -813,7 +910,7 @@ fn receive_deliver_beacon(
     // - any other processing error in the callback implementation
     let msg = SubMsg::reply_on_error(
         WasmMsg::Execute {
-            contract_addr: sender,
+            contract_addr: callback_contract,
             msg: to_binary(&ReceiverExecuteMsg::NoisReceive {
                 callback: NoisCallback {
                     job_id: job_id.clone(),
@@ -1694,8 +1791,8 @@ mod tests {
         // The proxy -> gateway packet we get the acknowledgement for
         let packet = InPacket::RequestBeacon {
             after: Timestamp::from_seconds(321),
-            origin: to_binary(&RequestBeaconOrigin {
-                sender: "contract345".to_string(),
+            callback: to_binary(&RequestBeaconCallback {
+                callback_contract: "contract345".to_string(),
                 job_id: "hello".to_string(),
             })
             .unwrap(),

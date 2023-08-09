@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
 };
 use drand_common::{time_of_round, valid_round_after, DRAND_CHAIN_HASH};
-use nois_protocol::{InPacketAck, OutPacket, StdAck, DELIVER_BEACON_PACKET_LIFETIME};
+use nois_protocol::{InPacketAck, OutPacket, RequestType, StdAck, DELIVER_BEACON_PACKET_LIFETIME};
 
 use crate::{
     drand_archive::{archive_lookup, archive_store},
@@ -24,7 +24,7 @@ const MAX_JOBS_PER_SUBMISSION_WITHOUT_VERIFICATION: u32 = 14;
 
 pub struct RoutingReceipt {
     pub queued: bool,
-    pub source_id: String,
+    pub source_id: Option<String>,
     pub acknowledgement: StdAck,
     pub msgs: Vec<CosmosMsg>,
 }
@@ -47,10 +47,14 @@ impl RequestRouter {
         env: &Env,
         channel: String,
         after: Timestamp,
-        origin: Binary,
+        callback: Binary,
+        request_type: RequestType,
     ) -> StdResult<RoutingReceipt> {
-        // Here we currently only have one backend
-        self.handle_drand(deps, env, channel, after, origin)
+        match request_type {
+            RequestType::Randomness => self.handle_drand(deps, env, channel, after, callback),
+            // For now handle_at_job is almost the same as drand because we'd still be relying on drand-bots trigger
+            RequestType::AtJob => self.handle_at_job(deps, env, channel, after, callback),
+        }
     }
 
     fn handle_drand(
@@ -95,10 +99,58 @@ impl RequestRouter {
                 source_id: source_id.clone(),
             })
         };
+        let source_id = Some(source_id);
 
         Ok(RoutingReceipt {
             queued,
             source_id,
+            acknowledgement,
+            msgs,
+        })
+    }
+
+    fn handle_at_job(
+        &self,
+        deps: DepsMut,
+        env: &Env,
+        channel: String,
+        after: Timestamp,
+        origin: Binary,
+    ) -> StdResult<RoutingReceipt> {
+        let (round, source_id) = commit_to_drand_round(after);
+
+        let existing_randomness = archive_lookup(deps.storage, round);
+
+        let job = Job {
+            source_id: source_id.clone(),
+            channel,
+            origin,
+        };
+
+        let mut msgs = Vec::<CosmosMsg>::new();
+
+        let queued = if let Some(randomness) = existing_randomness {
+            //If the drand round already exists we send it
+            increment_processed_drand_jobs(deps.storage, round)?;
+            let published = time_of_round(round);
+            let msg =
+                create_deliver_beacon_ibc_message(env.block.time, job, published, randomness)?;
+            msgs.push(msg.into());
+            false
+        } else {
+            unprocessed_drand_jobs_enqueue(deps.storage, round, &job)?;
+            true
+        };
+
+        let acknowledgement = if queued {
+            StdAck::success(InPacketAck::RequestQueued { source_id })
+        } else {
+            StdAck::success(InPacketAck::RequestProcessed { source_id })
+        };
+
+        Ok(RoutingReceipt {
+            queued,
+            source_id: None,
             acknowledgement,
             msgs,
         })
