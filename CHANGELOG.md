@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- Add missing `cosmwasm_std::Empty` import when compiling nois-proxy with
+  "library" feature enabled.
+
 ## [0.13.8] - 2023-07-30
 
 ### Added
