@@ -2,6 +2,8 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, Coin};
 use cw_storage_plus::Item;
 
+use super::TopKey;
+
 #[cw_serde]
 pub struct Config {
     /// The address of the drand contract.
@@ -21,4 +23,4 @@ pub struct Config {
     pub sink: Addr,
 }
 
-pub const CONFIG: Item<Config> = Item::new("config");
+pub const CONFIG: Item<Config> = Item::new(TopKey::Config.as_str());

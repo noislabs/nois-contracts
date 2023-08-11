@@ -2,6 +2,8 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::Addr;
 use cw_storage_plus::Map;
 
+use super::TopKey;
+
 #[cw_serde]
 pub struct Customer {
     /// The payment contract address
@@ -11,4 +13,4 @@ pub struct Customer {
 }
 
 /// A map from channel ID to customer information
-pub const CUSTOMERS: Map<&str, Customer> = Map::new("customers");
+pub const CUSTOMERS: Map<&str, Customer> = Map::new(TopKey::Customers.as_str());
