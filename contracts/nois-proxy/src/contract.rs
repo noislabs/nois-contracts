@@ -4,12 +4,12 @@ use cosmwasm_std::{
     CosmosMsg, Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse,
     IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
     IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    Never, Order, QueryResponse, Reply, Response, StdResult, Storage, SubMsg, SubMsgResult,
+    Never, Order, QueryResponse, Reply, Response, StdAck, StdResult, Storage, SubMsg, SubMsgResult,
     Timestamp, Uint128, WasmMsg,
 };
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
-    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
+    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck,
     REQUEST_BEACON_PACKET_LIFETIME, TRANSFER_PACKET_LIFETIME,
 };
 
@@ -827,7 +827,7 @@ fn receive_deliver_beacon(
     )
     .with_gas_limit(callback_gas_limit);
 
-    let ack = StdAck::success(OutPacketAck::DeliverBeacon {});
+    let ack = StdAck::success(to_binary(&OutPacketAck::DeliverBeacon {})?);
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
         .add_attribute(ATTR_ACTION, "receive_deliver_beacon")
@@ -843,7 +843,7 @@ fn receive_welcome(
     let mut config = CONFIG.load(deps.storage)?;
     config.payment = Some(payment);
     CONFIG.save(deps.storage, &config)?;
-    let ack = StdAck::success(OutPacketAck::Welcome {});
+    let ack = StdAck::success(to_binary(&OutPacketAck::Welcome {})?);
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
         .add_attribute(ATTR_ACTION, "receive_welcome"))
@@ -857,7 +857,7 @@ fn receive_push_beacon_price(
     denom: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     update_nois_beacon_price(deps, timestamp, amount, denom)?;
-    let ack = StdAck::success(OutPacketAck::PushBeaconPrice {});
+    let ack = StdAck::success(to_binary(&OutPacketAck::PushBeaconPrice {})?);
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
         .add_attribute(ATTR_ACTION, "receive_push_beacon_price"))
@@ -874,7 +874,7 @@ pub fn ibc_packet_ack(
     let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
     let is_error: bool;
     match ack {
-        StdAck::Result(data) => {
+        StdAck::Success(data) => {
             is_error = false;
             let response: InPacketAck = from_binary(&data)?;
             let ack_type: String = match response {
@@ -1702,9 +1702,12 @@ mod tests {
         };
 
         // Success ack (processed)
-        let ack = StdAck::success(InPacketAck::RequestProcessed {
-            source_id: "backend:123:456".to_string(),
-        });
+        let ack = StdAck::success(
+            to_binary(&InPacketAck::RequestProcessed {
+                source_id: "backend:123:456".to_string(),
+            })
+            .unwrap(),
+        );
         let msg = mock_ibc_packet_ack(
             "channel-12",
             &packet,
@@ -1722,9 +1725,12 @@ mod tests {
         );
 
         // Success ack (queued)
-        let ack = StdAck::success(InPacketAck::RequestQueued {
-            source_id: "backend:123:456".to_string(),
-        });
+        let ack = StdAck::success(
+            to_binary(&InPacketAck::RequestQueued {
+                source_id: "backend:123:456".to_string(),
+            })
+            .unwrap(),
+        );
         let msg = mock_ibc_packet_ack(
             "channel-12",
             &packet,

@@ -1,7 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{from_slice, to_binary, Binary, HexBinary, Timestamp, Uint128};
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use cosmwasm_std::{Binary, HexBinary, Timestamp, Uint128};
 
 /// This is the message we send over the IBC channel from nois-proxy to nois-gateway.
 #[cw_serde]
@@ -91,51 +89,4 @@ pub enum OutPacketAck {
     Welcome {},
     /// The ack the proxy must send when receiving a `OutPacket::PushBeaconPrice`.
     PushBeaconPrice {},
-}
-
-/// This is a generic ICS acknowledgement format.
-/// Proto defined here: https://github.com/cosmos/cosmos-sdk/blob/v0.42.0/proto/ibc/core/channel/v1/channel.proto#L141-L147
-/// If ibc_receive_packet returns Err(), then x/wasm runtime will rollback the state and return an error message in this format
-#[cw_serde]
-pub enum StdAck {
-    Result(Binary),
-    Error(String),
-}
-
-impl StdAck {
-    /// Creates a result ack
-    pub fn success(result: impl Serialize) -> Self {
-        let serialized = to_binary(&result).unwrap();
-        StdAck::Result(serialized)
-    }
-
-    /// Creates an error ack
-    pub fn error(err: impl Into<String>) -> Self {
-        StdAck::Error(err.into())
-    }
-
-    pub fn unwrap(self) -> Binary {
-        match self {
-            StdAck::Result(data) => data,
-            StdAck::Error(err) => panic!("{}", err),
-        }
-    }
-
-    pub fn unwrap_into<T: DeserializeOwned>(self) -> T {
-        from_slice(&self.unwrap()).unwrap()
-    }
-
-    pub fn unwrap_err(self) -> String {
-        match self {
-            StdAck::Result(_) => panic!("not an error"),
-            StdAck::Error(err) => err,
-        }
-    }
-}
-
-impl From<StdAck> for Binary {
-    fn from(original: StdAck) -> Binary {
-        // pretty sure this cannot fail
-        to_binary(&original).unwrap()
-    }
 }

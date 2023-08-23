@@ -13,6 +13,7 @@ and this project adheres to
 - Upgrade cosmwasm to 1.4.0
 - drand: Remove previously deprecated `QueryMsg::IsAllowListed` and
   `QueryMsg::AllowList`.
+- nois-protocol: Remove `StdAck` in favour of `cosmwasm_std::StdAck`
 
 ## [0.14.0] - 2023-09-01
 
