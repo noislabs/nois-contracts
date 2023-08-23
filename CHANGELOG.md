@@ -10,6 +10,7 @@ and this project adheres to
 
 ### Changed
 
+- Upgrade cosmwasm to 1.4.0
 - drand: Remove previously deprecated `QueryMsg::IsAllowListed` and
   `QueryMsg::AllowList`.
 
