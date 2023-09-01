@@ -34,6 +34,7 @@ pub enum ExecuteMsg {
         /// See https://twitter.com/simon_warta/status/1643354582494642177 for why.
         /// To deactivate it later on, send Some(Coin::new(0, "unois")) here.
         payment_initial_funds: Option<Coin>,
+        trusted_sources: Option<Vec<String>>,
     },
 }
 

@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    attr, ensure_eq, entry_point, from_binary, instantiate2_address, to_binary, Addr, Attribute,
-    Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
+    attr, ensure, ensure_eq, entry_point, from_binary, instantiate2_address, to_binary, Addr,
+    Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order, QueryRequest,
@@ -14,6 +14,7 @@ use nois_protocol::{
 };
 use sha2::{Digest, Sha256};
 
+use crate::attributes::ATTR_ACTION;
 use crate::error::ContractError;
 use crate::job_id::validate_origin;
 use crate::msg::{
@@ -49,6 +50,7 @@ pub fn instantiate(
 
     let config = Config {
         drand: None,
+        trusted_sources: None,
         manager,
         price,
         payment_code_id,
@@ -59,11 +61,28 @@ pub fn instantiate(
     Ok(Response::default())
 }
 
-// This no-op migrate implementation allows us to upgrade within the 0.7 series.
-// No state changes expected.
 #[entry_point]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
-    Ok(Response::default())
+pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    let mut config = CONFIG.load(deps.storage)?;
+
+    // In cases where drand was set but trusted sources is not,
+    // we migrate over the drand address to trusted sources.
+    // Before 0.14, drand was used as the only trusted source. However
+    // for the sake of modularity and testing, we split the two things.
+    if config
+        .trusted_sources
+        .clone()
+        .unwrap_or_default()
+        .is_empty()
+    {
+        if let Some(drand) = config.drand.clone() {
+            config.trusted_sources = Some(vec![drand]);
+        }
+    }
+
+    CONFIG.save(deps.storage, &config)?;
+
+    Ok(Response::default().add_attribute(ATTR_ACTION, "migrate"))
 }
 
 #[entry_point]
@@ -84,6 +103,7 @@ pub fn execute(
             price,
             drand_addr,
             payment_initial_funds,
+            trusted_sources,
         } => execute_set_config(
             deps,
             info,
@@ -91,6 +111,7 @@ pub fn execute(
             manager,
             price,
             drand_addr,
+            trusted_sources,
             payment_initial_funds,
         ),
     }
@@ -486,9 +507,11 @@ fn execute_add_verified_round(
     is_verifying_tx: bool,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    ensure_eq!(
-        Some(info.sender),
-        config.drand,
+    ensure!(
+        config
+            .trusted_sources
+            .unwrap_or_default()
+            .contains(&info.sender),
         ContractError::UnauthorizedAddVerifiedRound
     );
 
@@ -510,6 +533,7 @@ fn execute_add_verified_round(
 /// in a context where the contract addresses generration is not known
 /// in advance, we set the contract address at a later stage after the
 /// instantation and make sure it is immutable once set
+#[allow(clippy::too_many_arguments)]
 fn execute_set_config(
     deps: DepsMut,
     info: MessageInfo,
@@ -517,6 +541,7 @@ fn execute_set_config(
     manager: Option<String>,
     price: Option<Coin>,
     drand: Option<String>,
+    trusted_sources: Option<Vec<String>>,
     payment_initial_funds: Option<Coin>,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
@@ -532,6 +557,16 @@ fn execute_set_config(
         Some(dr) => Some(deps.api.addr_validate(&dr)?),
         None => config.drand,
     };
+    let trusted_sources = match trusted_sources {
+        Some(ts) => {
+            let mut addrs = Vec::<Addr>::new();
+            for ts in ts {
+                addrs.push(deps.api.addr_validate(&ts)?);
+            }
+            addrs
+        }
+        None => config.trusted_sources.unwrap_or_default(),
+    };
     let price = price.unwrap_or(config.price);
     let payment_initial_funds = match payment_initial_funds {
         Some(pif) => Some(pif),
@@ -545,6 +580,7 @@ fn execute_set_config(
         payment_code_id: config.payment_code_id, // Use a separate message for this in order to migrate all existing contracts too
         payment_initial_funds,
         sink: config.sink, // Make updatable?
+        trusted_sources: Some(trusted_sources),
     };
 
     CONFIG.save(deps.storage, &new_config)?;
@@ -859,6 +895,7 @@ mod tests {
             config,
             ConfigResponse {
                 drand: None,
+                trusted_sources: None,
                 manager: Addr::unchecked(MANAGER),
                 price: Coin::new(1, "unois"),
                 payment_code_id: PAYMENT,
@@ -885,6 +922,7 @@ mod tests {
             config,
             ConfigResponse {
                 drand: None,
+                trusted_sources: None,
                 manager: Addr::unchecked(MANAGER),
                 price: Coin::new(1, "unois"),
                 payment_code_id: PAYMENT,
@@ -937,6 +975,7 @@ mod tests {
             manager: Some(MANAGER2.to_string()),
             price: Some(Coin::new(123, "unois")),
             drand_addr: Some("somewhere".to_string()),
+            trusted_sources: Some(vec!["somewhere".to_string(), MANAGER2.to_string()]),
             payment_initial_funds: Some(Coin::new(500, "unois")),
         };
 
@@ -964,6 +1003,10 @@ mod tests {
                 manager: Addr::unchecked(MANAGER2),
                 price: Coin::new(123, "unois"),
                 drand: Some(Addr::unchecked("somewhere")),
+                trusted_sources: Some(vec![
+                    Addr::unchecked("somewhere"),
+                    Addr::unchecked(MANAGER2)
+                ]),
                 payment_code_id: PAYMENT,
                 payment_initial_funds: Some(Coin::new(500, "unois")),
                 sink: Addr::unchecked(SINK),
@@ -1001,6 +1044,22 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            trusted_sources: None,
+            payment_initial_funds: None,
+        };
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+
+        // drand cannot add
+        let msg = make_add_verified_round_msg(2183668, true);
+        let err = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
+
+        // Set trusted sources
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            price: None,
+            drand_addr: None,
+            trusted_sources: Some(vec![DRAND.to_string(), MANAGER2.to_string()]),
             payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
@@ -1010,9 +1069,11 @@ mod tests {
         let err = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
-        // But drand can
+        // But drand and manager2 can
         let msg = make_add_verified_round_msg(2183668, true);
         let _res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let msg = make_add_verified_round_msg(2183668, true);
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER2, &[]), msg).unwrap();
     }
 
     #[test]
@@ -1036,6 +1097,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            trusted_sources: Some(vec![DRAND.to_string()]),
             payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
@@ -1182,6 +1244,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            trusted_sources: Some(vec![DRAND.to_string()]),
             payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
@@ -1316,6 +1379,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            trusted_sources: Some(vec![DRAND.to_string()]),
             payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
@@ -1626,6 +1690,7 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: Some(DRAND.to_string()),
+            trusted_sources: Some(vec![DRAND.to_string()]),
             payment_initial_funds: None,
         };
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();

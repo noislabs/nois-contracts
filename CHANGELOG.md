@@ -16,7 +16,9 @@ and this project adheres to
   only use those. This allows bots to submit other rounds for no reason.
 - gateway: Remove `ExecuteMsg::Cleanup` to cleanup outdated jobs state ([#280])
 - gateway: Remove code for accessing drand jobs storage layout v1 ([#280])
+- gateway: Create trusted source configuration to improve testability ([#271])
 
+[#271]: https://github.com/noislabs/nois-contracts/pull/271
 [#280]: https://github.com/noislabs/nois-contracts/pull/280
 
 ### Fixed

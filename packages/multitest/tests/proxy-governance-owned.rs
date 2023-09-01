@@ -73,6 +73,7 @@ fn integration_test() {
         resp,
         nois_gateway::msg::ConfigResponse {
             drand: None,
+            trusted_sources: None,
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
@@ -88,6 +89,7 @@ fn integration_test() {
         manager: None,
         price: None,
         drand_addr: Some(DRAND.to_string()),
+        trusted_sources: Some(vec![DRAND.to_string()]),
         payment_initial_funds: None,
     };
     let _resp = app
@@ -108,6 +110,7 @@ fn integration_test() {
         resp,
         nois_gateway::msg::ConfigResponse {
             drand: Some(Addr::unchecked(DRAND)),
+            trusted_sources: Some(vec![Addr::unchecked(DRAND)]),
             manager: Addr::unchecked("manager"),
             price: Coin::new(1, "unois"),
             payment_code_id: PAYMENT,
