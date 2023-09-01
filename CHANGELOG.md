@@ -13,6 +13,10 @@ and this project adheres to
 - nois-drand: Rounds that are not divisible by 10 are not considered invalid
   anymore. The incentivisation however requires `round%10==0` as before and jobs
   only use those. This allows bots to submit other rounds for no reason.
+- gateway: Remove `ExecuteMsg::Cleanup` to cleanup outdated jobs state ([#280])
+- gateway: Remove code for accessing drand jobs storage layout v1 ([#280])
+
+[#280]: https://github.com/noislabs/nois-contracts/pull/280
 
 ### Fixed
 
