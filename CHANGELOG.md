@@ -10,6 +10,7 @@ and this project adheres to
 
 ### Changed
 
+- Upgrade Rust to 1.71.0 and workspace-optimizer to 0.14.0.
 - nois-drand: Rounds that are not divisible by 10 are not considered invalid
   anymore. The incentivisation however requires `round%10==0` as before and jobs
   only use those. This allows bots to submit other rounds for no reason.
