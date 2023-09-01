@@ -8,6 +8,12 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- nois-drand: Rounds that are not divisible by 10 are not considered invalid
+  anymore. The incentivisation however requires `round%10==0` as before and jobs
+  only use those. This allows bots to submit other rounds for no reason.
+
 ### Fixed
 
 - Add missing `cosmwasm_std::Empty` import when compiling nois-proxy with

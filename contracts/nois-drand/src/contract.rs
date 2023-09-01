@@ -5,7 +5,7 @@ use cosmwasm_std::{
     HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw_storage_plus::Bound;
-use drand_common::{is_incentivised, DRAND_MAINNET2_PUBKEY};
+use drand_common::DRAND_MAINNET2_PUBKEY;
 use drand_verify::{derive_randomness, G2Pubkey, Pubkey};
 
 use crate::attributes::{
@@ -286,10 +286,6 @@ fn execute_add_round(
         return Err(StdError::generic_err("Do not send funds").into());
     }
 
-    if !is_incentivised(round) {
-        return Err(ContractError::RoundInvalid { round });
-    }
-
     let config = CONFIG.load(deps.storage)?;
     let min_round = config.min_round;
     if round < min_round {
@@ -510,7 +506,7 @@ fn execute_set_config(
 /// like bot registration and allowlisting, available balance and order of
 /// submissions are applied after that.
 fn is_incentivized(_deps: Deps, sender: &Addr, round: u64, min_round: u64) -> StdResult<bool> {
-    if round < min_round {
+    if !drand_common::is_incentivised(round) || round < min_round {
         return Ok(false);
     }
     Ok(Some(group(sender)) == eligible_group(round))
@@ -640,7 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn add_round_fails_when_round_invalid() {
+    fn add_round_accepts_rounds_that_are_not_incentivised() {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
@@ -653,9 +649,12 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
-        let msg = make_add_round_msg(8);
-        let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
-        assert!(matches!(err, ContractError::RoundInvalid { round: 8 }));
+        let msg = make_add_round_msg(TESTING_MIN_ROUND + 8);
+        let response = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap();
+        assert_eq!(response.messages.len(), 0);
+        let attrs = response.attributes;
+        assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
+        assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
     }
 
     #[test]
