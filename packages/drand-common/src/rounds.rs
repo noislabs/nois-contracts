@@ -34,12 +34,13 @@ pub fn valid_round_after(base: Timestamp) -> u64 {
     round_after_divisor(base, 10)
 }
 
-/// Returns true if and only if the round number is valid for Nois.
+/// Returns true if and only if the round number is incentivised for Nois.
 /// For mainnet launch, every 10th round is considered valid.
+/// For fast randomness, all rounds are valid but only every 10th round is incentivised.
 ///
 /// If round is 0, this returns false because there is no 0 round in drand.
 #[inline]
-pub fn is_valid(round: u64) -> bool {
+pub fn is_incentivised(round: u64) -> bool {
     round != 0 && round % 10 == 0
 }
 
@@ -114,38 +115,38 @@ mod tests {
     }
 
     #[test]
-    fn is_valid_works() {
-        assert!(!is_valid(0)); // no 0 round exists in drand
-        assert!(!is_valid(1));
-        assert!(!is_valid(2));
-        assert!(!is_valid(3));
-        assert!(!is_valid(4));
-        assert!(!is_valid(5));
-        assert!(!is_valid(6));
-        assert!(!is_valid(7));
-        assert!(!is_valid(8));
-        assert!(!is_valid(9));
-        assert!(is_valid(10));
-        assert!(!is_valid(11));
-        assert!(!is_valid(12));
-        assert!(!is_valid(13));
-        assert!(!is_valid(14));
-        assert!(!is_valid(15));
-        assert!(!is_valid(16));
-        assert!(!is_valid(17));
-        assert!(!is_valid(18));
-        assert!(!is_valid(19));
-        assert!(is_valid(20));
-        assert!(!is_valid(21));
-        assert!(!is_valid(22));
-        assert!(!is_valid(23));
-        assert!(!is_valid(24));
-        assert!(!is_valid(25));
-        assert!(!is_valid(26));
-        assert!(!is_valid(27));
-        assert!(!is_valid(28));
-        assert!(!is_valid(29));
-        assert!(is_valid(30));
-        assert!(!is_valid(31));
+    fn is_incentivised_works() {
+        assert!(!is_incentivised(0)); // no 0 round exists in drand
+        assert!(!is_incentivised(1));
+        assert!(!is_incentivised(2));
+        assert!(!is_incentivised(3));
+        assert!(!is_incentivised(4));
+        assert!(!is_incentivised(5));
+        assert!(!is_incentivised(6));
+        assert!(!is_incentivised(7));
+        assert!(!is_incentivised(8));
+        assert!(!is_incentivised(9));
+        assert!(is_incentivised(10));
+        assert!(!is_incentivised(11));
+        assert!(!is_incentivised(12));
+        assert!(!is_incentivised(13));
+        assert!(!is_incentivised(14));
+        assert!(!is_incentivised(15));
+        assert!(!is_incentivised(16));
+        assert!(!is_incentivised(17));
+        assert!(!is_incentivised(18));
+        assert!(!is_incentivised(19));
+        assert!(is_incentivised(20));
+        assert!(!is_incentivised(21));
+        assert!(!is_incentivised(22));
+        assert!(!is_incentivised(23));
+        assert!(!is_incentivised(24));
+        assert!(!is_incentivised(25));
+        assert!(!is_incentivised(26));
+        assert!(!is_incentivised(27));
+        assert!(!is_incentivised(28));
+        assert!(!is_incentivised(29));
+        assert!(is_incentivised(30));
+        assert!(!is_incentivised(31));
     }
 }

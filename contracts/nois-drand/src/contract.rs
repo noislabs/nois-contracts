@@ -5,7 +5,7 @@ use cosmwasm_std::{
     HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128, WasmMsg,
 };
 use cw_storage_plus::Bound;
-use drand_common::{is_valid, DRAND_MAINNET2_PUBKEY};
+use drand_common::{is_incentivised, DRAND_MAINNET2_PUBKEY};
 use drand_verify::{derive_randomness, G2Pubkey, Pubkey};
 
 use crate::attributes::{
@@ -286,7 +286,7 @@ fn execute_add_round(
         return Err(StdError::generic_err("Do not send funds").into());
     }
 
-    if !is_valid(round) {
+    if !is_incentivised(round) {
         return Err(ContractError::RoundInvalid { round });
     }
 
