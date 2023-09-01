@@ -1,6 +1,6 @@
 [package]
 name = "nois-payment"
-version = "0.13.8"
+version = "0.14.0"
 authors = []
 edition = "2021"
 publish = false

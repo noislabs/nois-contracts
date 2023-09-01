@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.14.0] - 2023-09-01
+
 ### Changed
 
 - Upgrade Rust to 1.71.0 and workspace-optimizer to 0.14.0.
@@ -243,7 +245,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.13.8...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/noislabs/nois-contracts/compare/v0.13.8...v0.14.0
 [0.13.8]: https://github.com/noislabs/nois-contracts/compare/v0.13.7...v0.13.8
 [0.13.7]: https://github.com/noislabs/nois-contracts/compare/v0.13.6...v0.13.7
 [0.13.6]: https://github.com/noislabs/nois-contracts/compare/v0.13.5...v0.13.6
