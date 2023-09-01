@@ -523,11 +523,18 @@ fn execute_set_config(
 /// should check. However, it does not guarantee an incentive. Further checks
 /// like bot registration and allowlisting, available balance and order of
 /// submissions are applied after that.
-fn is_incentivized(_deps: Deps, sender: &Addr, round: u64, min_round: u64) -> StdResult<bool> {
-    if !drand_common::is_incentivised(round) || round < min_round {
+fn is_incentivized(deps: Deps, sender: &Addr, round: u64, min_round: u64) -> StdResult<bool> {
+    if round < min_round {
         return Ok(false);
     }
-    Ok(Some(group(sender)) == eligible_group(round))
+
+    if INCENTIVIZED_BY_GATEWAY.has(deps.storage, round) {
+        // We got a job! Here all bot groups are allowed for now
+        return Ok(true);
+    }
+
+    // Fall back to old mod 10 logic for the transition phase
+    Ok(drand_common::is_incentivised(round) && Some(group(sender)) == eligible_group(round))
 }
 
 #[cfg(test)]
