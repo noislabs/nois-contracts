@@ -24,7 +24,7 @@ use crate::request_router::{NewDrand, RequestRouter, RoutingReceipt};
 use crate::state::{
     all_unprocessed_drand_jobs, get_processed_drand_jobs, requests_log_add, requests_log_asc,
     requests_log_desc, unprocessed_drand_jobs_len, Config, Customer, RequestLogEntry, CONFIG,
-    CUSTOMERS, DRAND_JOBS_V1_END, DRAND_JOBS_V1_START,
+    CUSTOMERS,
 };
 
 #[entry_point]
@@ -93,7 +93,6 @@ pub fn execute(
             drand_addr,
             payment_initial_funds,
         ),
-        ExecuteMsg::Cleanup { limit } => execute_cleanup(deps, env, info, limit),
     }
 }
 
@@ -504,44 +503,6 @@ fn execute_add_verified_round(
     Ok(Response::new()
         .add_messages(msgs)
         .add_attributes(attributes))
-}
-
-fn execute_cleanup(
-    deps: DepsMut,
-    _env: Env,
-    _info: MessageInfo,
-    limit: Option<u32>,
-) -> Result<Response, ContractError> {
-    // the number of elements we can still take (decreasing over time)
-    let mut limit = limit.unwrap_or(20) as usize;
-
-    let mut deleted = 0;
-    const PER_SCAN: usize = 20;
-    loop {
-        let take_this_scan = std::cmp::min(PER_SCAN, limit);
-        let keys: Vec<_> = deps
-            .storage
-            .range_keys(
-                Some(DRAND_JOBS_V1_START),
-                Some(DRAND_JOBS_V1_END),
-                Order::Ascending,
-            )
-            .take(take_this_scan)
-            .collect();
-        let deleted_this_scan = keys.len();
-        for k in keys {
-            deps.storage.remove(&k);
-        }
-        deleted += deleted_this_scan;
-        limit -= deleted_this_scan;
-        if limit == 0 || deleted_this_scan < take_this_scan {
-            break;
-        }
-    }
-
-    Ok(Response::new()
-        .add_attribute("action", "execute_cleanup")
-        .add_attribute("deleted_entries", deleted.to_string()))
 }
 
 /// In order not to fall in the chicken egg problem where you need
