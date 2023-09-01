@@ -636,7 +636,7 @@ mod tests {
     }
 
     #[test]
-    fn add_round_accepts_rounds_that_are_not_incentivised() {
+    fn add_round_not_divisible_by_10_succeeds_but_gives_no_incentive() {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
@@ -647,12 +647,18 @@ mod tests {
         };
         let info = mock_info("creator", &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
+        assert_eq!(res.messages.len(), 0);
 
-        let msg = make_add_round_msg(TESTING_MIN_ROUND + 8);
+        let round = 72761; // https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72761
+        let msg = make_add_round_msg(round);
         let response = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap();
         assert_eq!(response.messages.len(), 0);
         let attrs = response.attributes;
+        let randomness = first_attr(&attrs, "randomness").unwrap();
+        assert_eq!(
+            randomness,
+            "e65e811bca550d831779a3bc6f1724445fc0ee1beeaee80b15fa4cf85916cbde"
+        );
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
     }
