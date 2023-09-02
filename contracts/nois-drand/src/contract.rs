@@ -542,7 +542,9 @@ mod tests {
     use super::*;
     use crate::msg::ExecuteMsg;
 
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::testing::{
+        mock_dependencies, mock_dependencies_with_balance, mock_env, mock_info,
+    };
     use cosmwasm_std::{coins, from_binary, Addr, Timestamp, Uint128};
     use drand_common::testing::testing_signature;
 
@@ -663,8 +665,8 @@ mod tests {
     }
 
     #[test]
-    fn add_round_not_divisible_by_10_succeeds_but_gives_no_incentive() {
-        let mut deps = mock_dependencies();
+    fn add_round_not_divisible_by_10_succeeds() {
+        let mut deps = mock_dependencies_with_balance(&[Coin::new(9999999, "unois")]);
 
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
@@ -676,9 +678,19 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 0);
 
-        let round = 72761; // https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72761
-        let msg = make_add_round_msg(round);
-        let response = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap();
+        const ROUND: u64 = 72761; // https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72761
+        const BOT1: &str = "mr_bot";
+        const BOT2: &str = "mrs_bot";
+
+        register_bot(deps.as_mut(), BOT1);
+        register_bot(deps.as_mut(), BOT2);
+        allowlist_bot(deps.as_mut(), BOT1);
+        allowlist_bot(deps.as_mut(), BOT2);
+
+        // succeeds but not incentivized
+        let msg: ExecuteMsg = make_add_round_msg(ROUND);
+        let response: Response =
+            execute(deps.as_mut(), mock_env(), mock_info(BOT1, &[]), msg).unwrap();
         assert_eq!(response.messages.len(), 0);
         let attrs = response.attributes;
         let randomness = first_attr(&attrs, "randomness").unwrap();
@@ -688,6 +700,49 @@ mod tests {
         );
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
+
+        // Set gateway
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            gateway: Some(GATEWAY.to_string()),
+            min_round: None,
+            incentive_point_price: None,
+            incentive_denom: None,
+        };
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(TESTING_MANAGER, &[]),
+            msg,
+        )
+        .unwrap();
+
+        // Set incentivized
+        let msg = ExecuteMsg::SetIncentivized { round: ROUND };
+        let _response: Response =
+            execute(deps.as_mut(), mock_env(), mock_info(GATEWAY, &[]), msg).unwrap();
+
+        // succeeds and incentivized
+        let msg: ExecuteMsg = make_add_round_msg(ROUND);
+        let response: Response =
+            execute(deps.as_mut(), mock_env(), mock_info(BOT2, &[]), msg).unwrap();
+        assert_eq!(response.messages.len(), 2);
+        assert!(matches!(response.messages[0].msg, CosmosMsg::Wasm(_)));
+        assert!(matches!(
+            response.messages[1].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: _,
+                amount: _
+            })
+        ));
+        let attrs = response.attributes;
+        let randomness = first_attr(&attrs, "randomness").unwrap();
+        assert_eq!(
+            randomness,
+            "e65e811bca550d831779a3bc6f1724445fc0ee1beeaee80b15fa4cf85916cbde"
+        );
+        assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "50");
+        assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "1000000unois");
     }
 
     #[test]
