@@ -591,7 +591,8 @@ mod tests {
     //
     // Execute tests
     //
-    fn register_bot(deps: DepsMut, info: MessageInfo) {
+    fn register_bot(deps: DepsMut, sender_addr: impl AsRef<str>) {
+        let info = mock_info(sender_addr.as_ref(), &[]);
         let register_bot_msg = ExecuteMsg::RegisterBot {
             moniker: "Best Bot".to_string(),
         };
@@ -619,10 +620,10 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
+        register_bot(deps.as_mut(), "anyone");
 
         let msg = make_add_round_msg(72780);
+        let info = mock_info("anyone", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let BeaconResponse { beacon } = from_binary(
@@ -929,8 +930,7 @@ mod tests {
 
         const MYBOT: &str = "mybot_12"; // eligable for odd rounds
 
-        let info = mock_info(MYBOT, &[]);
-        register_bot(deps.as_mut(), info);
+        register_bot(deps.as_mut(), MYBOT);
         allowlist_bot(deps.as_mut(), MYBOT);
 
         let msg = make_add_round_msg(72780);
@@ -978,13 +978,13 @@ mod tests {
         let bot6 = "registered_bot_34216397";
         let bot7 = "registered_bot_0821738";
 
-        register_bot(deps.as_mut(), mock_info(bot1, &[]));
-        register_bot(deps.as_mut(), mock_info(bot2, &[]));
-        register_bot(deps.as_mut(), mock_info(bot3, &[]));
-        register_bot(deps.as_mut(), mock_info(bot4, &[]));
-        register_bot(deps.as_mut(), mock_info(bot5, &[]));
-        register_bot(deps.as_mut(), mock_info(bot6, &[]));
-        register_bot(deps.as_mut(), mock_info(bot7, &[]));
+        register_bot(deps.as_mut(), bot1);
+        register_bot(deps.as_mut(), bot2);
+        register_bot(deps.as_mut(), bot3);
+        register_bot(deps.as_mut(), bot4);
+        register_bot(deps.as_mut(), bot5);
+        register_bot(deps.as_mut(), bot6);
+        register_bot(deps.as_mut(), bot7);
 
         // add bots to allowlist
         let msg = ExecuteMsg::UpdateAllowlistBots {
@@ -1119,8 +1119,8 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
+        register_bot(deps.as_mut(), "anyone");
         let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = ExecuteMsg::AddRound {
             round: 72780,
             signature: hex::decode("3cc6f6cdf59e95526d5a5d82aaa84fa6f181e4")
@@ -1174,8 +1174,9 @@ mod tests {
     fn add_round_succeeds_multiple_times() {
         let mut deps = mock_dependencies();
 
+        register_bot(deps.as_mut(), "creator");
+
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
@@ -1187,8 +1188,8 @@ mod tests {
         let msg = make_add_round_msg(72780);
 
         // Execute 1
+        register_bot(deps.as_mut(), "anyone");
         let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
@@ -1197,8 +1198,8 @@ mod tests {
         );
 
         // Execute 2
+        register_bot(deps.as_mut(), "someone else");
         let info = mock_info("someone else", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
@@ -1211,8 +1212,9 @@ mod tests {
     fn add_round_fails_when_same_bot_submits_multiple_times() {
         let mut deps = mock_dependencies();
 
+        register_bot(deps.as_mut(), "creator");
+
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
@@ -1223,23 +1225,24 @@ mod tests {
 
         let msg = make_add_round_msg(72780);
 
+        const A: &str = "bot_alice";
+        const B: &str = "bot_bob";
+        register_bot(deps.as_mut(), A);
+        register_bot(deps.as_mut(), B);
+
         // Execute A1
-        let info = mock_info("bot_alice", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
+        let info = mock_info(A, &[]);
         execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         // Execute B1
-        let info = mock_info("bot_bob", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
+        let info = mock_info(B, &[]);
         execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // Execute A2
-        let info = mock_info("bot_alice", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
+        let info = mock_info(A, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
         // Execute B2
-        let info = mock_info("bot_alice", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
+        let info = mock_info(B, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
     }
@@ -1325,8 +1328,7 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info);
+        register_bot(deps.as_mut(), "anyone");
         add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
@@ -1414,8 +1416,8 @@ mod tests {
     fn query_beacons_desc_works() {
         let mut deps = mock_dependencies();
 
+        register_bot(deps.as_mut(), "creator");
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
@@ -1424,8 +1426,7 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("anyone", &[]);
-        register_bot(deps.as_mut(), info);
+        register_bot(deps.as_mut(), "anyone");
         add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
@@ -1674,8 +1675,8 @@ mod tests {
     fn query_submissions_works() {
         let mut deps = mock_dependencies();
 
+        register_bot(deps.as_mut(), "creator");
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
@@ -1689,8 +1690,7 @@ mod tests {
         let bot2 = "gamma2";
         let bot3 = "alpha3";
 
-        let info = mock_info(bot1, &[]);
-        register_bot(deps.as_mut(), info);
+        register_bot(deps.as_mut(), bot1);
         add_test_rounds(deps.as_mut(), bot1);
 
         let test_round = 72780;
@@ -1879,8 +1879,8 @@ mod tests {
         const REGISTERED: &str = "registered_bot";
         const ALLOWLISTED: &str = "allowlisted_bot";
 
-        register_bot(deps.as_mut(), mock_info(REGISTERED, &[]));
-        register_bot(deps.as_mut(), mock_info(ALLOWLISTED, &[]));
+        register_bot(deps.as_mut(), REGISTERED);
+        register_bot(deps.as_mut(), ALLOWLISTED);
         allowlist_bot(deps.as_mut(), ALLOWLISTED);
 
         // Unregisrered
@@ -2048,8 +2048,8 @@ mod tests {
     fn only_manager_can_set_manager() {
         let mut deps = mock_dependencies();
 
+        register_bot(deps.as_mut(), "creator");
         let info = mock_info("creator", &[]);
-        register_bot(deps.as_mut(), info.to_owned());
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
             min_round: TESTING_MIN_ROUND,
