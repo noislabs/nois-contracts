@@ -1,5 +1,3 @@
-#![allow(deprecated)]
-
 use cosmwasm_std::{
     ensure_eq, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
     HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128, WasmMsg,
@@ -111,9 +109,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
         QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
         QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
         QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
-        QueryMsg::AllowList {} => to_binary(&query_allowlist(deps)?)?,
         QueryMsg::Allowlist {} => to_binary(&query_allowlist(deps)?)?,
-        QueryMsg::IsAllowListed { bot } => to_binary(&query_is_allowlisted(deps, bot)?)?,
         QueryMsg::IsAllowlisted { bot } => to_binary(&query_is_allowlisted(deps, bot)?)?,
     };
     Ok(response)
@@ -756,7 +752,7 @@ mod tests {
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowListed {
+                QueryMsg::IsAllowlisted {
                     bot: BOT.to_string(),
                 },
             )
@@ -785,7 +781,7 @@ mod tests {
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowListed {
+                QueryMsg::IsAllowlisted {
                     bot: BOT.to_string(),
                 },
             )
@@ -806,7 +802,7 @@ mod tests {
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowListed {
+                QueryMsg::IsAllowlisted {
                     bot: BOT.to_string(),
                 },
             )
@@ -827,7 +823,7 @@ mod tests {
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowListed {
+                QueryMsg::IsAllowlisted {
                     bot: BOT.to_string(),
                 },
             )
@@ -1814,7 +1810,7 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let AllowlistResponse { allowed } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
                 .unwrap();
         assert_eq!(allowed, Vec::<String>::new());
 
@@ -1832,7 +1828,7 @@ mod tests {
         .unwrap();
 
         let AllowlistResponse { allowed } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
                 .unwrap();
         assert_eq!(allowed, vec!["bot_b".to_string()]);
 
@@ -1850,7 +1846,7 @@ mod tests {
         .unwrap();
 
         let AllowlistResponse { allowed } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::AllowList {}).unwrap())
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
                 .unwrap();
         assert_eq!(
             allowed,
@@ -2020,7 +2016,7 @@ mod tests {
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowListed {
+                QueryMsg::IsAllowlisted {
                     bot: "bot_b".to_string(),
                 },
             )
@@ -2034,7 +2030,7 @@ mod tests {
             &query(
                 deps.as_ref(),
                 mock_env(),
-                QueryMsg::IsAllowListed {
+                QueryMsg::IsAllowlisted {
                     bot: "bot_a".to_string(),
                 },
             )

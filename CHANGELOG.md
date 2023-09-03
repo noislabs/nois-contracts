@@ -8,6 +8,11 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- drand: Remove previously deprecated `QueryMsg::IsAllowListed` and
+  `QueryMsg::AllowList`.
+
 ## [0.14.0] - 2023-09-01
 
 ### Changed
