@@ -1,10 +1,11 @@
 //! The request router module decides which randomness backend is used
 
 use cosmwasm_std::{
-    to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdError, StdResult, Timestamp,
+    to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdAck, StdError, StdResult,
+    Timestamp,
 };
 use drand_common::{time_of_round, valid_round_after, DRAND_CHAIN_HASH};
-use nois_protocol::{InPacketAck, OutPacket, StdAck, DELIVER_BEACON_PACKET_LIFETIME};
+use nois_protocol::{InPacketAck, OutPacket, DELIVER_BEACON_PACKET_LIFETIME};
 
 use crate::{
     drand_archive::{archive_lookup, archive_store},
@@ -87,13 +88,13 @@ impl RequestRouter {
         };
 
         let acknowledgement = if queued {
-            StdAck::success(InPacketAck::RequestQueued {
+            StdAck::success(to_binary(&InPacketAck::RequestQueued {
                 source_id: source_id.clone(),
-            })
+            })?)
         } else {
-            StdAck::success(InPacketAck::RequestProcessed {
+            StdAck::success(to_binary(&InPacketAck::RequestProcessed {
                 source_id: source_id.clone(),
-            })
+            })?)
         };
 
         Ok(RoutingReceipt {

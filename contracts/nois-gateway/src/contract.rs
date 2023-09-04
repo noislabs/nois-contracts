@@ -4,12 +4,12 @@ use cosmwasm_std::{
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
     IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order, QueryRequest,
-    QueryResponse, Response, StdError, StdResult, SystemError, SystemResult, Timestamp, WasmMsg,
-    WasmQuery,
+    QueryResponse, Response, StdAck, StdError, StdResult, SystemError, SystemResult, Timestamp,
+    WasmMsg, WasmQuery,
 };
 use cw_storage_plus::Bound;
 use nois_protocol::{
-    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck, StdAck,
+    check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck,
     BEACON_PRICE_PACKET_LIFETIME, IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
 };
 use sha2::{Digest, Sha256};
@@ -451,11 +451,11 @@ fn receive_pull_beacon_price(deps: DepsMut, env: Env) -> Result<IbcReceiveRespon
     let config = CONFIG.load(deps.storage)?;
 
     let Coin { amount, denom } = config.price;
-    let ack = StdAck::success(InPacketAck::PullBeaconPrice {
+    let ack = StdAck::success(to_binary(&InPacketAck::PullBeaconPrice {
         timestamp: env.block.time,
         amount,
         denom,
-    });
+    })?);
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
         .add_attribute("action", "receive_pull_beacon_price"))
@@ -472,7 +472,7 @@ pub fn ibc_packet_ack(
     let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
     let is_error: bool;
     match ack {
-        StdAck::Result(data) => {
+        StdAck::Success(data) => {
             is_error = false;
             let _response: OutPacketAck = from_binary(&data)?;
         }
@@ -1602,7 +1602,7 @@ mod tests {
         };
 
         // Success ack (delivered)
-        let ack = StdAck::success(OutPacketAck::DeliverBeacon {});
+        let ack = StdAck::success(to_binary(&OutPacketAck::DeliverBeacon {}).unwrap());
         let msg = mock_ibc_packet_ack(
             "channel-12",
             &packet,
