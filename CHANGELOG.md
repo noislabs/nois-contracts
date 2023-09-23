@@ -10,10 +10,14 @@ and this project adheres to
 
 ### Changed
 
+- Fast randomness! Now all drand rounds can be used when beacons are requested,
+  increasing the available beacon frequency from 1/30s to 1/3s. ([#266])
 - Upgrade cosmwasm to 1.4.0
 - drand: Remove previously deprecated `QueryMsg::IsAllowListed` and
   `QueryMsg::AllowList`.
 - nois-protocol: Remove `StdAck` in favour of `cosmwasm_std::StdAck`
+
+[#266]: https://github.com/noislabs/nois-contracts/pull/266
 
 ## [0.14.0] - 2023-09-01
 
