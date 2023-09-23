@@ -7,7 +7,7 @@ pub fn time_of_round(round: u64) -> Timestamp {
     DRAND_GENESIS.plus_nanos((round - 1) * DRAND_ROUND_LENGTH)
 }
 
-fn round_after(base: Timestamp) -> u64 {
+pub fn round_after(base: Timestamp) -> u64 {
     // Losely ported from https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L49-L63
     if base < DRAND_GENESIS {
         1
@@ -17,21 +17,6 @@ fn round_after(base: Timestamp) -> u64 {
         let next_period_index = periods_since_genesis + 1;
         next_period_index + 1 // Convert 0-based counting to 1-based counting
     }
-}
-
-/// Returns the next round after the timestamp which can be divided by the divisor.
-fn round_after_divisor(base: Timestamp, divisor: u64) -> u64 {
-    let round = round_after(base);
-    let remainder = round % divisor;
-    if remainder != 0 {
-        round + divisor - remainder
-    } else {
-        round
-    }
-}
-
-pub fn valid_round_after(base: Timestamp) -> u64 {
-    round_after_divisor(base, 10)
 }
 
 /// Returns true if and only if the round number is incentivised for Nois.
@@ -86,32 +71,6 @@ mod tests {
         assert_eq!(round, 3);
         let round = round_after(Timestamp::from_seconds(1677685200).plus_seconds(4));
         assert_eq!(round, 3);
-    }
-
-    #[test]
-    fn round_after_divisor_works() {
-        // Before Drand genesis
-        let before = Timestamp::from_seconds(1677685200).minus_seconds(1);
-        assert_eq!(round_after_divisor(before, 1), 1);
-        assert_eq!(round_after_divisor(before, 2), 2);
-        assert_eq!(round_after_divisor(before, 10), 10);
-        assert_eq!(round_after_divisor(before, 700), 700);
-
-        // At Drand genesis
-        let genesis = Timestamp::from_seconds(1677685200);
-        assert_eq!(round_after_divisor(genesis, 1), 2);
-        assert_eq!(round_after_divisor(genesis, 2), 2);
-        assert_eq!(round_after_divisor(genesis, 10), 10);
-        assert_eq!(round_after_divisor(genesis, 700), 700);
-
-        let after5 = genesis.plus_seconds(5);
-        assert_eq!(round_after_divisor(after5, 1), 3);
-        assert_eq!(round_after_divisor(after5, 3), 3);
-        assert_eq!(round_after_divisor(after5, 10), 10);
-
-        let later = genesis.plus_seconds(299);
-        assert_eq!(round_after_divisor(later, 1), 101);
-        assert_eq!(round_after_divisor(later, 10), 110);
     }
 
     #[test]
