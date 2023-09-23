@@ -18,7 +18,8 @@ use crate::msg::{
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
-    BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_COUNT,
+    BOTS, CONFIG, INCENTIVIZED_BY_GATEWAY, INCENTIVIZED_BY_GATEWAY_MARKER, SUBMISSIONS,
+    SUBMISSIONS_COUNT,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -71,6 +72,7 @@ pub fn execute(
             execute_add_round(deps, env, info, round, signature)
         }
         ExecuteMsg::RegisterBot { moniker } => execute_register_bot(deps, env, info, moniker),
+        ExecuteMsg::SetIncentivized { round } => execute_set_incentivized(deps, env, info, round),
         ExecuteMsg::UpdateAllowlistBots { add, remove } => {
             execute_update_allowlist_bots(deps, info, add, remove)
         }
@@ -235,6 +237,26 @@ fn execute_register_bot(
         },
     };
     BOTS.save(deps.storage, &info.sender, &bot)?;
+    Ok(Response::default())
+}
+
+fn execute_set_incentivized(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    round: u64,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        Some(info.sender),
+        config.gateway,
+        ContractError::Unauthorized
+    );
+    let min_round = config.min_round;
+    if round < min_round {
+        return Err(ContractError::RoundTooLow { round, min_round });
+    }
+    INCENTIVIZED_BY_GATEWAY.save(deps.storage, round, &INCENTIVIZED_BY_GATEWAY_MARKER)?;
     Ok(Response::default())
 }
 
@@ -518,6 +540,7 @@ mod tests {
     use drand_common::testing::testing_signature;
 
     const TESTING_MANAGER: &str = "mngr";
+    const GATEWAY: &str = "thegateway";
     const TESTING_MIN_ROUND: u64 = 72760;
 
     const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
@@ -726,6 +749,68 @@ mod tests {
         assert_eq!(response.messages.len(), 0);
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
+    }
+
+    #[test]
+    fn set_incentivized_works() {
+        let mut deps = mock_dependencies();
+
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_point_price: Uint128::new(20_000),
+            incentive_denom: "unois".to_string(),
+        };
+        let info = mock_info("creator", &[]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let ConfigResponse { min_round, .. } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(min_round, TESTING_MIN_ROUND);
+
+        const GOOD_ROUND: u64 = TESTING_MIN_ROUND + 10;
+        const BAD_ROUND: u64 = TESTING_MIN_ROUND - 10;
+
+        // Gateway not set, unauthorized
+        let msg = ExecuteMsg::SetIncentivized { round: GOOD_ROUND };
+        let err = execute(deps.as_mut(), mock_env(), mock_info(GATEWAY, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized {}));
+
+        // Set gateway
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            gateway: Some(GATEWAY.to_string()),
+            min_round: None,
+            incentive_point_price: None,
+            incentive_denom: None,
+        };
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(TESTING_MANAGER, &[]),
+            msg,
+        )
+        .unwrap();
+
+        // Gateway can set now
+        let msg = ExecuteMsg::SetIncentivized { round: GOOD_ROUND };
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(GATEWAY, &[]), msg).unwrap();
+
+        // Someone else is unauthoized
+        let msg = ExecuteMsg::SetIncentivized { round: GOOD_ROUND };
+        let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized {}));
+
+        let msg = ExecuteMsg::SetIncentivized { round: BAD_ROUND };
+        let err = execute(deps.as_mut(), mock_env(), mock_info(GATEWAY, &[]), msg).unwrap_err();
+        assert!(matches!(
+            err,
+            ContractError::RoundTooLow {
+                round: BAD_ROUND,
+                min_round: TESTING_MIN_ROUND,
+            }
+        ));
     }
 
     #[test]
