@@ -87,8 +87,8 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      // Expected round: (1680674828-1677685200) / 3 = 996542.6666666666
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:996550" },
+      // Expected round: (1680674828-1677685200) / 3 + 1 = 996543.6666666666
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:996544" },
     });
   }
 });
@@ -116,7 +116,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     assertPacketsFromB(info, 0, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:830" },
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:824" },
     });
   }
 
@@ -131,20 +131,20 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     assertPacketsFromB(info, 0, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
+      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:803" },
     });
   }
 
   {
     t.log("Submit 1st round and check for no DeliverBeacon");
-    await bot.submitNext();
+    await bot.submitRound(800);
     const info = await link.relayAll();
     assertPacketsFromB(info, 0, true);
   }
 
   {
     t.log("Submit 2nd round and check DeliverBeacon");
-    await bot.submitNext();
+    await bot.submitRound(803);
     const info = await link.relayAll();
     assertPacketsFromB(info, 1, true);
     const ack = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));
@@ -153,14 +153,14 @@ test.serial("proxy works for get_randomness_after", async (t) => {
 
   {
     t.log("Submit 3nd round and check for no DeliverBeacon");
-    await bot.submitNext();
+    await bot.submitRound(815);
     const info = await link.relayAll();
     assertPacketsFromB(info, 0, true);
   }
 
   {
     t.log("Submit 4th round and check DeliverBeacon");
-    await bot.submitNext();
+    await bot.submitRound(824);
     const info = await link.relayAll();
     assertPacketsFromB(info, 1, true);
     const ack = JSON.parse(fromUtf8(info.acksFromA[0].acknowledgement));

@@ -25,6 +25,11 @@ pub enum ExecuteMsg {
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
     RegisterBot { moniker: String },
+    /// Sets the round to be an incentivized one.
+    /// The round number must be >= min_round fon the config. Otherwise a round would be
+    /// incentivized that cannot be submitted.
+    /// Only privilaged addresses can do this, which is typically just the gateway.
+    SetIncentivized { round: u64 },
     UpdateAllowlistBots {
         add: Vec<String>,
         remove: Vec<String>,

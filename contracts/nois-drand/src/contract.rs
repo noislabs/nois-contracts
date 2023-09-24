@@ -18,7 +18,8 @@ use crate::msg::{
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
-    BOTS, CONFIG, SUBMISSIONS, SUBMISSIONS_COUNT,
+    BOTS, CONFIG, INCENTIVIZED_BY_GATEWAY, INCENTIVIZED_BY_GATEWAY_MARKER, SUBMISSIONS,
+    SUBMISSIONS_COUNT,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -71,6 +72,7 @@ pub fn execute(
             execute_add_round(deps, env, info, round, signature)
         }
         ExecuteMsg::RegisterBot { moniker } => execute_register_bot(deps, env, info, moniker),
+        ExecuteMsg::SetIncentivized { round } => execute_set_incentivized(deps, env, info, round),
         ExecuteMsg::UpdateAllowlistBots { add, remove } => {
             execute_update_allowlist_bots(deps, info, add, remove)
         }
@@ -235,6 +237,26 @@ fn execute_register_bot(
         },
     };
     BOTS.save(deps.storage, &info.sender, &bot)?;
+    Ok(Response::default())
+}
+
+fn execute_set_incentivized(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    round: u64,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    ensure_eq!(
+        Some(info.sender),
+        config.gateway,
+        ContractError::Unauthorized
+    );
+    let min_round = config.min_round;
+    if round < min_round {
+        return Err(ContractError::RoundTooLow { round, min_round });
+    }
+    INCENTIVIZED_BY_GATEWAY.save(deps.storage, round, &INCENTIVIZED_BY_GATEWAY_MARKER)?;
     Ok(Response::default())
 }
 
@@ -501,11 +523,18 @@ fn execute_set_config(
 /// should check. However, it does not guarantee an incentive. Further checks
 /// like bot registration and allowlisting, available balance and order of
 /// submissions are applied after that.
-fn is_incentivized(_deps: Deps, sender: &Addr, round: u64, min_round: u64) -> StdResult<bool> {
-    if !drand_common::is_incentivised(round) || round < min_round {
+fn is_incentivized(deps: Deps, sender: &Addr, round: u64, min_round: u64) -> StdResult<bool> {
+    if round < min_round {
         return Ok(false);
     }
-    Ok(Some(group(sender)) == eligible_group(round))
+
+    if INCENTIVIZED_BY_GATEWAY.has(deps.storage, round) {
+        // We got a job! Here all bot groups are allowed for now
+        return Ok(true);
+    }
+
+    // Fall back to old mod 10 logic for the transition phase
+    Ok(drand_common::is_incentivised(round) && Some(group(sender)) == eligible_group(round))
 }
 
 #[cfg(test)]
@@ -513,11 +542,14 @@ mod tests {
     use super::*;
     use crate::msg::ExecuteMsg;
 
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
+    use cosmwasm_std::testing::{
+        mock_dependencies, mock_dependencies_with_balance, mock_env, mock_info,
+    };
     use cosmwasm_std::{coins, from_binary, Addr, Timestamp, Uint128};
     use drand_common::testing::testing_signature;
 
     const TESTING_MANAGER: &str = "mngr";
+    const GATEWAY: &str = "thegateway";
     const TESTING_MIN_ROUND: u64 = 72760;
 
     const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
@@ -633,8 +665,8 @@ mod tests {
     }
 
     #[test]
-    fn add_round_not_divisible_by_10_succeeds_but_gives_no_incentive() {
-        let mut deps = mock_dependencies();
+    fn add_round_not_divisible_by_10_succeeds() {
+        let mut deps = mock_dependencies_with_balance(&[Coin::new(9999999, "unois")]);
 
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
@@ -646,9 +678,19 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 0);
 
-        let round = 72761; // https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72761
-        let msg = make_add_round_msg(round);
-        let response = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap();
+        const ROUND: u64 = 72761; // https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72761
+        const BOT1: &str = "mr_bot";
+        const BOT2: &str = "mrs_bot";
+
+        register_bot(deps.as_mut(), BOT1);
+        register_bot(deps.as_mut(), BOT2);
+        allowlist_bot(deps.as_mut(), BOT1);
+        allowlist_bot(deps.as_mut(), BOT2);
+
+        // succeeds but not incentivized
+        let msg: ExecuteMsg = make_add_round_msg(ROUND);
+        let response: Response =
+            execute(deps.as_mut(), mock_env(), mock_info(BOT1, &[]), msg).unwrap();
         assert_eq!(response.messages.len(), 0);
         let attrs = response.attributes;
         let randomness = first_attr(&attrs, "randomness").unwrap();
@@ -658,6 +700,49 @@ mod tests {
         );
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
+
+        // Set gateway
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            gateway: Some(GATEWAY.to_string()),
+            min_round: None,
+            incentive_point_price: None,
+            incentive_denom: None,
+        };
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(TESTING_MANAGER, &[]),
+            msg,
+        )
+        .unwrap();
+
+        // Set incentivized
+        let msg = ExecuteMsg::SetIncentivized { round: ROUND };
+        let _response: Response =
+            execute(deps.as_mut(), mock_env(), mock_info(GATEWAY, &[]), msg).unwrap();
+
+        // succeeds and incentivized
+        let msg: ExecuteMsg = make_add_round_msg(ROUND);
+        let response: Response =
+            execute(deps.as_mut(), mock_env(), mock_info(BOT2, &[]), msg).unwrap();
+        assert_eq!(response.messages.len(), 2);
+        assert!(matches!(response.messages[0].msg, CosmosMsg::Wasm(_)));
+        assert!(matches!(
+            response.messages[1].msg,
+            CosmosMsg::Bank(BankMsg::Send {
+                to_address: _,
+                amount: _
+            })
+        ));
+        let attrs = response.attributes;
+        let randomness = first_attr(&attrs, "randomness").unwrap();
+        assert_eq!(
+            randomness,
+            "e65e811bca550d831779a3bc6f1724445fc0ee1beeaee80b15fa4cf85916cbde"
+        );
+        assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "50");
+        assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "1000000unois");
     }
 
     #[test]
@@ -726,6 +811,68 @@ mod tests {
         assert_eq!(response.messages.len(), 0);
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
+    }
+
+    #[test]
+    fn set_incentivized_works() {
+        let mut deps = mock_dependencies();
+
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_point_price: Uint128::new(20_000),
+            incentive_denom: "unois".to_string(),
+        };
+        let info = mock_info("creator", &[]);
+        let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+        assert_eq!(0, res.messages.len());
+
+        let ConfigResponse { min_round, .. } =
+            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+        assert_eq!(min_round, TESTING_MIN_ROUND);
+
+        const GOOD_ROUND: u64 = TESTING_MIN_ROUND + 10;
+        const BAD_ROUND: u64 = TESTING_MIN_ROUND - 10;
+
+        // Gateway not set, unauthorized
+        let msg = ExecuteMsg::SetIncentivized { round: GOOD_ROUND };
+        let err = execute(deps.as_mut(), mock_env(), mock_info(GATEWAY, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized {}));
+
+        // Set gateway
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            gateway: Some(GATEWAY.to_string()),
+            min_round: None,
+            incentive_point_price: None,
+            incentive_denom: None,
+        };
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(TESTING_MANAGER, &[]),
+            msg,
+        )
+        .unwrap();
+
+        // Gateway can set now
+        let msg = ExecuteMsg::SetIncentivized { round: GOOD_ROUND };
+        let _res = execute(deps.as_mut(), mock_env(), mock_info(GATEWAY, &[]), msg).unwrap();
+
+        // Someone else is unauthoized
+        let msg = ExecuteMsg::SetIncentivized { round: GOOD_ROUND };
+        let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized {}));
+
+        let msg = ExecuteMsg::SetIncentivized { round: BAD_ROUND };
+        let err = execute(deps.as_mut(), mock_env(), mock_info(GATEWAY, &[]), msg).unwrap_err();
+        assert!(matches!(
+            err,
+            ContractError::RoundTooLow {
+                round: BAD_ROUND,
+                min_round: TESTING_MIN_ROUND,
+            }
+        ));
     }
 
     #[test]

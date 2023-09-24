@@ -2,16 +2,16 @@
 
 use cosmwasm_std::{
     to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdAck, StdError, StdResult,
-    Timestamp,
+    Timestamp, WasmMsg,
 };
-use drand_common::{time_of_round, valid_round_after, DRAND_CHAIN_HASH};
+use drand_common::{round_after, time_of_round, DRAND_CHAIN_HASH};
 use nois_protocol::{InPacketAck, OutPacket, DELIVER_BEACON_PACKET_LIFETIME};
 
 use crate::{
     drand_archive::{archive_lookup, archive_store},
     state::{
         increment_processed_drand_jobs, unprocessed_drand_jobs_dequeue,
-        unprocessed_drand_jobs_enqueue, Job,
+        unprocessed_drand_jobs_enqueue, Job, CONFIG,
     },
 };
 
@@ -51,10 +51,10 @@ impl RequestRouter {
         origin: Binary,
     ) -> StdResult<RoutingReceipt> {
         // Here we currently only have one backend
-        self.handle_drand(deps, env, channel, after, origin)
+        self.handle_drand_request(deps, env, channel, after, origin)
     }
 
-    fn handle_drand(
+    fn handle_drand_request(
         &self,
         deps: DepsMut,
         env: &Env,
@@ -84,6 +84,17 @@ impl RequestRouter {
             false
         } else {
             unprocessed_drand_jobs_enqueue(deps.storage, round, &job)?;
+            let config = CONFIG.load(deps.storage)?;
+            if let Some(drand_addr) = config.drand {
+                msgs.push(
+                    WasmMsg::Execute {
+                        contract_addr: drand_addr.into(),
+                        msg: to_binary(&nois_drand::msg::ExecuteMsg::SetIncentivized { round })?,
+                        funds: vec![],
+                    }
+                    .into(),
+                );
+            }
             true
         };
 
@@ -172,7 +183,7 @@ fn create_deliver_beacon_ibc_message(
 
 /// Calculates the next round in the future, i.e. publish time > base time.
 fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
-    let round = valid_round_after(after);
+    let round = round_after(after);
     let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
     (round, source_id)
 }
@@ -185,42 +196,42 @@ mod tests {
     fn commit_to_drand_round_works() {
         // UNIX epoch
         let (round, source) = commit_to_drand_round(Timestamp::from_seconds(0));
-        assert_eq!(round, 10);
+        assert_eq!(round, 1);
         assert_eq!(
             source,
-            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:10"
+            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:1"
         );
 
         // Before Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
         let (round, source) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).minus_nanos(1));
-        assert_eq!(round, 10);
+        assert_eq!(round, 1);
         assert_eq!(
             source,
-            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:10"
+            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:1"
         );
 
         // At Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
         let (round, source) = commit_to_drand_round(Timestamp::from_seconds(1677685200));
-        assert_eq!(round, 10);
+        assert_eq!(round, 2);
         assert_eq!(
             source,
-            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:10"
+            "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:2"
         );
 
         // After Drand genesis
         let (round, _) = commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_nanos(1));
-        assert_eq!(round, 10);
+        assert_eq!(round, 2);
 
-        // Drand genesis +29s/30s/31s
+        // Drand genesis +26s/27s/28s
         let (round, _) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(26));
         assert_eq!(round, 10);
         let (round, _) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(27));
-        assert_eq!(round, 20);
+        assert_eq!(round, 11);
         let (round, _) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(28));
-        assert_eq!(round, 20);
+        assert_eq!(round, 11);
     }
 }
