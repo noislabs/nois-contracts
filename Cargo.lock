@@ -363,7 +363,7 @@ dependencies = [
 
 [[package]]
 name = "drand-common"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-std",
 ]
@@ -621,7 +621,7 @@ checksum = "db6d7e329c562c5dfab7a46a2afabc8b987ab9a4834c9d1ca04dc54c1546cef8"
 
 [[package]]
 name = "misc"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "bech32",
  "cosmwasm-std",
@@ -647,7 +647,7 @@ dependencies = [
 
 [[package]]
 name = "nois-demo"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -659,7 +659,7 @@ dependencies = [
 
 [[package]]
 name = "nois-drand"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -675,7 +675,7 @@ dependencies = [
 
 [[package]]
 name = "nois-gateway"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -692,7 +692,7 @@ dependencies = [
 
 [[package]]
 name = "nois-icecube"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -703,7 +703,7 @@ dependencies = [
 
 [[package]]
 name = "nois-monitoring"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -715,7 +715,7 @@ dependencies = [
 
 [[package]]
 name = "nois-multitest"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-std",
  "cw-multi-test",
@@ -729,7 +729,7 @@ dependencies = [
 
 [[package]]
 name = "nois-payment"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "anybuf",
  "cosmwasm-schema",
@@ -743,7 +743,7 @@ dependencies = [
 
 [[package]]
 name = "nois-protocol"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",
@@ -754,7 +754,7 @@ dependencies = [
 
 [[package]]
 name = "nois-proxy"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "anybuf",
  "cosmwasm-schema",
@@ -768,7 +768,7 @@ dependencies = [
 
 [[package]]
 name = "nois-proxy-governance-owned"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-schema",
  "nois-proxy",
@@ -776,7 +776,7 @@ dependencies = [
 
 [[package]]
 name = "nois-sink"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "cosmwasm-schema",
  "cosmwasm-std",

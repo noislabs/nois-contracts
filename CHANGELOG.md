@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.15.0] - 2023-09-26
+
 ### Changed
 
 - Fast randomness! Now all drand rounds can be used when beacons are requested,
@@ -256,7 +258,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.14.0...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/noislabs/nois-contracts/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/noislabs/nois-contracts/compare/v0.13.8...v0.14.0
 [0.13.8]: https://github.com/noislabs/nois-contracts/compare/v0.13.7...v0.13.8
 [0.13.7]: https://github.com/noislabs/nois-contracts/compare/v0.13.6...v0.13.7
