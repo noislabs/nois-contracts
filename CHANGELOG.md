@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.15.1] - 2023-10-07
+
 ### Changed
 
 - nois-drand: Incentivized rounds are now those with jobs or `round % 15 == 0`.
@@ -265,7 +267,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.15.0...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.15.1...HEAD
+[0.15.1]: https://github.com/noislabs/nois-contracts/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/noislabs/nois-contracts/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/noislabs/nois-contracts/compare/v0.13.8...v0.14.0
 [0.13.8]: https://github.com/noislabs/nois-contracts/compare/v0.13.7...v0.13.8
