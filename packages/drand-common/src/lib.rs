@@ -1,7 +1,7 @@
 mod rounds;
 pub mod testing;
 
-pub use rounds::{is_incentivised, round_after, time_of_round};
+pub use rounds::{is_incentivized, round_after, time_of_round};
 
 use cosmwasm_std::Timestamp;
 

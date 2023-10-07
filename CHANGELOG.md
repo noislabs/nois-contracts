@@ -8,6 +8,13 @@ and this project adheres to
 
 ## [Unreleased]
 
+### Changed
+
+- nois-drand: Incentivized rounds are now those with jobs or `round % 15 == 0`.
+  As a result, half of the incentivized rounds are even and half are odd. The
+  bot group A now gets incentives on even rounds and group B gets incentives on
+  odd rounds.
+
 ## [0.15.0] - 2023-09-26
 
 ### Changed
