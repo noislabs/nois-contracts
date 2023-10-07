@@ -36,46 +36,13 @@ pub fn group(addr: &Addr) -> Group {
 
 /// The groups which is eligable to get rewards for this round.
 ///
-/// - 110147 skip
-/// - 110148 skip
-/// - 110149 skip
-/// - 110150 A
-/// - 110151 skip
-/// - 110152 skip
-/// - 110153 skip
-/// - 110154 skip
-/// - 110155 skip
-/// - 110156 skip
-/// - 110157 skip
-/// - 110158 skip
-/// - 110159 skip
-/// - 110160 B
-/// - 110161 skip
-/// - 110162 skip
-/// - 110163 skip
-/// - 110164 skip
-/// - 110165 skip
-/// - 110166 skip
-/// - 110167 skip
-/// - 110168 skip
-/// - 110169 skip
-/// - 110170 A
-/// - 110171 skip
-/// - …
+/// Right now, even rounds are for group A and odd rounds are for group B.
 pub fn eligible_group(round: u64) -> Option<Group> {
     if round == 0 {
         return None;
     }
 
-    if round % 10 != 0 {
-        return None;
-    }
-
-    if round % 20 == 0 {
-        Some(Group::B)
-    } else {
-        Some(Group::A)
-    }
+    Some(if round % 2 == 0 { Group::A } else { Group::B })
 }
 
 #[cfg(test)]
@@ -118,45 +85,11 @@ mod tests {
     #[test]
     fn eligible_group_works() {
         assert_eq!(eligible_group(0), None);
-        assert_eq!(eligible_group(1), None);
-        assert_eq!(eligible_group(2), None);
-        assert_eq!(eligible_group(3), None);
-        assert_eq!(eligible_group(4), None);
-        assert_eq!(eligible_group(5), None);
-        assert_eq!(eligible_group(6), None);
-        assert_eq!(eligible_group(7), None);
-        assert_eq!(eligible_group(8), None);
-        assert_eq!(eligible_group(9), None);
-        assert_eq!(eligible_group(10), Some(Group::A));
-        assert_eq!(eligible_group(11), None);
-        assert_eq!(eligible_group(12), None);
-        assert_eq!(eligible_group(13), None);
-        assert_eq!(eligible_group(14), None);
-        assert_eq!(eligible_group(15), None);
-        assert_eq!(eligible_group(16), None);
-        assert_eq!(eligible_group(17), None);
-        assert_eq!(eligible_group(18), None);
-        assert_eq!(eligible_group(19), None);
-        assert_eq!(eligible_group(20), Some(Group::B));
-        assert_eq!(eligible_group(21), None);
-        assert_eq!(eligible_group(22), None);
-        assert_eq!(eligible_group(23), None);
-        assert_eq!(eligible_group(24), None);
-        assert_eq!(eligible_group(25), None);
-        assert_eq!(eligible_group(26), None);
-        assert_eq!(eligible_group(27), None);
-        assert_eq!(eligible_group(28), None);
-        assert_eq!(eligible_group(29), None);
-        assert_eq!(eligible_group(30), Some(Group::A));
-        assert_eq!(eligible_group(31), None);
-        assert_eq!(eligible_group(32), None);
-        assert_eq!(eligible_group(33), None);
-        assert_eq!(eligible_group(34), None);
-        assert_eq!(eligible_group(35), None);
-        assert_eq!(eligible_group(36), None);
-        assert_eq!(eligible_group(37), None);
-        assert_eq!(eligible_group(38), None);
-        assert_eq!(eligible_group(39), None);
-        assert_eq!(eligible_group(40), Some(Group::B));
+        assert_eq!(eligible_group(1), Some(Group::B));
+        assert_eq!(eligible_group(2), Some(Group::A));
+        assert_eq!(eligible_group(3), Some(Group::B));
+        assert_eq!(eligible_group(4), Some(Group::A));
+        assert_eq!(eligible_group(5), Some(Group::B));
+        assert_eq!(eligible_group(6), Some(Group::A));
     }
 }

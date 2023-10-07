@@ -528,13 +528,11 @@ fn is_incentivized(deps: Deps, sender: &Addr, round: u64, min_round: u64) -> Std
         return Ok(false);
     }
 
-    if INCENTIVIZED_BY_GATEWAY.has(deps.storage, round) {
-        // We got a job! Here all bot groups are allowed for now
-        return Ok(true);
+    if INCENTIVIZED_BY_GATEWAY.has(deps.storage, round) || drand_common::is_incentivized(round) {
+        return Ok(Some(group(sender)) == eligible_group(round));
     }
 
-    // Fall back to old mod 10 logic for the transition phase
-    Ok(drand_common::is_incentivised(round) && Some(group(sender)) == eligible_group(round))
+    Ok(false)
 }
 
 #[cfg(test)]
@@ -550,7 +548,7 @@ mod tests {
 
     const TESTING_MANAGER: &str = "mngr";
     const GATEWAY: &str = "thegateway";
-    const TESTING_MIN_ROUND: u64 = 72760;
+    const TESTING_MIN_ROUND: u64 = 72750;
 
     const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
     const DEFAULT_HEIGHT: u64 = 12345;
@@ -564,9 +562,9 @@ mod tests {
         }
     }
 
-    /// Adds round 72760, 72770, 72780
+    /// Adds round 72750, 72765, 72780, 72795
     fn add_test_rounds(mut deps: DepsMut, bot_addr: &str) {
-        for round in [72760, 72770, 72780] {
+        for round in [72750, 72765, 72780, 72795] {
             let msg = make_add_round_msg(round);
             execute(deps.branch(), mock_env(), mock_info(bot_addr, &[]), msg).unwrap();
         }
@@ -665,7 +663,7 @@ mod tests {
     }
 
     #[test]
-    fn add_round_not_divisible_by_10_succeeds() {
+    fn add_round_not_divisible_by_15_succeeds() {
         let mut deps = mock_dependencies_with_balance(&[Coin::new(9999999, "unois")]);
 
         let msg = InstantiateMsg {
@@ -678,7 +676,9 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 0);
 
-        const ROUND: u64 = 72761; // https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72761
+        const ROUND: u64 = 72762; // https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72762
+        const EXPECTED_RANDOMNESS: &str =
+            "528bb3e953412bea63dff0f86ad44aeda64953cd50040279e7b1aba4b9196f28";
         const BOT1: &str = "mr_bot";
         const BOT2: &str = "mrs_bot";
 
@@ -694,10 +694,7 @@ mod tests {
         assert_eq!(response.messages.len(), 0);
         let attrs = response.attributes;
         let randomness = first_attr(&attrs, "randomness").unwrap();
-        assert_eq!(
-            randomness,
-            "e65e811bca550d831779a3bc6f1724445fc0ee1beeaee80b15fa4cf85916cbde"
-        );
+        assert_eq!(randomness, EXPECTED_RANDOMNESS);
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
 
@@ -737,10 +734,7 @@ mod tests {
         ));
         let attrs = response.attributes;
         let randomness = first_attr(&attrs, "randomness").unwrap();
-        assert_eq!(
-            randomness,
-            "e65e811bca550d831779a3bc6f1724445fc0ee1beeaee80b15fa4cf85916cbde"
-        );
+        assert_eq!(randomness, EXPECTED_RANDOMNESS);
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "50");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "1000000unois");
     }
@@ -799,15 +793,16 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = make_add_round_msg(72780);
+        const ROUND: u64 = 72780;
+        const EXPECTED_RANDOMNESS: &str =
+            "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1";
+
+        let msg = make_add_round_msg(ROUND);
         let info = mock_info("unregistered_bot", &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let attrs = response.attributes;
         let randomness = first_attr(&attrs, "randomness").unwrap();
-        assert_eq!(
-            randomness,
-            "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
-        );
+        assert_eq!(randomness, EXPECTED_RANDOMNESS);
         assert_eq!(response.messages.len(), 0);
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "0");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
@@ -1076,14 +1071,18 @@ mod tests {
         register_bot(deps.as_mut(), MYBOT);
         allowlist_bot(deps.as_mut(), MYBOT);
 
-        let msg = make_add_round_msg(72780);
+        const ROUND: u64 = 72795;
+        const EXPECTED_RANDOMNESS: &str =
+            "c003b0ea61041fe339de82500bbe23d09a9580425d88924da7844af4bb91fda2";
+
+        let msg = make_add_round_msg(ROUND);
         let info = mock_info(MYBOT, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(response.messages.len(), 0);
         let attrs = response.attributes;
         assert_eq!(
             first_attr(&attrs, "randomness").unwrap(),
-            "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
+            EXPECTED_RANDOMNESS
         );
         assert_eq!(first_attr(&attrs, "reward_points").unwrap(), "50");
         assert_eq!(first_attr(&attrs, "reward_payout").unwrap(), "0unois");
@@ -1146,7 +1145,8 @@ mod tests {
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Same msg for all submissions
-        let msg = make_add_round_msg(72780);
+        const ROUND: u64 = 72780 + 15;
+        let msg = make_add_round_msg(ROUND);
 
         // 1st
         let info = mock_info(bot1, &[]);
@@ -1488,7 +1488,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72760, 72770, 72780]);
+        assert_eq!(response_rounds, [72750, 72765, 72780, 72795]);
 
         // Limit 2
         let BeaconsResponse { beacons } = from_binary(
@@ -1504,7 +1504,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72760, 72770]);
+        assert_eq!(response_rounds, [72750, 72765]);
 
         // After 0
         let BeaconsResponse { beacons } = from_binary(
@@ -1520,7 +1520,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72760, 72770, 72780]);
+        assert_eq!(response_rounds, [72750, 72765, 72780, 72795]);
 
         // After 72760
         let BeaconsResponse { beacons } = from_binary(
@@ -1536,15 +1536,15 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72770, 72780]);
+        assert_eq!(response_rounds, [72765, 72780, 72795]);
 
-        // After 72780
+        // After 72795
         let BeaconsResponse { beacons } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsAsc {
-                    start_after: Some(72780),
+                    start_after: Some(72795),
                     limit: None,
                 },
             )
@@ -1586,7 +1586,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72780, 72770, 72760]);
+        assert_eq!(response_rounds, [72795, 72780, 72765, 72750]);
 
         // Limit 2
         let BeaconsResponse { beacons } = from_binary(
@@ -1602,7 +1602,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72780, 72770]);
+        assert_eq!(response_rounds, [72795, 72780]);
 
         // After 99999
         let BeaconsResponse { beacons } = from_binary(
@@ -1618,7 +1618,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72780, 72770, 72760]);
+        assert_eq!(response_rounds, [72795, 72780, 72765, 72750]);
 
         // After 72780
         let BeaconsResponse { beacons } = from_binary(
@@ -1634,15 +1634,15 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72770, 72760]);
+        assert_eq!(response_rounds, [72765, 72750]);
 
-        // After 72760
+        // After 72750
         let BeaconsResponse { beacons } = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsDesc {
-                    start_after: Some(72760),
+                    start_after: Some(72750),
                     limit: None,
                 },
             )
@@ -1684,14 +1684,14 @@ mod tests {
         .unwrap();
         assert_eq!(response.incentivized, Vec::<bool>::new());
 
-        // One round
+        // One round (incentivized by round, not job)
         let response: IsIncentivizedResponse = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
                     sender: BOT1.to_string(),
-                    rounds: vec![TESTING_MIN_ROUND + 10],
+                    rounds: vec![TESTING_MIN_ROUND],
                 },
             )
             .unwrap(),
@@ -1705,7 +1705,7 @@ mod tests {
                 mock_env(),
                 QueryMsg::IsIncentivized {
                     sender: BOT1.to_string(),
-                    rounds: vec![TESTING_MIN_ROUND + 20],
+                    rounds: vec![TESTING_MIN_ROUND + 15],
                 },
             )
             .unwrap(),
@@ -1714,23 +1714,24 @@ mod tests {
         assert_eq!(response.incentivized, vec![false]);
 
         // multiple
+        let rounds = [
+            TESTING_MIN_ROUND,
+            TESTING_MIN_ROUND + 15,
+            TESTING_MIN_ROUND + 30,
+        ];
         let response: IsIncentivizedResponse = from_binary(
             &query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
                     sender: BOT1.to_string(),
-                    rounds: vec![
-                        TESTING_MIN_ROUND,
-                        TESTING_MIN_ROUND + 10,
-                        TESTING_MIN_ROUND + 20,
-                    ],
+                    rounds: rounds.into(),
                 },
             )
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(response.incentivized, vec![false, true, false]);
+        assert_eq!(response.incentivized, vec![true, false, true]);
 
         // bot 2 gets different results
         let response: IsIncentivizedResponse = from_binary(
@@ -1739,17 +1740,13 @@ mod tests {
                 mock_env(),
                 QueryMsg::IsIncentivized {
                     sender: BOT2.to_string(),
-                    rounds: vec![
-                        TESTING_MIN_ROUND,
-                        TESTING_MIN_ROUND + 10,
-                        TESTING_MIN_ROUND + 20,
-                    ],
+                    rounds: rounds.into(),
                 },
             )
             .unwrap(),
         )
         .unwrap();
-        assert_eq!(response.incentivized, vec![true, false, true]);
+        assert_eq!(response.incentivized, vec![false, true, false]);
 
         // many
         let response: IsIncentivizedResponse = from_binary(
@@ -1771,6 +1768,7 @@ mod tests {
                         TESTING_MIN_ROUND + 18,
                         TESTING_MIN_ROUND + 19,
                         TESTING_MIN_ROUND + 20,
+                        TESTING_MIN_ROUND + 21,
                     ],
                 },
             )
@@ -1779,7 +1777,10 @@ mod tests {
         .unwrap();
         assert_eq!(
             response.incentivized,
-            vec![false, true, false, false, false, false, false, false, false, false, false, false]
+            vec![
+                true, false, false, false, false, false, false, false, false, false, false, false,
+                false
+            ]
         );
 
         // Very many. It should be up to the node operator to limit query cost using the gas settings.
@@ -2080,7 +2081,7 @@ mod tests {
             QueriedBot {
                 address: Addr::unchecked(REGISTERED),
                 moniker: "Best Bot".to_string(),
-                rounds_added: 3,
+                rounds_added: 4,
                 reward_points: 0, // Not allowlisted
             }
         );
@@ -2125,7 +2126,7 @@ mod tests {
             QueriedBot {
                 address: Addr::unchecked(ALLOWLISTED),
                 moniker: "Best Bot".to_string(),
-                rounds_added: 3,
+                rounds_added: 4,
                 reward_points: 2
                     * (INCENTIVE_POINTS_FOR_FAST_BOT + INCENTIVE_POINTS_FOR_VERIFICATION),
             }
