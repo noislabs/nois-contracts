@@ -529,7 +529,7 @@ fn is_incentivized(deps: Deps, sender: &Addr, round: u64, min_round: u64) -> Std
     }
 
     if INCENTIVIZED_BY_GATEWAY.has(deps.storage, round) || drand_common::is_incentivized(round) {
-        return Ok(Some(group(sender)) == eligible_group(round));
+        return Ok(group(sender) == eligible_group(round));
     }
 
     Ok(false)

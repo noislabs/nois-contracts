@@ -37,12 +37,12 @@ pub fn group(addr: &Addr) -> Group {
 /// The groups which is eligable to get rewards for this round.
 ///
 /// Right now, even rounds are for group A and odd rounds are for group B.
-pub fn eligible_group(round: u64) -> Option<Group> {
-    if round == 0 {
-        return None;
+pub fn eligible_group(round: u64) -> Group {
+    if round % 2 == 0 {
+        Group::A
+    } else {
+        Group::B
     }
-
-    Some(if round % 2 == 0 { Group::A } else { Group::B })
 }
 
 #[cfg(test)]
@@ -84,12 +84,12 @@ mod tests {
 
     #[test]
     fn eligible_group_works() {
-        assert_eq!(eligible_group(0), None);
-        assert_eq!(eligible_group(1), Some(Group::B));
-        assert_eq!(eligible_group(2), Some(Group::A));
-        assert_eq!(eligible_group(3), Some(Group::B));
-        assert_eq!(eligible_group(4), Some(Group::A));
-        assert_eq!(eligible_group(5), Some(Group::B));
-        assert_eq!(eligible_group(6), Some(Group::A));
+        eligible_group(0); // undefined, not a valid drand round
+        assert_eq!(eligible_group(1), Group::B);
+        assert_eq!(eligible_group(2), Group::A);
+        assert_eq!(eligible_group(3), Group::B);
+        assert_eq!(eligible_group(4), Group::A);
+        assert_eq!(eligible_group(5), Group::B);
+        assert_eq!(eligible_group(6), Group::A);
     }
 }
