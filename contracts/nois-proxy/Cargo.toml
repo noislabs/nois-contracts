@@ -23,7 +23,7 @@ library = []
 governance_owned = []
 
 [dependencies]
-anybuf = "0.1.0"
+anybuf = "0.3.0"
 nois-protocol = { path = "../../packages/nois-protocol"}
 cosmwasm-std = { version = "1.4.0", features = ["iterator", "ibc3"] }
 cosmwasm-schema = { version = "1.4.0" }
