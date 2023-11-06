@@ -177,7 +177,6 @@ test.serial("payment works for ibc_pay mode", async (t) => {
   const poolAmount = 0.4 * gatewayPrice; // 40% of the gateway `price`
   const relayerAmount = 0.2 * gatewayPrice; // 20% of the gateway `price`
 
-
   const { customer }: GatewayCustomerResponse = await noisClient.sign.queryContractSmart(noisGatewayAddress, {
     customer: { channel_id: noisChannel.noisChannelId },
   });
