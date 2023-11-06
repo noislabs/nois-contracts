@@ -426,9 +426,9 @@ fn receive_request_beacon(
     let config = CONFIG.load(deps.storage)?;
 
     let Coin { amount, denom } = config.price;
-    let amount_burn = amount.mul_floor((50u128, 100)); // 50%
-    let amount_relayer = amount.mul_floor((5u128, 100)); // 5%
-    let amount_rest = amount - amount_burn - amount_relayer; // 45%
+    let amount_burn = amount.mul_floor((40u128, 100)); // 40%
+    let amount_relayer = amount.mul_floor((20u128, 100)); // 20%
+    let amount_rest = amount - amount_burn - amount_relayer; // 40%
 
     let msg = WasmMsg::Execute {
         contract_addr: customer.payment.into(),
