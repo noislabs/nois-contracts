@@ -8,6 +8,16 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.15.2] - 2023-11-07
+
+### Changed
+
+- Change split of NOIS payments from to 40% burn, 20% relayer and 40% community
+  pool (from 50%/5%/45%). ([#287])
+- Bump anybuf to 0.3.0
+
+[#287]: https://github.com/noislabs/nois-contracts/pull/287
+
 ## [0.15.1] - 2023-10-07
 
 ### Changed
@@ -267,7 +277,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.15.1...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.15.2...HEAD
+[0.15.2]: https://github.com/noislabs/nois-contracts/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/noislabs/nois-contracts/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/noislabs/nois-contracts/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/noislabs/nois-contracts/compare/v0.13.8...v0.14.0
