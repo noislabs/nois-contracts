@@ -1,6 +1,6 @@
 use cosmwasm_std::{ensure_eq, entry_point, Order};
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
+    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, WasmMsg,
 };
 use nois::{roll_dice, NoisCallback, ProxyExecuteMsg, MAX_JOB_ID_LEN};
 
@@ -82,7 +82,7 @@ pub fn execute_roll_dice(
         //GetNextRandomness requests the randomness from the proxy
         //The job id is needed to know what randomness we are referring to upon reception in the callback
         //In this example, the job_id represents one round of dice rolling.
-        msg: to_binary(&ProxyExecuteMsg::GetRandomnessAfter { after, job_id })?,
+        msg: to_json_binary(&ProxyExecuteMsg::GetRandomnessAfter { after, job_id })?,
         // We pay here the contract with the native chain coin.
         // We need to check first with the nois proxy the denoms and amounts that are required
         funds: info.funds, // Just pass on all funds we got
@@ -147,10 +147,10 @@ pub fn execute_receive(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetHistoryOfRounds {} => to_binary(&query_history(deps)?),
-        QueryMsg::Outcome { job_id } => to_binary(&query_outcome(deps, job_id)?),
-        QueryMsg::GetRequest { job_id } => to_binary(&query_get_request(deps, job_id)?),
-        QueryMsg::GetDelivery { job_id } => to_binary(&query_get_delivery(deps, job_id)?),
+        QueryMsg::GetHistoryOfRounds {} => to_json_binary(&query_history(deps)?),
+        QueryMsg::Outcome { job_id } => to_json_binary(&query_outcome(deps, job_id)?),
+        QueryMsg::GetRequest { job_id } => to_json_binary(&query_get_request(deps, job_id)?),
+        QueryMsg::GetDelivery { job_id } => to_json_binary(&query_get_delivery(deps, job_id)?),
     }
 }
 
