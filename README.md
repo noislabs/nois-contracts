@@ -149,11 +149,11 @@ That's it 🎉
 ## Production build
 
 This is a regular CosmWasm workspace. Use the latest version of
-[workspace-optimizer](https://github.com/CosmWasm/rust-optimizer) to build it.
+[cosmwasm/optimizer](https://github.com/CosmWasm/rust-optimizer) to build it.
 
 ```
 docker run --rm -v "$(pwd)":/code \
   --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target \
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/workspace-optimizer:0.13.0
+  cosmwasm/optimizer:0.15.0
 ```
