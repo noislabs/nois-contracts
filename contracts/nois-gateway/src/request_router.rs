@@ -1,8 +1,8 @@
 //! The request router module decides which randomness backend is used
 
 use cosmwasm_std::{
-    to_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdAck, StdError, StdResult,
-    Timestamp, WasmMsg,
+    to_json_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdAck, StdError,
+    StdResult, Timestamp, WasmMsg,
 };
 use drand_common::{round_after, time_of_round, DRAND_CHAIN_HASH};
 use nois_protocol::{InPacketAck, OutPacket, DELIVER_BEACON_PACKET_LIFETIME};
@@ -89,7 +89,9 @@ impl RequestRouter {
                 msgs.push(
                     WasmMsg::Execute {
                         contract_addr: drand_addr.into(),
-                        msg: to_binary(&nois_drand::msg::ExecuteMsg::SetIncentivized { round })?,
+                        msg: to_json_binary(&nois_drand::msg::ExecuteMsg::SetIncentivized {
+                            round,
+                        })?,
                         funds: vec![],
                     }
                     .into(),
@@ -99,11 +101,11 @@ impl RequestRouter {
         };
 
         let acknowledgement = if queued {
-            StdAck::success(to_binary(&InPacketAck::RequestQueued {
+            StdAck::success(to_json_binary(&InPacketAck::RequestQueued {
                 source_id: source_id.clone(),
             })?)
         } else {
-            StdAck::success(to_binary(&InPacketAck::RequestProcessed {
+            StdAck::success(to_json_binary(&InPacketAck::RequestProcessed {
                 source_id: source_id.clone(),
             })?)
         };
@@ -173,7 +175,7 @@ fn create_deliver_beacon_ibc_message(
     };
     let msg = IbcMsg::SendPacket {
         channel_id: job.channel,
-        data: to_binary(&packet)?,
+        data: to_json_binary(&packet)?,
         timeout: blocktime
             .plus_seconds(DELIVER_BEACON_PACKET_LIFETIME)
             .into(),

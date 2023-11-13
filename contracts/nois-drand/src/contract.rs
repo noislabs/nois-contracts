@@ -1,6 +1,7 @@
 use cosmwasm_std::{
-    ensure_eq, to_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
-    HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128, WasmMsg,
+    ensure_eq, to_json_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty,
+    Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128,
+    WasmMsg,
 };
 use cw_storage_plus::Bound;
 use drand_common::DRAND_MAINNET2_PUBKEY;
@@ -97,22 +98,22 @@ pub fn execute(
 #[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
-        QueryMsg::Beacon { round } => to_binary(&query_beacon(deps, round)?)?,
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?)?,
+        QueryMsg::Beacon { round } => to_json_binary(&query_beacon(deps, round)?)?,
         QueryMsg::BeaconsAsc { start_after, limit } => {
-            to_binary(&query_beacons(deps, start_after, limit, Order::Ascending)?)?
+            to_json_binary(&query_beacons(deps, start_after, limit, Order::Ascending)?)?
         }
         QueryMsg::BeaconsDesc { start_after, limit } => {
-            to_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
+            to_json_binary(&query_beacons(deps, start_after, limit, Order::Descending)?)?
         }
         QueryMsg::IsIncentivized { sender, rounds } => {
-            to_binary(&query_is_incentivized(deps, sender, rounds)?)?
+            to_json_binary(&query_is_incentivized(deps, sender, rounds)?)?
         }
-        QueryMsg::Submissions { round } => to_binary(&query_submissions(deps, round)?)?,
-        QueryMsg::Bot { address } => to_binary(&query_bot(deps, address)?)?,
-        QueryMsg::Bots {} => to_binary(&query_bots(deps)?)?,
-        QueryMsg::Allowlist {} => to_binary(&query_allowlist(deps)?)?,
-        QueryMsg::IsAllowlisted { bot } => to_binary(&query_is_allowlisted(deps, bot)?)?,
+        QueryMsg::Submissions { round } => to_json_binary(&query_submissions(deps, round)?)?,
+        QueryMsg::Bot { address } => to_json_binary(&query_bot(deps, address)?)?,
+        QueryMsg::Bots {} => to_json_binary(&query_bots(deps)?)?,
+        QueryMsg::Allowlist {} => to_json_binary(&query_allowlist(deps)?)?,
+        QueryMsg::IsAllowlisted { bot } => to_json_binary(&query_is_allowlisted(deps, bot)?)?,
     };
     Ok(response)
 }
@@ -396,7 +397,7 @@ fn execute_add_round(
         out_msgs.push(
             WasmMsg::Execute {
                 contract_addr: gateway.into(),
-                msg: to_binary(&NoisGatewayExecuteMsg::AddVerifiedRound {
+                msg: to_json_binary(&NoisGatewayExecuteMsg::AddVerifiedRound {
                     round,
                     randomness,
                     is_verifying_tx,
@@ -543,7 +544,7 @@ mod tests {
     use cosmwasm_std::testing::{
         mock_dependencies, mock_dependencies_with_balance, mock_env, mock_info,
     };
-    use cosmwasm_std::{coins, from_binary, Addr, Timestamp, Uint128};
+    use cosmwasm_std::{coins, from_json, Addr, Timestamp, Uint128};
     use drand_common::testing::testing_signature;
 
     const TESTING_MANAGER: &str = "mngr";
@@ -601,7 +602,7 @@ mod tests {
         assert_eq!(0, res.messages.len());
 
         let config: ConfigResponse =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(
             config,
             ConfigResponse {
@@ -652,10 +653,9 @@ mod tests {
         let info = mock_info("anyone", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let BeaconResponse { beacon } = from_binary(
-            &query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72780 }).unwrap(),
-        )
-        .unwrap();
+        let BeaconResponse { beacon } =
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Beacon { round: 72780 }).unwrap())
+                .unwrap();
         assert_eq!(
             beacon.unwrap().randomness.to_hex(),
             "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
@@ -754,7 +754,7 @@ mod tests {
         assert_eq!(0, res.messages.len());
 
         let ConfigResponse { min_round, .. } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(min_round, TESTING_MIN_ROUND);
 
         let msg = make_add_round_msg(10);
@@ -823,7 +823,7 @@ mod tests {
         assert_eq!(0, res.messages.len());
 
         let ConfigResponse { min_round, .. } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(min_round, TESTING_MIN_ROUND);
 
         const GOOD_ROUND: u64 = TESTING_MIN_ROUND + 10;
@@ -890,8 +890,8 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), mock_info("creator", &[]), msg).unwrap();
 
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -919,8 +919,8 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -940,8 +940,8 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -961,8 +961,8 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -1402,8 +1402,8 @@ mod tests {
             moniker: "Nickname1".to_string(),
         };
         execute(deps.as_mut(), mock_env(), info, register_bot_msg).unwrap();
-        let BotResponse { bot } = from_binary(
-            &query(
+        let BotResponse { bot } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Bot {
@@ -1431,8 +1431,8 @@ mod tests {
             moniker: "Another nickname".to_string(),
         };
         execute(deps.as_mut(), mock_env(), info, register_bot_msg).unwrap();
-        let BotResponse { bot } = from_binary(
-            &query(
+        let BotResponse { bot } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Bot {
@@ -1475,8 +1475,8 @@ mod tests {
         add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsAsc {
@@ -1491,8 +1491,8 @@ mod tests {
         assert_eq!(response_rounds, [72750, 72765, 72780, 72795]);
 
         // Limit 2
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsAsc {
@@ -1507,8 +1507,8 @@ mod tests {
         assert_eq!(response_rounds, [72750, 72765]);
 
         // After 0
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsAsc {
@@ -1523,8 +1523,8 @@ mod tests {
         assert_eq!(response_rounds, [72750, 72765, 72780, 72795]);
 
         // After 72760
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsAsc {
@@ -1539,8 +1539,8 @@ mod tests {
         assert_eq!(response_rounds, [72765, 72780, 72795]);
 
         // After 72795
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsAsc {
@@ -1573,8 +1573,8 @@ mod tests {
         add_test_rounds(deps.as_mut(), "anyone");
 
         // Unlimited
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsDesc {
@@ -1589,8 +1589,8 @@ mod tests {
         assert_eq!(response_rounds, [72795, 72780, 72765, 72750]);
 
         // Limit 2
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsDesc {
@@ -1605,8 +1605,8 @@ mod tests {
         assert_eq!(response_rounds, [72795, 72780]);
 
         // After 99999
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsDesc {
@@ -1621,8 +1621,8 @@ mod tests {
         assert_eq!(response_rounds, [72795, 72780, 72765, 72750]);
 
         // After 72780
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsDesc {
@@ -1637,8 +1637,8 @@ mod tests {
         assert_eq!(response_rounds, [72765, 72750]);
 
         // After 72750
-        let BeaconsResponse { beacons } = from_binary(
-            &query(
+        let BeaconsResponse { beacons } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsDesc {
@@ -1670,8 +1670,8 @@ mod tests {
         const BOT2: &str = "gamma2";
 
         // No rounds
-        let response: IsIncentivizedResponse = from_binary(
-            &query(
+        let response: IsIncentivizedResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
@@ -1685,8 +1685,8 @@ mod tests {
         assert_eq!(response.incentivized, Vec::<bool>::new());
 
         // One round (incentivized by round, not job)
-        let response: IsIncentivizedResponse = from_binary(
-            &query(
+        let response: IsIncentivizedResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
@@ -1699,8 +1699,8 @@ mod tests {
         .unwrap();
         assert_eq!(response.incentivized, vec![true]);
 
-        let response: IsIncentivizedResponse = from_binary(
-            &query(
+        let response: IsIncentivizedResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
@@ -1719,8 +1719,8 @@ mod tests {
             TESTING_MIN_ROUND + 15,
             TESTING_MIN_ROUND + 30,
         ];
-        let response: IsIncentivizedResponse = from_binary(
-            &query(
+        let response: IsIncentivizedResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
@@ -1734,8 +1734,8 @@ mod tests {
         assert_eq!(response.incentivized, vec![true, false, true]);
 
         // bot 2 gets different results
-        let response: IsIncentivizedResponse = from_binary(
-            &query(
+        let response: IsIncentivizedResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
@@ -1749,8 +1749,8 @@ mod tests {
         assert_eq!(response.incentivized, vec![false, true, false]);
 
         // many
-        let response: IsIncentivizedResponse = from_binary(
-            &query(
+        let response: IsIncentivizedResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
@@ -1785,8 +1785,8 @@ mod tests {
 
         // Very many. It should be up to the node operator to limit query cost using the gas settings.
         // There might be cases in which you want to mass query this.
-        let response: IsIncentivizedResponse = from_binary(
-            &query(
+        let response: IsIncentivizedResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
@@ -1800,8 +1800,8 @@ mod tests {
         assert_eq!(response.incentivized.len(), 999);
 
         // Values below min_round are always false
-        let response: IsIncentivizedResponse = from_binary(
-            &query(
+        let response: IsIncentivizedResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsIncentivized {
@@ -1840,8 +1840,8 @@ mod tests {
         let test_round = 72780;
 
         // No submissions
-        let response: SubmissionsResponse = from_binary(
-            &query(
+        let response: SubmissionsResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Submissions {
@@ -1855,8 +1855,8 @@ mod tests {
         assert_eq!(response.submissions, Vec::<_>::new());
 
         // One submission
-        let response: SubmissionsResponse = from_binary(
-            &query(
+        let response: SubmissionsResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Submissions { round: test_round },
@@ -1878,8 +1878,8 @@ mod tests {
         add_test_rounds(deps.as_mut(), bot2);
 
         // Two submissions
-        let response: SubmissionsResponse = from_binary(
-            &query(
+        let response: SubmissionsResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Submissions { round: test_round },
@@ -1909,8 +1909,8 @@ mod tests {
         add_test_rounds(deps.as_mut(), bot3);
 
         // Three submissions
-        let response: SubmissionsResponse = from_binary(
-            &query(
+        let response: SubmissionsResponse = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Submissions { round: test_round },
@@ -1958,8 +1958,7 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let AllowlistResponse { allowed } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
-                .unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap()).unwrap();
         assert_eq!(allowed, Vec::<String>::new());
 
         // Add one entry
@@ -1976,8 +1975,7 @@ mod tests {
         .unwrap();
 
         let AllowlistResponse { allowed } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
-                .unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap()).unwrap();
         assert_eq!(allowed, vec!["bot_b".to_string()]);
 
         // Add two more entries
@@ -1994,8 +1992,7 @@ mod tests {
         .unwrap();
 
         let AllowlistResponse { allowed } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
-                .unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap()).unwrap();
         assert_eq!(
             allowed,
             vec![
@@ -2028,8 +2025,8 @@ mod tests {
         allowlist_bot(deps.as_mut(), ALLOWLISTED);
 
         // Unregisrered
-        let BotResponse { bot } = from_binary(
-            &query(
+        let BotResponse { bot } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Bot {
@@ -2042,8 +2039,8 @@ mod tests {
         assert_eq!(bot, None);
 
         // Registered
-        let BotResponse { bot } = from_binary(
-            &query(
+        let BotResponse { bot } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Bot {
@@ -2065,8 +2062,8 @@ mod tests {
 
         add_test_rounds(deps.as_mut(), REGISTERED);
 
-        let BotResponse { bot } = from_binary(
-            &query(
+        let BotResponse { bot } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Bot {
@@ -2087,8 +2084,8 @@ mod tests {
         );
 
         // Allowlisted
-        let BotResponse { bot } = from_binary(
-            &query(
+        let BotResponse { bot } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Bot {
@@ -2110,8 +2107,8 @@ mod tests {
 
         add_test_rounds(deps.as_mut(), ALLOWLISTED);
 
-        let BotResponse { bot } = from_binary(
-            &query(
+        let BotResponse { bot } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Bot {
@@ -2160,8 +2157,8 @@ mod tests {
         .unwrap();
 
         // bot_b is listed
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -2174,8 +2171,8 @@ mod tests {
         assert!(listed);
 
         // bot_a is not listed
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -2238,7 +2235,7 @@ mod tests {
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let config: ConfigResponse =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(
             config,
             ConfigResponse {

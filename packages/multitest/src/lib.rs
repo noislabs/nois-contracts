@@ -1,7 +1,7 @@
 // Testing utils. See tests folder for actual tests.
 
 use cosmwasm_std::{
-    coin, from_binary, to_binary, Addr, Attribute, BalanceResponse, BankQuery, Coin, Querier,
+    coin, from_json, to_json_binary, Addr, Attribute, BalanceResponse, BankQuery, Coin, Querier,
     QueryRequest,
 };
 use cw_multi_test::App;
@@ -22,8 +22,11 @@ pub fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
         address: address.to_string(),
         denom: denom.to_string(),
     });
-    let res = app.raw_query(&to_binary(&req).unwrap()).unwrap().unwrap();
-    let balance: BalanceResponse = from_binary(&res).unwrap();
+    let res = app
+        .raw_query(&to_json_binary(&req).unwrap())
+        .unwrap()
+        .unwrap();
+    let balance: BalanceResponse = from_json(res).unwrap();
 
     balance.amount
 }

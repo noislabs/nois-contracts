@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, CheckedFromRatioError, Decimal, Deps, DepsMut, Env,
+    ensure_eq, entry_point, to_json_binary, CheckedFromRatioError, Decimal, Deps, DepsMut, Env,
     MessageInfo, Order, QueryResponse, Response, StdResult, WasmMsg,
 };
 use nois::{random_decimal, sub_randomness, NoisCallback, ProxyExecuteMsg};
@@ -48,7 +48,7 @@ pub fn execute_estimate_pi(
 
     let res = Response::new().add_message(WasmMsg::Execute {
         contract_addr: nois_proxy.into(),
-        msg: to_binary(&ProxyExecuteMsg::GetNextRandomness { job_id })?,
+        msg: to_json_binary(&ProxyExecuteMsg::GetNextRandomness { job_id })?,
         funds: info.funds, // Just pass on all funds we got
     });
     Ok(res)
@@ -101,8 +101,8 @@ pub fn execute_receive(
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     match msg {
-        QueryMsg::Results {} => to_binary(&query_results(deps)?),
-        QueryMsg::Result { job_id } => to_binary(&query_result(deps, job_id)?),
+        QueryMsg::Results {} => to_json_binary(&query_results(deps)?),
+        QueryMsg::Result { job_id } => to_json_binary(&query_result(deps, job_id)?),
     }
 }
 

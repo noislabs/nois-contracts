@@ -1,11 +1,11 @@
 use anybuf::Anybuf;
 use cosmwasm_std::{
-    attr, ensure_eq, from_binary, from_slice, to_binary, Addr, Attribute, BankMsg, Binary, Coin,
-    CosmosMsg, Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse,
-    IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg,
-    IbcPacketAckMsg, IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo,
-    Never, Order, QueryResponse, Reply, Response, StdAck, StdResult, Storage, SubMsg, SubMsgResult,
-    Timestamp, Uint128, WasmMsg,
+    attr, ensure_eq, from_json, to_json_binary, Addr, Attribute, BankMsg, Binary, Coin, CosmosMsg,
+    Deps, DepsMut, Empty, Env, Event, HexBinary, Ibc3ChannelOpenResponse, IbcBasicResponse,
+    IbcChannelCloseMsg, IbcChannelConnectMsg, IbcChannelOpenMsg, IbcMsg, IbcPacketAckMsg,
+    IbcPacketReceiveMsg, IbcPacketTimeoutMsg, IbcReceiveResponse, MessageInfo, Never, Order,
+    QueryResponse, Reply, Response, StdAck, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
+    Uint128, WasmMsg,
 };
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
@@ -231,7 +231,7 @@ pub fn execute_get_randomness_impl(
 
     let packet = InPacket::RequestBeacon {
         after,
-        origin: to_binary(&RequestBeaconOrigin {
+        origin: to_json_binary(&RequestBeaconOrigin {
             sender: info.sender.into(),
             job_id,
         })?,
@@ -263,7 +263,7 @@ pub fn execute_get_randomness_impl(
     msgs.push(
         IbcMsg::SendPacket {
             channel_id,
-            data: to_binary(&packet)?,
+            data: to_json_binary(&packet)?,
             timeout: env
                 .block
                 .time
@@ -631,12 +631,14 @@ pub fn reply(_deps: DepsMut, _env: Env, reply: Reply) -> Result<Response, Contra
 #[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?),
-        QueryMsg::Prices {} => to_binary(&query_prices(deps)?),
-        QueryMsg::Price { denom } => to_binary(&query_price(deps, denom)?),
-        QueryMsg::GatewayChannel {} => to_binary(&query_gateway_channel(deps)?),
-        QueryMsg::Allowlist {} => to_binary(&query_allowlist(deps)?),
-        QueryMsg::IsAllowlisted { address } => to_binary(&query_is_allowlisted(deps, address)?),
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?),
+        QueryMsg::Prices {} => to_json_binary(&query_prices(deps)?),
+        QueryMsg::Price { denom } => to_json_binary(&query_price(deps, denom)?),
+        QueryMsg::GatewayChannel {} => to_json_binary(&query_gateway_channel(deps)?),
+        QueryMsg::Allowlist {} => to_json_binary(&query_allowlist(deps)?),
+        QueryMsg::IsAllowlisted { address } => {
+            to_json_binary(&query_is_allowlisted(deps, address)?)
+        }
     }
 }
 
@@ -766,7 +768,7 @@ pub fn ibc_packet_receive(
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
         let IbcPacketReceiveMsg { packet, .. } = msg;
-        let op: OutPacket = from_binary(&packet.data)?;
+        let op: OutPacket = from_json(packet.data)?;
         match op {
             OutPacket::DeliverBeacon {
                 source_id: _,
@@ -803,7 +805,7 @@ fn receive_deliver_beacon(
         callback_gas_limit, ..
     } = CONFIG.load(deps.storage)?;
 
-    let RequestBeaconOrigin { sender, job_id } = from_slice(&origin)?;
+    let RequestBeaconOrigin { sender, job_id } = from_json(origin)?;
 
     // Create the message for executing the callback.
     // This can fail for various reasons, like
@@ -814,7 +816,7 @@ fn receive_deliver_beacon(
     let msg = SubMsg::reply_on_error(
         WasmMsg::Execute {
             contract_addr: sender,
-            msg: to_binary(&ReceiverExecuteMsg::NoisReceive {
+            msg: to_json_binary(&ReceiverExecuteMsg::NoisReceive {
                 callback: NoisCallback {
                     job_id: job_id.clone(),
                     published,
@@ -827,7 +829,7 @@ fn receive_deliver_beacon(
     )
     .with_gas_limit(callback_gas_limit);
 
-    let ack = StdAck::success(to_binary(&OutPacketAck::DeliverBeacon {})?);
+    let ack = StdAck::success(to_json_binary(&OutPacketAck::DeliverBeacon {})?);
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
         .add_attribute(ATTR_ACTION, "receive_deliver_beacon")
@@ -843,7 +845,7 @@ fn receive_welcome(
     let mut config = CONFIG.load(deps.storage)?;
     config.payment = Some(payment);
     CONFIG.save(deps.storage, &config)?;
-    let ack = StdAck::success(to_binary(&OutPacketAck::Welcome {})?);
+    let ack = StdAck::success(to_json_binary(&OutPacketAck::Welcome {})?);
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
         .add_attribute(ATTR_ACTION, "receive_welcome"))
@@ -857,7 +859,7 @@ fn receive_push_beacon_price(
     denom: String,
 ) -> Result<IbcReceiveResponse, ContractError> {
     update_nois_beacon_price(deps, timestamp, amount, denom)?;
-    let ack = StdAck::success(to_binary(&OutPacketAck::PushBeaconPrice {})?);
+    let ack = StdAck::success(to_json_binary(&OutPacketAck::PushBeaconPrice {})?);
     Ok(IbcReceiveResponse::new()
         .set_ack(ack)
         .add_attribute(ATTR_ACTION, "receive_push_beacon_price"))
@@ -871,12 +873,12 @@ pub fn ibc_packet_ack(
 ) -> Result<IbcBasicResponse, ContractError> {
     let mut attributes = Vec::<Attribute>::new();
     attributes.push(attr(ATTR_ACTION, "ibc_packet_ack"));
-    let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
+    let ack: StdAck = from_json(msg.acknowledgement.data)?;
     let is_error: bool;
     match ack {
         StdAck::Success(data) => {
             is_error = false;
-            let response: InPacketAck = from_binary(&data)?;
+            let response: InPacketAck = from_json(data)?;
             let ack_type: String = match response {
                 InPacketAck::RequestProcessed { source_id: _ } => "request_processed".to_string(),
                 InPacketAck::RequestQueued { source_id: _ } => "request_queued".to_string(),
@@ -1209,7 +1211,7 @@ mod tests {
 
         // Check original config
         let ConfigResponse { config: original } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(original.manager, Some(Addr::unchecked(CREATOR)));
         assert_eq!(original.callback_gas_limit, 500_000);
         assert_eq!(original.allowlist_enabled, Some(false));
@@ -1228,7 +1230,7 @@ mod tests {
         };
         execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         let ConfigResponse { config } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(config, original);
 
         // Set allowlist_enabled to true
@@ -1245,7 +1247,7 @@ mod tests {
         };
         execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         let ConfigResponse { config } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         // Updated
         assert_eq!(config.allowlist_enabled, Some(true));
         // Rest unchanged
@@ -1268,7 +1270,7 @@ mod tests {
         };
         execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         let ConfigResponse { config } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         // Updated
         assert_eq!(config.allowlist_enabled, Some(false));
         // Rest unchanged
@@ -1291,7 +1293,7 @@ mod tests {
         };
         execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         let ConfigResponse { config } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         // Updated
         assert_eq!(config.callback_gas_limit, 800_000);
         // Rest unchanged
@@ -1435,7 +1437,7 @@ mod tests {
         let deps = setup(None);
 
         let PricesResponse { prices } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Prices {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Prices {}).unwrap()).unwrap();
         assert_eq!(prices, coins(1000000, "unoisx"));
     }
 
@@ -1443,8 +1445,8 @@ mod tests {
     fn query_price_works() {
         let deps = setup(None);
 
-        let PriceResponse { price } = from_binary(
-            &query(
+        let PriceResponse { price } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Price {
@@ -1456,8 +1458,8 @@ mod tests {
         .unwrap();
         assert_eq!(price, None);
 
-        let PriceResponse { price } = from_binary(
-            &query(
+        let PriceResponse { price } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Price {
@@ -1485,8 +1487,7 @@ mod tests {
         }));
 
         let AllowlistResponse { allowed } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
-                .unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap()).unwrap();
         assert_eq!(allowed, ["addr1", "addr2"]);
 
         // empty list
@@ -1501,8 +1502,7 @@ mod tests {
         }));
 
         let AllowlistResponse { allowed } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap())
-                .unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap()).unwrap();
         assert!(allowed.is_empty());
     }
 
@@ -1521,8 +1521,8 @@ mod tests {
         }));
 
         // expect the address IN allow list to return true
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -1535,8 +1535,8 @@ mod tests {
         assert!(listed);
 
         // expect the address NOT in allow list to return false
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -1564,8 +1564,8 @@ mod tests {
         }));
 
         // expect the address IN allow list to return true
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -1578,8 +1578,8 @@ mod tests {
         assert!(listed);
 
         // Expect the address NOT in allowlist to return false even if allowlist is not enabled.
-        let IsAllowlistedResponse { listed } = from_binary(
-            &query(
+        let IsAllowlistedResponse { listed } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
@@ -1623,7 +1623,7 @@ mod tests {
 
         // Channel is unset
         let GatewayChannelResponse { channel } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
                 .unwrap();
         assert_eq!(channel, None);
 
@@ -1632,7 +1632,7 @@ mod tests {
 
         // Channel is now set
         let GatewayChannelResponse { channel } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
                 .unwrap();
         assert_eq!(channel, Some("channel-12".to_string()));
 
@@ -1661,7 +1661,7 @@ mod tests {
 
         // Channel is now set
         let GatewayChannelResponse { channel } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
                 .unwrap();
         assert_eq!(channel, Some("channel-12".to_string()));
 
@@ -1672,7 +1672,7 @@ mod tests {
 
         // Channel is still set
         let GatewayChannelResponse { channel } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
                 .unwrap();
         assert_eq!(channel, Some("channel-12".to_string()));
 
@@ -1682,7 +1682,7 @@ mod tests {
 
         // Channel is unset
         let GatewayChannelResponse { channel } =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::GatewayChannel {}).unwrap())
                 .unwrap();
         assert_eq!(channel, None);
     }
@@ -1694,7 +1694,7 @@ mod tests {
         // The proxy -> gateway packet we get the acknowledgement for
         let packet = InPacket::RequestBeacon {
             after: Timestamp::from_seconds(321),
-            origin: to_binary(&RequestBeaconOrigin {
+            origin: to_json_binary(&RequestBeaconOrigin {
                 sender: "contract345".to_string(),
                 job_id: "hello".to_string(),
             })
@@ -1703,7 +1703,7 @@ mod tests {
 
         // Success ack (processed)
         let ack = StdAck::success(
-            to_binary(&InPacketAck::RequestProcessed {
+            to_json_binary(&InPacketAck::RequestProcessed {
                 source_id: "backend:123:456".to_string(),
             })
             .unwrap(),
@@ -1726,7 +1726,7 @@ mod tests {
 
         // Success ack (queued)
         let ack = StdAck::success(
-            to_binary(&InPacketAck::RequestQueued {
+            to_json_binary(&InPacketAck::RequestQueued {
                 source_id: "backend:123:456".to_string(),
             })
             .unwrap(),

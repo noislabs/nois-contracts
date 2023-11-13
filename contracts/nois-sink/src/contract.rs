@@ -1,6 +1,6 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, BankMsg, CosmosMsg, Deps, DepsMut, Env, MessageInfo, Order,
-    QueryResponse, Response, StdResult,
+    ensure_eq, entry_point, to_json_binary, BankMsg, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
+    Order, QueryResponse, Response, StdResult,
 };
 use cw_storage_plus::Bound;
 
@@ -38,10 +38,10 @@ pub fn execute(
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
         QueryMsg::AshesAsc { start_after, limit } => {
-            to_binary(&query_ashes(deps, start_after, limit, Order::Ascending)?)?
+            to_json_binary(&query_ashes(deps, start_after, limit, Order::Ascending)?)?
         }
         QueryMsg::AshesDesc { start_after, limit } => {
-            to_binary(&query_ashes(deps, start_after, limit, Order::Descending)?)?
+            to_json_binary(&query_ashes(deps, start_after, limit, Order::Descending)?)?
         }
     };
     Ok(response)
@@ -165,7 +165,7 @@ mod tests {
     use crate::msg::{ExecuteMsg, QueriedAsh};
 
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, Addr, Attribute, Coin, Timestamp, Uint128};
+    use cosmwasm_std::{from_json, Addr, Attribute, Coin, Timestamp, Uint128};
 
     const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
 
@@ -224,8 +224,8 @@ mod tests {
         execute(deps.as_mut(), env, info, msg).unwrap();
 
         // Test Query Asc
-        let AshesResponse { ashes } = from_binary(
-            &query(
+        let AshesResponse { ashes } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::AshesAsc {
@@ -267,8 +267,8 @@ mod tests {
         );
 
         // Test Query Desc
-        let AshesResponse { ashes } = from_binary(
-            &query(
+        let AshesResponse { ashes } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::AshesDesc {
@@ -364,8 +364,8 @@ mod tests {
         );
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let AshesResponse { ashes } = from_binary(
-            &query(
+        let AshesResponse { ashes } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::AshesAsc {
@@ -424,8 +424,8 @@ mod tests {
         }
 
         // asc, limit 3
-        let AshesResponse { ashes } = from_binary(
-            &query(
+        let AshesResponse { ashes } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::AshesAsc {
@@ -461,8 +461,8 @@ mod tests {
         );
 
         // asc, limit 3, start after 2
-        let AshesResponse { ashes } = from_binary(
-            &query(
+        let AshesResponse { ashes } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::AshesAsc {
@@ -498,8 +498,8 @@ mod tests {
         );
 
         // asc, limit None
-        let AshesResponse { ashes } = from_binary(
-            &query(
+        let AshesResponse { ashes } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::AshesAsc {
@@ -589,8 +589,8 @@ mod tests {
         );
 
         // desc, limit 3, start after 6
-        let AshesResponse { ashes } = from_binary(
-            &query(
+        let AshesResponse { ashes } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::AshesDesc {
@@ -626,8 +626,8 @@ mod tests {
         );
 
         // desc, limit 3, start after 5
-        let AshesResponse { ashes } = from_binary(
-            &query(
+        let AshesResponse { ashes } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::AshesDesc {

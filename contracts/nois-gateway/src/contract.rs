@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    attr, ensure, ensure_eq, entry_point, from_binary, instantiate2_address, to_binary, Addr,
+    attr, ensure, ensure_eq, entry_point, from_json, instantiate2_address, to_json_binary, Addr,
     Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
     Ibc3ChannelOpenResponse, IbcBasicResponse, IbcChannelCloseMsg, IbcChannelConnectMsg,
     IbcChannelOpenMsg, IbcChannelOpenResponse, IbcMsg, IbcPacketAckMsg, IbcPacketReceiveMsg,
@@ -120,28 +120,28 @@ pub fn execute(
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
-        QueryMsg::DrandJobStats { round } => to_binary(&query_drand_job_stats(deps, round)?)?,
-        QueryMsg::Customer { channel_id } => to_binary(&query_customer(deps, channel_id)?)?,
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?)?,
+        QueryMsg::DrandJobStats { round } => to_json_binary(&query_drand_job_stats(deps, round)?)?,
+        QueryMsg::Customer { channel_id } => to_json_binary(&query_customer(deps, channel_id)?)?,
         QueryMsg::Customers { start_after, limit } => {
-            to_binary(&query_customers(deps, start_after, limit)?)?
+            to_json_binary(&query_customers(deps, start_after, limit)?)?
         }
         QueryMsg::JobsAsc { offset, limit } => {
-            to_binary(&query_jobs(deps, Order::Ascending, offset, limit)?)?
+            to_json_binary(&query_jobs(deps, Order::Ascending, offset, limit)?)?
         }
         QueryMsg::JobsDesc { offset, limit } => {
-            to_binary(&query_jobs(deps, Order::Descending, offset, limit)?)?
+            to_json_binary(&query_jobs(deps, Order::Descending, offset, limit)?)?
         }
         QueryMsg::RequestsLogAsc {
             channel_id,
             offset,
             limit,
-        } => to_binary(&query_requests_asc(deps, channel_id, offset, limit)?)?,
+        } => to_json_binary(&query_requests_asc(deps, channel_id, offset, limit)?)?,
         QueryMsg::RequestsLogDesc {
             channel_id,
             offset,
             limit,
-        } => to_binary(&query_requests_desc(deps, channel_id, offset, limit)?)?,
+        } => to_json_binary(&query_requests_desc(deps, channel_id, offset, limit)?)?,
     };
     Ok(response)
 }
@@ -296,7 +296,7 @@ pub fn ibc_channel_connect(
         admin: Some(env.contract.address.into()), // Only gateway can update the contracts it created
         code_id: config.payment_code_id,
         label: format!("For {chan_id}"),
-        msg: to_binary(&nois_payment::msg::InstantiateMsg {
+        msg: to_json_binary(&nois_payment::msg::InstantiateMsg {
             sink: config.sink.into(),
         })?,
         funds,
@@ -306,14 +306,14 @@ pub fn ibc_channel_connect(
     // Send Welcome and BeaconPrice to proxy
     let welcome = IbcMsg::SendPacket {
         channel_id: chan_id.clone(),
-        data: to_binary(&OutPacket::Welcome {
+        data: to_json_binary(&OutPacket::Welcome {
             payment: customer.payment.into(),
         })?,
         timeout: env.block.time.plus_seconds(WELCOME_PACKET_LIFETIME).into(),
     };
     let beacon_price = IbcMsg::SendPacket {
         channel_id: chan_id.clone(),
-        data: to_binary(&OutPacket::PushBeaconPrice {
+        data: to_json_binary(&OutPacket::PushBeaconPrice {
             timestamp: env.block.time,
             amount: config.price.amount,
             denom: config.price.denom,
@@ -363,7 +363,7 @@ pub fn ibc_packet_receive(
 
     // put this in a closure so we can convert all error responses into acknowledgements
     (|| {
-        let op: InPacket = from_binary(&packet.data)?;
+        let op: InPacket = from_json(&packet.data)?;
         match op {
             InPacket::RequestBeacon { after, origin } => {
                 receive_request_beacon(deps, env, channel_id, relayer, after, origin)
@@ -432,7 +432,7 @@ fn receive_request_beacon(
 
     let msg = WasmMsg::Execute {
         contract_addr: customer.payment.into(),
-        msg: to_binary(&nois_payment::msg::ExecuteMsg::Pay {
+        msg: to_json_binary(&nois_payment::msg::ExecuteMsg::Pay {
             burn: Coin::new(amount_burn.u128(), &denom),
             relayer: (relayer.into(), Coin::new(amount_relayer.u128(), &denom)),
             community_pool: Coin::new(amount_rest.u128(), denom),
@@ -451,7 +451,7 @@ fn receive_pull_beacon_price(deps: DepsMut, env: Env) -> Result<IbcReceiveRespon
     let config = CONFIG.load(deps.storage)?;
 
     let Coin { amount, denom } = config.price;
-    let ack = StdAck::success(to_binary(&InPacketAck::PullBeaconPrice {
+    let ack = StdAck::success(to_json_binary(&InPacketAck::PullBeaconPrice {
         timestamp: env.block.time,
         amount,
         denom,
@@ -469,12 +469,12 @@ pub fn ibc_packet_ack(
 ) -> Result<IbcBasicResponse, ContractError> {
     let mut attributes = Vec::<Attribute>::new();
     attributes.push(attr("action", "ack"));
-    let ack: StdAck = from_binary(&msg.acknowledgement.data)?;
+    let ack: StdAck = from_json(msg.acknowledgement.data)?;
     let is_error: bool;
     match ack {
         StdAck::Success(data) => {
             is_error = false;
-            let _response: OutPacketAck = from_binary(&data)?;
+            let _response: OutPacketAck = from_json(data)?;
         }
         StdAck::Error(err) => {
             is_error = true;
@@ -589,7 +589,7 @@ fn execute_set_config(
 }
 
 fn ensure_code_id_exists(deps: Deps, code_id: u64) -> Result<(), ContractError> {
-    let query = to_binary(&QueryRequest::<Empty>::Wasm(WasmQuery::CodeInfo {
+    let query = to_json_binary(&QueryRequest::<Empty>::Wasm(WasmQuery::CodeInfo {
         code_id,
     }))?;
     match deps.querier.raw_query(&query) {
@@ -621,7 +621,7 @@ mod tests {
         MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
-        coin, from_binary, Addr, Binary, CodeInfoResponse, Coin, ContractResult, CosmosMsg,
+        coin, from_json, Addr, Binary, CodeInfoResponse, Coin, ContractResult, CosmosMsg,
         IbcAcknowledgement, IbcMsg, OwnedDeps, QuerierResult, SystemError, SystemResult, Timestamp,
         WasmQuery,
     };
@@ -849,7 +849,7 @@ mod tests {
                                 "04b59c31429dcc5bdc58fb1ded3894797a0f0c324f5db40e1fa2c7812a300b83",
                             )
                             .unwrap();
-                            SystemResult::Ok(ContractResult::Ok(to_binary(&resp).unwrap()))
+                            SystemResult::Ok(ContractResult::Ok(to_json_binary(&resp).unwrap()))
                         }
                         PAYMENT2 => {
                             let mut resp = CodeInfoResponse::default();
@@ -859,7 +859,7 @@ mod tests {
                                 "f9ed2a2e7c03937004a2079747e79e508288e721bfe63f441f3e1c397c55b88d",
                             )
                             .unwrap();
-                            SystemResult::Ok(ContractResult::Ok(to_binary(&resp).unwrap()))
+                            SystemResult::Ok(ContractResult::Ok(to_json_binary(&resp).unwrap()))
                         }
                         _ => SystemResult::Err(SystemError::NoSuchCode { code_id: *code_id }),
                     },
@@ -890,7 +890,7 @@ mod tests {
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let config: ConfigResponse =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(
             config,
             ConfigResponse {
@@ -917,7 +917,7 @@ mod tests {
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let config: ConfigResponse =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(
             config,
             ConfigResponse {
@@ -996,7 +996,7 @@ mod tests {
         execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
         let config: ConfigResponse =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(
             config,
             ConfigResponse {
@@ -1250,8 +1250,7 @@ mod tests {
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
         fn job_stats(deps: Deps, round: u64) -> DrandJobStatsResponse {
-            from_binary(&query(deps, mock_env(), QueryMsg::DrandJobStats { round }).unwrap())
-                .unwrap()
+            from_json(query(deps, mock_env(), QueryMsg::DrandJobStats { round }).unwrap()).unwrap()
         }
 
         // No jobs by default
@@ -1385,8 +1384,8 @@ mod tests {
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
         fn requests_asc(deps: Deps, channel_id: &str) -> RequestsLogResponse {
-            from_binary(
-                &query(
+            from_json(
+                query(
                     deps,
                     mock_env(),
                     QueryMsg::RequestsLogAsc {
@@ -1401,8 +1400,8 @@ mod tests {
         }
 
         fn requests_desc(deps: Deps, channel_id: &str) -> RequestsLogResponse {
-            from_binary(
-                &query(
+            from_json(
+                query(
                     deps,
                     mock_env(),
                     QueryMsg::RequestsLogDesc {
@@ -1602,7 +1601,7 @@ mod tests {
         };
 
         // Success ack (delivered)
-        let ack = StdAck::success(to_binary(&OutPacketAck::DeliverBeacon {}).unwrap());
+        let ack = StdAck::success(to_json_binary(&OutPacketAck::DeliverBeacon {}).unwrap());
         let msg = mock_ibc_packet_ack(
             "channel-12",
             &packet,
@@ -1640,8 +1639,8 @@ mod tests {
         connect(deps.as_mut(), channel_id);
 
         // Existing channel
-        let CustomerResponse { customer: address } = from_binary(
-            &query(
+        let CustomerResponse { customer: address } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Customer {
@@ -1661,8 +1660,8 @@ mod tests {
         );
 
         // Non-Existing channel
-        let CustomerResponse { customer: address } = from_binary(
-            &query(
+        let CustomerResponse { customer: address } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Customer {
@@ -1696,8 +1695,8 @@ mod tests {
         let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
 
         fn customer(deps: Deps, channel_id: &str) -> QueriedCustomer {
-            let res: CustomerResponse = from_binary(
-                &query(
+            let res: CustomerResponse = from_json(
+                query(
                     deps,
                     mock_env(),
                     QueryMsg::Customer {
@@ -1767,8 +1766,8 @@ mod tests {
 
         let CustomersResponse {
             customers: addresses,
-        } = from_binary(
-            &query(
+        } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Customers {
@@ -1786,8 +1785,8 @@ mod tests {
 
         let CustomersResponse {
             customers: addresses,
-        } = from_binary(
-            &query(
+        } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Customers {
@@ -1809,8 +1808,8 @@ mod tests {
 
         let CustomersResponse {
             customers: addresses,
-        } = from_binary(
-            &query(
+        } = from_json(
+            query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::Customers {

@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg, Env,
+    ensure_eq, entry_point, to_json_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg, Env,
     MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
 };
 
@@ -53,7 +53,7 @@ pub fn execute(
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?)?,
     };
     Ok(response)
 }
@@ -214,7 +214,7 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::{
-        from_binary,
+        from_json,
         testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
         Addr, CosmosMsg, Empty, OwnedDeps, Uint128,
     };
@@ -232,7 +232,7 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
         let config: ConfigResponse =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(
             config,
             ConfigResponse {
@@ -420,7 +420,7 @@ mod tests {
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let config: ConfigResponse =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(
             config,
             ConfigResponse {

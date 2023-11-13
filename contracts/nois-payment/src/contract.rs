@@ -1,6 +1,6 @@
 use anybuf::Anybuf;
 use cosmwasm_std::{
-    ensure_eq, to_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
+    ensure_eq, to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     QueryResponse, Response, StdResult, WasmMsg,
 };
 
@@ -51,7 +51,7 @@ pub fn execute(
 #[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<QueryResponse> {
     let response = match msg {
-        QueryMsg::Config {} => to_binary(&query_config(deps)?)?,
+        QueryMsg::Config {} => to_json_binary(&query_config(deps)?)?,
     };
     Ok(response)
 }
@@ -91,7 +91,7 @@ fn execute_pay(
         out_msgs.push(
             WasmMsg::Execute {
                 contract_addr: config.sink.to_string(),
-                msg: to_binary(&NoisSinkExecuteMsg::Burn {})?,
+                msg: to_json_binary(&NoisSinkExecuteMsg::Burn {})?,
                 funds: vec![burn.clone()],
             }
             .into(),
@@ -144,7 +144,7 @@ mod tests {
     use crate::msg::{ConfigResponse, QueryMsg};
 
     use cosmwasm_std::{
-        coins, from_binary,
+        coins, from_json,
         testing::{mock_dependencies, mock_env, mock_info},
         Addr, Attribute, Binary, Uint128,
     };
@@ -174,7 +174,7 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
         let config: ConfigResponse =
-            from_binary(&query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
+            from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(
             config,
             ConfigResponse {
