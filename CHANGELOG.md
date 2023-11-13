@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+- Upgrade Rust to 1.73.0 and optimizer to 0.15.0.
+
 ## [0.15.2] - 2023-11-07
 
 ### Changed
