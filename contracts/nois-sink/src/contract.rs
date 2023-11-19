@@ -1,7 +1,8 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_json_binary, BankMsg, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    Order, QueryResponse, Response, StdResult,
+    ensure_eq, entry_point, to_json_binary, BankMsg, CosmosMsg, Deps, DepsMut, Empty, Env,
+    MessageInfo, Order, QueryResponse, Response, StdResult,
 };
+use cw2::set_contract_version;
 use cw_storage_plus::Bound;
 
 use crate::error::ContractError;
@@ -13,11 +14,26 @@ const BURN_DENOM: &str = "unois";
 
 #[entry_point]
 pub fn instantiate(
-    _deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
+    Ok(Response::default())
+}
+
+#[entry_point]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
     Ok(Response::default())
 }
 

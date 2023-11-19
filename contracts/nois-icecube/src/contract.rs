@@ -1,7 +1,8 @@
 use cosmwasm_std::{
-    ensure_eq, entry_point, to_json_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg, Env,
-    MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
+    ensure_eq, entry_point, to_json_binary, BankMsg, Coin, Deps, DepsMut, DistributionMsg, Empty,
+    Env, MessageInfo, QueryResponse, Response, StakingMsg, StdResult, Uint128,
 };
+use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -23,6 +24,21 @@ pub fn instantiate(
         drand: None,
     };
     CONFIG.save(deps.storage, &config)?;
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
+    Ok(Response::default())
+}
+
+#[entry_point]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
     Ok(Response::default())
 }
 

@@ -3,6 +3,7 @@ use cosmwasm_std::{
     Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128,
     WasmMsg,
 };
+use cw2::set_contract_version;
 use cw_storage_plus::Bound;
 use drand_common::DRAND_MAINNET2_PUBKEY;
 use drand_verify::{derive_randomness, G2Pubkey, Pubkey};
@@ -51,13 +52,23 @@ pub fn instantiate(
         incentive_denom: msg.incentive_denom,
     };
     CONFIG.save(deps.storage, &config)?;
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
     Ok(Response::default())
 }
 
 // This no-op migrate implementation allows us to upgrade within the 0.7 series.
 // No state changes expected.
 #[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
-pub fn migrate(_deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
     Ok(Response::default())
 }
 

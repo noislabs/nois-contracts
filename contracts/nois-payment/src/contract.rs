@@ -1,8 +1,9 @@
 use anybuf::Anybuf;
 use cosmwasm_std::{
-    ensure_eq, to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
-    QueryResponse, Response, StdResult, WasmMsg,
+    ensure_eq, to_json_binary, Addr, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty, Env,
+    MessageInfo, QueryResponse, Response, StdResult, WasmMsg,
 };
+use cw2::set_contract_version;
 
 use crate::error::ContractError;
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, NoisSinkExecuteMsg, QueryMsg};
@@ -26,10 +27,25 @@ pub fn instantiate(
             gateway: info.sender.clone(),
         },
     )?;
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
     Ok(Response::new()
         .add_attribute("action", "instantiate")
         .add_attribute("nois_sink", msg.sink)
         .add_attribute("nois_gateway", info.sender))
+}
+
+#[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
+pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
+    Ok(Response::default())
 }
 
 #[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
