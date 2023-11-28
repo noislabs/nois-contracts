@@ -763,6 +763,7 @@ pub fn ibc_channel_close(
 pub fn ibc_packet_receive(
     deps: DepsMut,
     env: Env,
+    info: MessageInfo,
     msg: IbcPacketReceiveMsg,
 ) -> Result<IbcReceiveResponse, Never> {
     // put this in a closure so we can convert all error responses into acknowledgements
@@ -775,7 +776,7 @@ pub fn ibc_packet_receive(
                 published,
                 randomness,
                 origin,
-            } => receive_deliver_beacon(deps, published, randomness, origin),
+            } => receive_deliver_beacon(deps, info, published, randomness, origin),
             OutPacket::Welcome { payment } => receive_welcome(deps, env, payment),
             OutPacket::PushBeaconPrice {
                 timestamp,
@@ -797,6 +798,7 @@ pub fn ibc_packet_receive(
 
 fn receive_deliver_beacon(
     deps: DepsMut,
+    info: MessageInfo,
     published: Timestamp,
     randomness: HexBinary,
     origin: Binary,
@@ -821,6 +823,7 @@ fn receive_deliver_beacon(
                     job_id: job_id.clone(),
                     published,
                     randomness,
+                    relayer: info.sender,
                 },
             })?,
             funds: vec![],
