@@ -7,6 +7,7 @@ use cosmwasm_std::{
     QueryResponse, Response, StdAck, StdError, StdResult, SystemError, SystemResult, Timestamp,
     WasmMsg, WasmQuery,
 };
+use cw2::set_contract_version;
 use cw_storage_plus::Bound;
 use nois_protocol::{
     check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck,
@@ -58,6 +59,13 @@ pub fn instantiate(
         sink,
     };
     CONFIG.save(deps.storage, &config)?;
+
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
+
     Ok(Response::default())
 }
 
@@ -81,6 +89,12 @@ pub fn migrate(deps: DepsMut, _env: Env, _msg: Empty) -> StdResult<Response> {
     }
 
     CONFIG.save(deps.storage, &config)?;
+
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
 
     Ok(Response::default().add_attribute(ATTR_ACTION, "migrate"))
 }

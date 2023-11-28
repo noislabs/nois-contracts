@@ -7,6 +7,7 @@ use cosmwasm_std::{
     QueryResponse, Reply, Response, StdAck, StdResult, Storage, SubMsg, SubMsgResult, Timestamp,
     Uint128, WasmMsg,
 };
+use cw2::set_contract_version;
 use nois::{NoisCallback, ReceiverExecuteMsg};
 use nois_protocol::{
     check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck,
@@ -81,6 +82,12 @@ pub fn instantiate(
         ALLOWLIST.save(deps.storage, &addr, &ALLOWLIST_MARKER)?;
     }
 
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
+
     Ok(Response::new()
         .add_attribute(ATTR_ACTION, "instantiate")
         .add_attribute("test_mode", test_mode.to_string()))
@@ -102,6 +109,12 @@ pub fn migrate(deps: DepsMut, env: Env, _msg: Empty) -> StdResult<Response> {
     }
 
     CONFIG.save(deps.storage, &config)?;
+
+    set_contract_version(
+        deps.storage,
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+    )?;
 
     Ok(Response::default().add_attribute(ATTR_ACTION, "migrate"))
 }

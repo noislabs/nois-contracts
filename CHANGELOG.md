@@ -8,7 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+- Use cw2 in all the contracts. ([#291])
 - Upgrade Rust to 1.73.0 and optimizer to 0.15.0.
+
+[#291]: https://github.com/noislabs/nois-contracts/pull/291
 
 ## [0.15.2] - 2023-11-07
 
