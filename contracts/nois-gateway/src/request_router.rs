@@ -18,10 +18,10 @@ use crate::{
 /// The number of jobs that are processed per submission. Use this limit
 /// to ensure the gas usage for the submissions is relatively stable.
 ///
-/// Currently a submission without jobs consumes ~600k gas. Every job adds
-/// ~50k gas.
-const MAX_JOBS_PER_SUBMISSION_WITH_VERIFICATION: u32 = 2;
-const MAX_JOBS_PER_SUBMISSION_WITHOUT_VERIFICATION: u32 = 14;
+/// Currently a submission without jobs consumes ~500k gas. Every job adds
+/// ~45k gas.
+const MAX_JOBS_PER_SUBMISSION_WITH_VERIFICATION: u32 = 1;
+const MAX_JOBS_PER_SUBMISSION_WITHOUT_VERIFICATION: u32 = 10;
 
 pub struct RoutingReceipt {
     pub queued: bool,
