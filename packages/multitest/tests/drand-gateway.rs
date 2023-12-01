@@ -343,9 +343,9 @@ fn integration_test() {
     .unwrap();
 
     // Add round
-    const ROUND: u64 = 72795;
-    // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72795
-    const SIGNATURE: &str = "a1306a2952c304da1228555590d4a2087d92b802a35dcc806d70e6c6dca4fb2c836f3687f01d581b657b8835a53596d1";
+    const ROUND: u64 = 72775;
+    // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72775
+    const SIGNATURE: &str = "973ae0dd58e53c7ca80952ee26e0565627dd61cc5ded60b20d2d846e5354d2aec13d08a2bfbc240c794993d16a0dae90";
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
         round: ROUND,
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
