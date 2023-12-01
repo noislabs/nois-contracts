@@ -336,7 +336,8 @@ fn execute_add_round(
 
     if submissions_count < NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND {
         is_verifying_tx = true;
-        let pk = G2Pubkey::from_fixed(DRAND_MAINNET2_PUBKEY)
+        // Since we have a static pubkey, it is safe to use the unchecked method
+        let pk = G2Pubkey::from_fixed_unchecked(DRAND_MAINNET2_PUBKEY)
             .map_err(|_| ContractError::InvalidPubkey {})?;
         // Verify BLS
         if !pk.verify(round, b"", &signature).unwrap_or(false) {

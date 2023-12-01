@@ -10,6 +10,7 @@ and this project adheres to
 
 - Use cw2 in all the contracts. ([#291])
 - Upgrade Rust to 1.73.0 and optimizer to 0.15.0.
+- nois-drand: use unchecked `G2Pubkey` due to static pubkey
 
 [#291]: https://github.com/noislabs/nois-contracts/pull/291
 
