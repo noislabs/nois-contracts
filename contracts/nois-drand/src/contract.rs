@@ -336,7 +336,8 @@ fn execute_add_round(
 
     if submissions_count < NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND {
         is_verifying_tx = true;
-        let pk = G2Pubkey::from_fixed(DRAND_MAINNET2_PUBKEY)
+        // Since we have a static pubkey, it is safe to use the unchecked method
+        let pk = G2Pubkey::from_fixed_unchecked(DRAND_MAINNET2_PUBKEY)
             .map_err(|_| ContractError::InvalidPubkey {})?;
         // Verify BLS
         if !pk.verify(round, b"", &signature).unwrap_or(false) {
@@ -574,9 +575,9 @@ mod tests {
         }
     }
 
-    /// Adds round 72750, 72765, 72780, 72795
+    /// Adds round 72750, 72775, 72800, 72825
     fn add_test_rounds(mut deps: DepsMut, bot_addr: &str) {
-        for round in [72750, 72765, 72780, 72795] {
+        for round in [72750, 72775, 72800, 72825] {
             let msg = make_add_round_msg(round);
             execute(deps.branch(), mock_env(), mock_info(bot_addr, &[]), msg).unwrap();
         }
@@ -1082,9 +1083,9 @@ mod tests {
         register_bot(deps.as_mut(), MYBOT);
         allowlist_bot(deps.as_mut(), MYBOT);
 
-        const ROUND: u64 = 72795;
+        const ROUND: u64 = 72775;
         const EXPECTED_RANDOMNESS: &str =
-            "c003b0ea61041fe339de82500bbe23d09a9580425d88924da7844af4bb91fda2";
+            "b84506d4342f4ec2506baa60a6b611ab006cf45e870d069ebb1b6a051c9e9acf";
 
         let msg = make_add_round_msg(ROUND);
         let info = mock_info(MYBOT, &[]);
@@ -1156,7 +1157,7 @@ mod tests {
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Same msg for all submissions
-        const ROUND: u64 = 72780 + 15;
+        const ROUND: u64 = 72775;
         let msg = make_add_round_msg(ROUND);
 
         // 1st
@@ -1499,7 +1500,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72750, 72765, 72780, 72795]);
+        assert_eq!(response_rounds, [72750, 72775, 72800, 72825]);
 
         // Limit 2
         let BeaconsResponse { beacons } = from_json(
@@ -1515,7 +1516,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72750, 72765]);
+        assert_eq!(response_rounds, [72750, 72775]);
 
         // After 0
         let BeaconsResponse { beacons } = from_json(
@@ -1531,7 +1532,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72750, 72765, 72780, 72795]);
+        assert_eq!(response_rounds, [72750, 72775, 72800, 72825]);
 
         // After 72760
         let BeaconsResponse { beacons } = from_json(
@@ -1547,15 +1548,15 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72765, 72780, 72795]);
+        assert_eq!(response_rounds, [72775, 72800, 72825]);
 
-        // After 72795
+        // After 72825
         let BeaconsResponse { beacons } = from_json(
             query(
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::BeaconsAsc {
-                    start_after: Some(72795),
+                    start_after: Some(72825),
                     limit: None,
                 },
             )
@@ -1597,7 +1598,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72795, 72780, 72765, 72750]);
+        assert_eq!(response_rounds, [72825, 72800, 72775, 72750]);
 
         // Limit 2
         let BeaconsResponse { beacons } = from_json(
@@ -1613,7 +1614,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72795, 72780]);
+        assert_eq!(response_rounds, [72825, 72800]);
 
         // After 99999
         let BeaconsResponse { beacons } = from_json(
@@ -1629,7 +1630,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72795, 72780, 72765, 72750]);
+        assert_eq!(response_rounds, [72825, 72800, 72775, 72750]);
 
         // After 72780
         let BeaconsResponse { beacons } = from_json(
@@ -1645,7 +1646,7 @@ mod tests {
         )
         .unwrap();
         let response_rounds = beacons.iter().map(|b| b.round).collect::<Vec<u64>>();
-        assert_eq!(response_rounds, [72765, 72750]);
+        assert_eq!(response_rounds, [72775, 72750]);
 
         // After 72750
         let BeaconsResponse { beacons } = from_json(
@@ -1727,8 +1728,8 @@ mod tests {
         // multiple
         let rounds = [
             TESTING_MIN_ROUND,
-            TESTING_MIN_ROUND + 15,
-            TESTING_MIN_ROUND + 30,
+            TESTING_MIN_ROUND + 25,
+            TESTING_MIN_ROUND + 50,
         ];
         let response: IsIncentivizedResponse = from_json(
             query(
@@ -1848,7 +1849,7 @@ mod tests {
         register_bot(deps.as_mut(), bot1);
         add_test_rounds(deps.as_mut(), bot1);
 
-        let test_round = 72780;
+        let test_round = 72775;
 
         // No submissions
         let response: SubmissionsResponse = from_json(

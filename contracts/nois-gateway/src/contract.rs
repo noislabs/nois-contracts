@@ -1159,22 +1159,29 @@ mod tests {
             ibc_packet_receive(deps.as_mut(), mock_env(), msg).unwrap();
         }
 
-        // Process 2 jobs
+        // Process first jobs
         let msg = make_add_verified_round_msg(ROUND3, true);
         let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 2);
+        assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
-        assert_eq!(res.messages[1].gas_limit, None);
         assert!(matches!(
             res.messages[0].msg,
             CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
         ));
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "1");
+
+        // Process second job
+        let msg = make_add_verified_round_msg(ROUND3, true);
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        assert_eq!(res.messages[0].gas_limit, None);
         assert!(matches!(
-            res.messages[1].msg,
+            res.messages[0].msg,
             CosmosMsg::Ibc(IbcMsg::SendPacket { .. })
         ));
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "2");
+        assert_eq!(jobs_processed, "1");
 
         // Create 21 job
         for i in 0..21 {
@@ -1190,40 +1197,40 @@ mod tests {
             dbg!(rec.acknowledgement);
         }
 
-        // Process first 2 jobs
+        // Process first job
         let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 2);
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "2");
-
-        // Process next 2 jobs
-        let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 2);
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "2");
-
-        // Process next 2 jobs
-        let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 2);
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "2");
-
-        // Process next 14 jobs
-        let msg = make_add_verified_round_msg(ROUND4, false);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
-        assert_eq!(res.messages.len(), 14);
-        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
-        assert_eq!(jobs_processed, "14");
-
-        // Process last 1 jobs
-        let msg = make_add_verified_round_msg(ROUND4, false);
         let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
+
+        // Process next job
+        let msg = make_add_verified_round_msg(ROUND4, true);
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "1");
+
+        // Process next job
+        let msg = make_add_verified_round_msg(ROUND4, true);
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 1);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "1");
+
+        // Process next 10 jobs
+        let msg = make_add_verified_round_msg(ROUND4, false);
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 10);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "10");
+
+        // Process remaining jobs
+        let msg = make_add_verified_round_msg(ROUND4, false);
+        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        assert_eq!(res.messages.len(), 8);
+        let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
+        assert_eq!(jobs_processed, "8");
 
         // No jobs left for later submissions
         let msg = make_add_verified_round_msg(ROUND4, true);
@@ -1364,8 +1371,8 @@ mod tests {
             job_stats(deps.as_ref(), ROUND2),
             DrandJobStatsResponse {
                 round: ROUND2,
-                processed: 2,
-                unprocessed: 18,
+                processed: 1,
+                unprocessed: 19,
             }
         );
     }

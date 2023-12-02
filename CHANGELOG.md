@@ -10,6 +10,10 @@ and this project adheres to
 
 - Use cw2 in all the contracts. ([#291])
 - Upgrade Rust to 1.73.0 and optimizer to 0.15.0.
+- nois-drand: use unchecked `G2Pubkey` due to static pubkey
+- gateway: Reduce jobs per submission to 1 for verifying transactions and 10 for
+  nonn-verifying transactions
+- nois-drand: Incentivized rounds are now those with jobs or `round % 25 == 0`.
 
 [#291]: https://github.com/noislabs/nois-contracts/pull/291
 
