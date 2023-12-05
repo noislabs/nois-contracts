@@ -1,6 +1,6 @@
 [package]
 name = "nois-multitest"
-version = "0.15.2"
+version = "0.15.3"
 authors = []
 edition = "2021"
 publish = false

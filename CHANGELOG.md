@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.15.3] - 2023-12-06
+
 - Use cw2 in all the contracts. ([#291])
 - Upgrade Rust to 1.73.0 and optimizer to 0.15.0.
 - nois-drand: use unchecked `G2Pubkey` due to static pubkey
@@ -288,7 +290,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.15.2...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.15.3...HEAD
+[0.15.3]: https://github.com/noislabs/nois-contracts/compare/v0.15.2...v0.15.3
 [0.15.2]: https://github.com/noislabs/nois-contracts/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/noislabs/nois-contracts/compare/v0.15.0...v0.15.1
 [0.15.0]: https://github.com/noislabs/nois-contracts/compare/v0.14.0...v0.15.0
