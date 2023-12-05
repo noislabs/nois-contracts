@@ -5,7 +5,6 @@ import { assertIsDeliverTxSuccess, GasPrice, SigningStargateClient } from "@cosm
 import { assert } from "@cosmjs/utils";
 import { ExecutionContext } from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
-import Long from "long";
 
 import {
   GatewayExecuteMsg,
@@ -123,7 +122,7 @@ export async function instantiateAndConnectIbc(
       coin(2 * 50_000000, "unois"),
       nois.ics20Port,
       ics20Channel.noisChannelId,
-      { revisionHeight: Long.fromNumber((await wasmClient.sign.getHeight()) + 100), revisionNumber: Long.UONE },
+      { revisionHeight: BigInt((await wasmClient.sign.getHeight()) + 100), revisionNumber: 1n },
       undefined,
       "auto",
       "funds to the other chain"

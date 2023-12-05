@@ -40,8 +40,8 @@ export const nois: ChainDefinition = {
 /* Queries the community pool funds in full unois. */
 export async function communityPoolFunds(client: SigningCosmWasmClient): Promise<number> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tmClient = (client as any).forceGetTmClient();
-  const queryClient = QueryClient.withExtensions(tmClient, setupDistributionExtension);
+  const cometClient = (client as any).forceGetCometClient();
+  const queryClient = QueryClient.withExtensions(cometClient, setupDistributionExtension);
   const resp = await queryClient.distribution.communityPool();
   const unois = resp.pool.find((coin) => coin.denom === "unois");
   if (!unois) {
@@ -54,8 +54,8 @@ export async function communityPoolFunds(client: SigningCosmWasmClient): Promise
 /* Queries the community pool funds in full unois. */
 export async function totalSupply(client: SigningCosmWasmClient): Promise<Coin> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tmClient = (client as any).forceGetTmClient();
-  const queryClient = QueryClient.withExtensions(tmClient, setupBankExtension);
+  const cometClient = (client as any).forceGetCometClient();
+  const queryClient = QueryClient.withExtensions(cometClient, setupBankExtension);
   return queryClient.bank.supplyOf("unois");
 }
 

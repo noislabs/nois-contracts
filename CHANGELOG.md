@@ -15,6 +15,7 @@ and this project adheres to
   nonn-verifying transactions
 - nois-drand: Incentivized rounds are now those with jobs or `round % 25 == 0`.
 - Bump drand-verify to 0.6.2
+- (testing only) Upgrade CosmJS to 0.32 and ts-relayer to 0.11
 
 [#291]: https://github.com/noislabs/nois-contracts/pull/291
 

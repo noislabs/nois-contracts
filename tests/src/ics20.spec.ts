@@ -4,7 +4,6 @@ import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
 import { assertIsDeliverTxSuccess, GasPrice, SigningStargateClient } from "@cosmjs/stargate";
 import test from "ava";
 import { Order } from "cosmjs-types/ibc/core/channel/v1/channel";
-import Long from "long";
 
 import { assertPacketsFromB, ibcDenom, nois, randomAddress, setupWasmClient } from "./utils";
 
@@ -37,7 +36,7 @@ test.serial("set up ICS20 channel and transfer NOIS", async (t) => {
     coin(123, "unois"),
     nois.ics20Port,
     ics20Channel.noisChannelId,
-    { revisionHeight: Long.fromNumber((await wasmClient.sign.getHeight()) + 100), revisionNumber: Long.UONE },
+    { revisionHeight: BigInt((await wasmClient.sign.getHeight()) + 100), revisionNumber: 1n },
     undefined,
     "auto",
     "funds to the other chain"
