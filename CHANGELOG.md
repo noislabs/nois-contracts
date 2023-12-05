@@ -14,6 +14,7 @@ and this project adheres to
 - gateway: Reduce jobs per submission to 1 for verifying transactions and 10 for
   nonn-verifying transactions
 - nois-drand: Incentivized rounds are now those with jobs or `round % 25 == 0`.
+- Bump drand-verify to 0.6.2
 
 [#291]: https://github.com/noislabs/nois-contracts/pull/291
 

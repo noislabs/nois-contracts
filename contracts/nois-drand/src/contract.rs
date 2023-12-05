@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
 use drand_common::DRAND_MAINNET2_PUBKEY;
-use drand_verify::{derive_randomness, G2Pubkey, Pubkey};
+use drand_verify::{derive_randomness, G2PubkeyFastnet, Pubkey};
 
 use crate::attributes::{
     ATTR_BOT, ATTR_RANDOMNESS, ATTR_REWARD_PAYOUT, ATTR_REWARD_POINTS, ATTR_ROUND,
@@ -337,7 +337,7 @@ fn execute_add_round(
     if submissions_count < NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND {
         is_verifying_tx = true;
         // Since we have a static pubkey, it is safe to use the unchecked method
-        let pk = G2Pubkey::from_fixed_unchecked(DRAND_MAINNET2_PUBKEY)
+        let pk = G2PubkeyFastnet::from_fixed_unchecked(DRAND_MAINNET2_PUBKEY)
             .map_err(|_| ContractError::InvalidPubkey {})?;
         // Verify BLS
         if !pk.verify(round, b"", &signature).unwrap_or(false) {
