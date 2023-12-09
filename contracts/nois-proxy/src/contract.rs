@@ -310,11 +310,8 @@ fn execute_set_config(
     let config = CONFIG.load(deps.storage)?;
 
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
-    ensure_eq!(
-        info.sender,
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?,
-        ContractError::Unauthorized
-    );
+    let required_sender = config.manager.as_ref().ok_or(ContractError::Unauthorized)?;
+    ensure_eq!(info.sender, required_sender, ContractError::Unauthorized);
 
     set_config_unchecked(
         deps,
@@ -343,11 +340,8 @@ fn execute_withdraw(
     let config = CONFIG.load(deps.storage)?;
 
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
-    ensure_eq!(
-        info.sender,
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?,
-        ContractError::Unauthorized
-    );
+    let required_sender = config.manager.as_ref().ok_or(ContractError::Unauthorized)?;
+    ensure_eq!(info.sender, required_sender, ContractError::Unauthorized);
 
     withdraw_unchecked(deps, env, "execute_withdraw", denom, amount, address)
 }
@@ -355,16 +349,22 @@ fn execute_withdraw(
 fn execute_update_allowlist(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     add_addresses: Vec<String>,
     remove_addresses: Vec<String>,
 ) -> Result<Response, ContractError> {
-    update_allowlist(deps, add_addresses, remove_addresses)?;
+    let config = CONFIG.load(deps.storage)?;
+
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    let required_sender = config.manager.as_ref().ok_or(ContractError::Unauthorized)?;
+    ensure_eq!(info.sender, required_sender, ContractError::Unauthorized);
+
+    update_allowlist_unchecked(deps, add_addresses, remove_addresses)?;
     Ok(Response::new().add_attribute(ATTR_ACTION, "execute_update_allowlist"))
 }
 
 /// Adds and remove entries from the allow list.
-fn update_allowlist(
+fn update_allowlist_unchecked(
     deps: DepsMut,
     add_addresses: Vec<String>,
     remove_addresses: Vec<String>,
