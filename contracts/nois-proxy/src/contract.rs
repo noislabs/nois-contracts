@@ -310,11 +310,8 @@ fn execute_set_config(
     let config = CONFIG.load(deps.storage)?;
 
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
-    ensure_eq!(
-        info.sender,
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?,
-        ContractError::Unauthorized
-    );
+    let required_sender = config.manager.as_ref().ok_or(ContractError::Unauthorized)?;
+    ensure_eq!(info.sender, required_sender, ContractError::Unauthorized);
 
     set_config_unchecked(
         deps,
@@ -343,11 +340,8 @@ fn execute_withdraw(
     let config = CONFIG.load(deps.storage)?;
 
     // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
-    ensure_eq!(
-        info.sender,
-        config.manager.as_ref().ok_or(ContractError::Unauthorized)?,
-        ContractError::Unauthorized
-    );
+    let required_sender = config.manager.as_ref().ok_or(ContractError::Unauthorized)?;
+    ensure_eq!(info.sender, required_sender, ContractError::Unauthorized);
 
     withdraw_unchecked(deps, env, "execute_withdraw", denom, amount, address)
 }
@@ -355,16 +349,22 @@ fn execute_withdraw(
 fn execute_update_allowlist(
     deps: DepsMut,
     _env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     add_addresses: Vec<String>,
     remove_addresses: Vec<String>,
 ) -> Result<Response, ContractError> {
-    update_allowlist(deps, add_addresses, remove_addresses)?;
+    let config = CONFIG.load(deps.storage)?;
+
+    // if manager set, check the calling address is the authorised multisig otherwise error unauthorised
+    let required_sender = config.manager.as_ref().ok_or(ContractError::Unauthorized)?;
+    ensure_eq!(info.sender, required_sender, ContractError::Unauthorized);
+
+    update_allowlist_unchecked(deps, add_addresses, remove_addresses)?;
     Ok(Response::new().add_attribute(ATTR_ACTION, "execute_update_allowlist"))
 }
 
 /// Adds and remove entries from the allow list.
-fn update_allowlist(
+fn update_allowlist_unchecked(
     deps: DepsMut,
     add_addresses: Vec<String>,
     remove_addresses: Vec<String>,
@@ -973,6 +973,9 @@ mod tests {
     use nois_protocol::{InPacketAck, APP_ORDER, BAD_APP_ORDER, IBC_APP_VERSION};
 
     const CREATOR: &str = "creator";
+    /// A secondary manager address used when creator is not manager anymore
+    const MANAGER_ADDRESS: &str = "some-manager";
+    const DAPP_ADDRESS: &str = "dapp1";
 
     fn setup(
         instantiate_msg: Option<InstantiateMsg>,
@@ -1050,7 +1053,7 @@ mod tests {
         let msg = ExecuteMsg::GetNextRandomness {
             job_id: "foo".to_string(),
         };
-        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let out_msg = &res.messages[0];
@@ -1072,7 +1075,8 @@ mod tests {
             job_id: "cb480eb3697f39db828d9efa021abe681bfcd72e23894019b8ddb1ab94039081-and-counting"
                 .to_string(),
         };
-        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        let err =
+            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
     }
 
@@ -1143,7 +1147,7 @@ mod tests {
             after: Timestamp::from_seconds(1666343642),
             job_id: "foo".to_string(),
         };
-        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let out_msg = &res.messages[0];
@@ -1166,7 +1170,8 @@ mod tests {
             job_id: "cb480eb3697f39db828d9efa021abe681bfcd72e23894019b8ddb1ab94039081-and-counting"
                 .to_string(),
         };
-        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        let err =
+            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
     }
 
@@ -1184,7 +1189,7 @@ mod tests {
             after: instantiate_time,
             job_id: "foo".to_string(),
         };
-        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // after < instantiate_time fails
@@ -1192,7 +1197,7 @@ mod tests {
             after: instantiate_time.minus_nanos(1),
             job_id: "foo".to_string(),
         };
-        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::AfterTooLow { min_after, after } => {
@@ -1207,7 +1212,7 @@ mod tests {
             after: Timestamp::from_nanos(15717974198793055330),
             job_id: "foo".to_string(),
         };
-        let info = mock_info("dapp", &coins(22334455, "unoisx"));
+        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::AfterTooHigh { max_after, after } => {
@@ -1317,6 +1322,38 @@ mod tests {
     }
 
     #[test]
+    fn set_config_only_allowed_for_manager() {
+        let mut deps = mock_dependencies();
+        let msg = InstantiateMsg {
+            manager: Some(CREATOR.to_string()),
+            prices: vec![Coin::new(1_000000, "unoisx")],
+            test_mode: None,
+            callback_gas_limit: 500_000,
+            mode: OperationalMode::Funded {},
+            allowlist_enabled: None,
+            allowlist: None,
+        };
+        let info = mock_info(CREATOR, &[]);
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        // Edit config
+        let msg = ExecuteMsg::SetConfig {
+            manager: None,
+            prices: None,
+            payment: None,
+            nois_beacon_price: None,
+            callback_gas_limit: None,
+            mode: None,
+            allowlist_enabled: Some(false),
+            min_after: None,
+            max_after: None,
+        };
+        let err =
+            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
+    }
+
+    #[test]
     fn withdraw_works() {
         let mut deps = setup(None);
 
@@ -1328,7 +1365,7 @@ mod tests {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("dapp", &[]),
+            mock_info(DAPP_ADDRESS, &[]),
             msg.clone(),
         )
         .unwrap_err();
@@ -1354,16 +1391,18 @@ mod tests {
             address: "some-address".to_string(),
         };
 
+        // Withdraw by dapp
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("dapp", &[]),
+            mock_info(DAPP_ADDRESS, &[]),
             msg.clone(),
         )
         .unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
-        let res = execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
 
+        // Withdraw by manager
+        let res = execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(
             res.messages[0].msg,
@@ -1375,7 +1414,7 @@ mod tests {
     }
 
     #[test]
-    fn withdraw_when_manager_is_not_set_manager_permissions_are_unauthorised() {
+    fn withdraw_when_manager_is_not_set_withdraws_are_unauthorised() {
         // Check that if manager not set, a random person cannot execute manager-like operations.
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
@@ -1389,26 +1428,30 @@ mod tests {
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
         // withdraw
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: Some(Uint128::new(12)),
             address: "some-address".to_string(),
         };
-        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        let err =
+            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
+
         // withdraw all
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: None,
             address: "some-address".to_string(),
         };
-
-        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        let err =
+            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
+
         // Edit config
         let msg = ExecuteMsg::SetConfig {
-            manager: Some("some-manager".to_string()),
+            manager: Some(MANAGER_ADDRESS.to_string()),
             prices: None,
             payment: None,
             nois_beacon_price: None,
@@ -1419,7 +1462,8 @@ mod tests {
             max_after: None,
         };
 
-        let err = execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap_err();
+        let err =
+            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
     }
 
@@ -1431,7 +1475,7 @@ mod tests {
             remove: vec!["aaa".to_owned(), "bbb".to_owned()],
         };
 
-        execute(deps.as_mut(), mock_env(), mock_info("dapp", &[]), msg).unwrap();
+        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
 
         assert!(!ALLOWLIST.has(&deps.storage, &Addr::unchecked("bbb")));
         assert!(ALLOWLIST.has(&deps.storage, &Addr::unchecked("ccc")));
@@ -1439,6 +1483,19 @@ mod tests {
         // If an address is both added and removed, err on the side or removing it,
         // hence, here we check that "aaa" is indeed not found.
         assert!(!ALLOWLIST.has(&deps.storage, &Addr::unchecked("aaa")));
+    }
+
+    #[test]
+    fn update_allowlist_fails_for_non_manager() {
+        let mut deps = setup(None);
+        let msg = ExecuteMsg::UpdateAllowlist {
+            add: vec!["aaa".to_owned(), "ccc".to_owned()],
+            remove: vec!["aaa".to_owned(), "bbb".to_owned()],
+        };
+
+        let err =
+            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
+        assert!(matches!(err, ContractError::Unauthorized));
     }
 
     //
