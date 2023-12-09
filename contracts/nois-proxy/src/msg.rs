@@ -38,7 +38,9 @@ pub enum ExecuteMsg {
         after: Timestamp,
         job_id: String,
     },
-    /// Set the config
+    /// Update config entries.
+    ///
+    /// Only the manager address can do that.
     SetConfig {
         manager: Option<String>,
         /// The prices of a randomness. List is to be interpreted as oneof,
@@ -63,7 +65,9 @@ pub enum ExecuteMsg {
         /// This aims to counter accidental misusage. Not all values in the allowed range are reasonable.
         max_after: Option<Timestamp>,
     },
-    // Withdraw the given amount to the withdrawal address
+    /// Withdraw the given amount to the withdrawal address.
+    ///
+    /// Only the manager address can do that.
     Withdraw {
         denom: String,
         /// The amount of tokens to withdraw.
@@ -71,7 +75,9 @@ pub enum ExecuteMsg {
         amount: Option<Uint128>,
         address: String,
     },
-    // Add or remove entries from the list of addresses allowed to get randomness.
+    /// Add or remove entries from the list of addresses allowed to get randomness.
+    ///
+    /// Only the manager address can do that.
     UpdateAllowlist {
         add: Vec<String>,
         remove: Vec<String>,
