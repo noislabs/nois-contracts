@@ -8,6 +8,10 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [0.15.4] - 2023-12-10
+
+- proxy: Refactor permission handling
+
 ## [0.15.3] - 2023-12-06
 
 - Use cw2 in all the contracts. ([#291])
@@ -290,7 +294,8 @@ and this project adheres to
 
 Base version for starting the CHANGELOG.
 
-[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.15.3...HEAD
+[unreleased]: https://github.com/noislabs/nois-contracts/compare/v0.15.4...HEAD
+[0.15.4]: https://github.com/noislabs/nois-contracts/compare/v0.15.3...v0.15.4
 [0.15.3]: https://github.com/noislabs/nois-contracts/compare/v0.15.2...v0.15.3
 [0.15.2]: https://github.com/noislabs/nois-contracts/compare/v0.15.1...v0.15.2
 [0.15.1]: https://github.com/noislabs/nois-contracts/compare/v0.15.0...v0.15.1
