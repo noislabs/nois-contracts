@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_json_binary, Binary, CosmosMsg, DepsMut, Env, HexBinary, IbcMsg, StdAck, StdError,
     StdResult, Timestamp, WasmMsg,
 };
-use drand_common::{round_after, time_of_round, DRAND_CHAIN_HASH};
+use drand_common::{round_after, time_of_round, DrandNetwork};
 use nois_protocol::{InPacketAck, OutPacket, DELIVER_BEACON_PACKET_LIFETIME};
 
 use crate::{
@@ -22,6 +22,8 @@ use crate::{
 /// ~45k gas.
 const MAX_JOBS_PER_SUBMISSION_WITH_VERIFICATION: u32 = 1;
 const MAX_JOBS_PER_SUBMISSION_WITHOUT_VERIFICATION: u32 = 10;
+
+const NETWORK: DrandNetwork = DrandNetwork::Fastnet;
 
 pub struct RoutingReceipt {
     pub queued: bool,
@@ -77,7 +79,7 @@ impl RequestRouter {
         let queued = if let Some(randomness) = existing_randomness {
             //If the drand round already exists we send it
             increment_processed_drand_jobs(deps.storage, round)?;
-            let published = time_of_round(round);
+            let published = time_of_round(round, NETWORK);
             let msg =
                 create_deliver_beacon_ibc_message(env.block.time, job, published, randomness)?;
             msgs.push(msg.into());
@@ -139,7 +141,7 @@ impl RequestRouter {
         // let max_jobs_per_submission
         while let Some(job) = unprocessed_drand_jobs_dequeue(deps.storage, round)? {
             increment_processed_drand_jobs(deps.storage, round)?;
-            let published = time_of_round(round);
+            let published = time_of_round(round, NETWORK);
             // Use IbcMsg::SendPacket to send packages to the proxies.
             let msg = create_deliver_beacon_ibc_message(
                 env.block.time,
@@ -185,8 +187,9 @@ fn create_deliver_beacon_ibc_message(
 
 /// Calculates the next round in the future, i.e. publish time > base time.
 fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
-    let round = round_after(after);
-    let source_id = format!("drand:{}:{}", DRAND_CHAIN_HASH, round);
+    let network = DrandNetwork::Fastnet;
+    let round = round_after(after, network);
+    let source_id = format!("drand:{}:{}", network.chain_hash(), round);
     (round, source_id)
 }
 
