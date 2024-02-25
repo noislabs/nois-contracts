@@ -59,7 +59,7 @@ export interface InstantiateAndConnectOptions {
 
 export async function instantiateAndConnectIbc(
   t: ExecutionContext,
-  options: InstantiateAndConnectOptions
+  options: InstantiateAndConnectOptions,
 ): Promise<SetupInfo> {
   const context = t.context as TestContext;
   const [wasmClient, noisClient] = await Promise.all([setupWasmClient(), setupNoisClient()]);
@@ -95,7 +95,7 @@ export async function instantiateAndConnectIbc(
     proxyMsg,
     "Proxy instance",
     "auto",
-    { funds: coins(1_000, "ucosm") } // some funds to test withdrawals
+    { funds: coins(1_000, "ucosm") }, // some funds to test withdrawals
   );
 
   const updateProxyConfig: ProxyExecuteMsg = {
@@ -125,7 +125,7 @@ export async function instantiateAndConnectIbc(
       { revisionHeight: BigInt((await wasmClient.sign.getHeight()) + 100), revisionNumber: 1n },
       undefined,
       "auto",
-      "funds to the other chain"
+      "funds to the other chain",
     );
     assertIsDeliverTxSuccess(res);
 
@@ -142,7 +142,7 @@ export async function instantiateAndConnectIbc(
       context.noisCodeIds.sink,
       sinkMsg,
       "Sink instance",
-      "auto"
+      "auto",
     );
     sinkAddress = contractAddress;
   }
@@ -160,7 +160,7 @@ export async function instantiateAndConnectIbc(
     context.noisCodeIds.gateway,
     instantiateMsg,
     "Gateway instance",
-    "auto"
+    "auto",
   );
   if (options.enablePayment == "funded") {
     await fundAccount(nois, noisGatewayAddress, "100000000"); // 100 NOIS can fund 1 payment contracts
@@ -197,7 +197,7 @@ export async function instantiateAndConnectIbc(
       context.wasmCodeIds.demo,
       { nois_proxy: noisProxyAddress },
       "A demo contract",
-      "auto"
+      "auto",
     );
     noisDemoAddress = contractAddress;
   }

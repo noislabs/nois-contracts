@@ -64,7 +64,7 @@ test.serial("set up nois channel", async (t) => {
     context.wasmCodeIds.proxy,
     proxyMsg,
     "Proxy instance",
-    "auto"
+    "auto",
   );
   t.truthy(proxyAddress);
   const { ibcPortId: proxyPort } = await wasmClient.sign.getContract(proxyAddress);
@@ -85,7 +85,7 @@ test.serial("set up nois channel", async (t) => {
     context.noisCodeIds.gateway,
     msg,
     "Gateway instance",
-    "auto"
+    "auto",
   );
   t.truthy(gatewayAddress);
   const { ibcPortId: gatewayPort } = await noisClient.sign.getContract(gatewayAddress);

@@ -172,7 +172,7 @@ test.serial("demo contract can be used", async (t) => {
   const bot = await MockBot.connect();
   const { wasmClient, noisDemoAddress, noisProxyAddress, link, noisGatewayAddress } = await instantiateAndConnectIbc(
     t,
-    { mockDrandAddr: bot.address }
+    { mockDrandAddr: bot.address },
   );
   assert(noisDemoAddress);
   bot.setGatewayAddress(noisGatewayAddress);
@@ -192,7 +192,7 @@ test.serial("demo contract can be used", async (t) => {
       { estimate_pi: { job_id: jobId } },
       "auto",
       undefined,
-      [payment]
+      [payment],
     );
 
     // RequestBeacon packet
@@ -228,7 +228,7 @@ test.serial("demo contract can be used", async (t) => {
       { estimate_pi: { job_id: jobId } },
       "auto",
       undefined,
-      [payment]
+      [payment],
     );
 
     // RequestBeacon packet
@@ -278,7 +278,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     {
       mockDrandAddr: bot.address,
       callback_gas_limit: 1_000, // Very low value
-    }
+    },
   );
   assert(noisDemoAddress);
   bot.setGatewayAddress(noisGatewayAddress);
@@ -298,7 +298,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
       { estimate_pi: { job_id: jobId } },
       "auto",
       undefined,
-      [payment]
+      [payment],
     );
 
     // RequestBeacon packet
@@ -341,7 +341,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
       { estimate_pi: { job_id: jobId } },
       "auto",
       undefined,
-      [payment]
+      [payment],
     );
 
     // RequestBeacon packet

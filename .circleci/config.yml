@@ -551,7 +551,7 @@ jobs:
 
   ts-build:
     docker:
-      - image: circleci/node:16
+      - image: cimg/node:18.18
     working_directory: ~/ibc/tests
     steps:
       - checkout:
@@ -577,7 +577,7 @@ jobs:
       # executor in local jobs." (https://circleci.com/docs/2.0/local-cli/#limitations-of-running-jobs-locally)
       #
       # Available images: https://circleci.com/docs/2.0/configuration-reference/#available-machine-images
-      image: ubuntu-2004:202010-01
+      image: ubuntu-2004:2024.01.1
     working_directory: ~/ibc/tests
     steps:
       - checkout:
@@ -601,7 +601,7 @@ jobs:
           name: Install nodejs
           # In the current image, `sudo apt install nodejs` requires `sudo apt update` which is too slow
           command: |
-            curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+            curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
             sudo apt-get install -y nodejs
       - run:
           name: Version information

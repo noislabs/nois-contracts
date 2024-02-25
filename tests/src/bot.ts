@@ -123,7 +123,7 @@ const localDataSource: Map<number, Beacon> = new Map(
     [898, {"round":898,"randomness":"cceafc795496af5878fd771bd8ed3121b968f6dd86eb8fa29a338d09b1b3ecad","signature":"abdbb49c2f51bd28610ef76196e9401d8cc702a7f588ca2f31964929de93a35d6b0c156f8666081e5d65036ab2c84198"}],
     [899, {"round":899,"randomness":"114ff85c73c904c483b4cb66392ac7a252a8585e5ba8d2c2d7c03f9cfa67fefa","signature":"8f7e4fbac5ca3ff0a7dc30ebf6a019446ce96dafd9bfcb0d4810a434d69853cbacee64424f36e463c77124ca7fba495d"}],
     [900, {"round":900,"randomness":"ee6851429b510a97473785145f0f42f9e5544505fb1d80d2ce31dfc64cbbd68b","signature":"a0a6579d1a8cf17ba35bec33a2112432c647afa43988acc92c386d1a3051f3aface8bea280e0a70f729c7b44203303d3"}],
-  ]
+  ],
 
   // Publish times (https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=4d0d6d84cdb9b48260594e3b74aa86ae)
   // Publish time of #800: 1677687597000000000

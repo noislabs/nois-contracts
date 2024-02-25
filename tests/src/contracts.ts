@@ -156,7 +156,7 @@ export async function uploadContracts(
   t: ExecutionContext,
   cosmwasm: CosmWasmSigner,
   contracts: WasmdContractPaths | NoisContractPaths,
-  enable: (keyof WasmdContractPaths | keyof NoisContractPaths)[]
+  enable: (keyof WasmdContractPaths | keyof NoisContractPaths)[],
 ): Promise<Record<string, number>> {
   const results: Record<string, number> = {};
 
