@@ -33,7 +33,7 @@ test.serial("drand: bot can submit", async (t) => {
     context.noisCodeIds.drand,
     msg,
     "Drand instance",
-    "auto"
+    "auto",
   );
   t.log(`Instantiated drand at ${drandAddress} with msg ${JSON.stringify(msg)}`);
   t.truthy(drandAddress);

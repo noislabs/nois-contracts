@@ -39,7 +39,7 @@ test.serial("set up ICS20 channel and transfer NOIS", async (t) => {
     { revisionHeight: BigInt((await wasmClient.sign.getHeight()) + 100), revisionNumber: 1n },
     undefined,
     "auto",
-    "funds to the other chain"
+    "funds to the other chain",
   );
   assertIsDeliverTxSuccess(res);
 

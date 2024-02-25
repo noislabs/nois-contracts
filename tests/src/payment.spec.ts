@@ -110,7 +110,7 @@ test.serial("payment works for funded mode", async (t) => {
       noisGatewayAddress,
       {
         customer: { channel_id: noisChannel.noisChannelId },
-      }
+      },
     );
     assert(customer2, "customer not set");
     t.is(customer2.requested_beacons, 1);
@@ -155,7 +155,7 @@ test.serial("payment works for funded mode", async (t) => {
       noisGatewayAddress,
       {
         customer: { channel_id: noisChannel.noisChannelId },
-      }
+      },
     );
     assert(customer3, "customer not set");
     t.is(customer3.requested_beacons, 2);
@@ -234,7 +234,7 @@ test.serial("payment works for ibc_pay mode", async (t) => {
       noisGatewayAddress,
       {
         customer: { channel_id: noisChannel.noisChannelId },
-      }
+      },
     );
     assert(customer2, "customer not set");
     t.is(customer2.requested_beacons, 1);
@@ -279,7 +279,7 @@ test.serial("payment works for ibc_pay mode", async (t) => {
       noisGatewayAddress,
       {
         customer: { channel_id: noisChannel.noisChannelId },
-      }
+      },
     );
     assert(customer3, "customer not set");
     t.is(customer3.requested_beacons, 2);

@@ -36,7 +36,7 @@ test.serial("icecube works", async (t) => {
     context.noisCodeIds.icecube,
     msg,
     "Icecube instance",
-    "auto"
+    "auto",
   );
   await fundAccount(nois, contractAddress, "4000000");
 
@@ -50,7 +50,7 @@ test.serial("icecube works", async (t) => {
     noisClient.senderAddress,
     contractAddress,
     delegateMsg,
-    "auto"
+    "auto",
   );
   // t.log(JSON.stringify(delegateEvents, null, 2));
   const delegate = delegateEvents.find((event) => event.type == "delegate");
@@ -66,7 +66,7 @@ test.serial("icecube works", async (t) => {
     noisClient.senderAddress,
     contractAddress,
     undelegateMsg,
-    "auto"
+    "auto",
   );
   // t.log(JSON.stringify(undelegateEvents, null, 2));
   const withdrawRewards = undelegateEvents.find((event) => event.type == "withdraw_rewards");
