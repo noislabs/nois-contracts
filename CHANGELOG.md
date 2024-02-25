@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+- Upgrade Rust to 1.75.0 and optimizer to 0.15.1.
+
 ## [0.15.4] - 2023-12-10
 
 - proxy: Refactor permission handling
