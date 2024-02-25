@@ -20,7 +20,7 @@
     "test:unit": "ava --serial"
   },
   "dependencies": {
-    "@confio/relayer": "^0.11.1"
+    "@confio/relayer": "^0.11.3"
   },
   "devDependencies": {
     "@ava/typescript": "^3.0.1",
