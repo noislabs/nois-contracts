@@ -40,16 +40,16 @@ Now:
 
 ```
 (curl -sS https://api.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest | jq .round); (curl -sS https://api.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/latest | jq .round)
-3810541
-8849930
+6630929
+11670319
 ```
 
-| Time                |            | Fastnet | Quicknet |
-| ------------------- | ---------- | ------- | -------- |
-| Nois mainnet launch | 1680015600 | 776802  | -        |
-| Quicknet launch     | 1692803367 | 5039391 | 2        |
-| Christmas 2023      | 1703430000 | 8581602 | 3542213  |
-| New years           | 1704067200 | 8794002 | 3754613  |
-| Now                 | 1704236009 | 8850271 | 3810882  |
+| Time                |            | Fastnet  | Quicknet |
+| ------------------- | ---------- | -------- | -------- |
+| Nois mainnet launch | 1680015600 | 776802   | -        |
+| Quicknet launch     | 1692803367 | 5039391  | 2        |
+| Christmas 2023      | 1703430000 | 8581602  | 3542213  |
+| New years           | 1704067200 | 8794002  | 3754613  |
+| Now                 | 1704236009 | 11670319 | 6630929  |
 
-If round >= 8_600_000, then verify with fastnet
+If round >= 10_000_000, then verify with fastnet
