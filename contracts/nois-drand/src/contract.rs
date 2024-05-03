@@ -592,7 +592,8 @@ mod tests {
         mock_dependencies, mock_dependencies_with_balance, mock_env, mock_info,
     };
     use cosmwasm_std::{coins, from_json, Addr, Timestamp, Uint128};
-    use drand_common::testing::testing_signature;
+    use drand_common::testing::{testing_signature_fastnet, testing_signature_quicknet};
+    use drand_common::DrandNetwork::*;
     use hex_literal::hex;
 
     const TESTING_MANAGER: &str = "mngr";
@@ -603,22 +604,26 @@ mod tests {
     const DEFAULT_HEIGHT: u64 = 12345;
     const DEFAULT_TX_INDEX: Option<u32> = Some(3);
 
-    fn make_add_round_msg(round: u64) -> ExecuteMsg {
-        if let Some(signature) = testing_signature(round) {
-            ExecuteMsg::AddRound {
-                network: None,
-                round,
-                signature,
-            }
-        } else {
-            panic!("Test round {round} not set");
+    fn make_add_round_msg(network: DrandNetwork, round: u64) -> ExecuteMsg {
+        let signature = match network {
+            Fastnet => testing_signature_fastnet(round),
+            Quicknet => testing_signature_quicknet(round),
+        };
+        let Some(signature) = signature else {
+            panic!("Test round {round} not set for {network}");
+        };
+
+        ExecuteMsg::AddRound {
+            network: Some(network.to_string()),
+            round,
+            signature,
         }
     }
 
     /// Adds round 72750, 72775, 72800, 72825
     fn add_test_rounds(mut deps: DepsMut, bot_addr: &str) {
         for round in [72750, 72775, 72800, 72825] {
-            let msg = make_add_round_msg(round);
+            let msg = make_add_round_msg(Fastnet, round);
             execute(deps.branch(), mock_env(), mock_info(bot_addr, &[]), msg).unwrap();
         }
     }
@@ -701,7 +706,7 @@ mod tests {
 
         register_bot(deps.as_mut(), "anyone");
 
-        let msg = make_add_round_msg(72780);
+        let msg = make_add_round_msg(Fastnet, 72780);
         let info = mock_info("anyone", &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -778,7 +783,7 @@ mod tests {
         allowlist_bot(deps.as_mut(), BOT2);
 
         // succeeds but not incentivized
-        let msg: ExecuteMsg = make_add_round_msg(ROUND);
+        let msg = make_add_round_msg(Fastnet, ROUND);
         let response: Response =
             execute(deps.as_mut(), mock_env(), mock_info(BOT1, &[]), msg).unwrap();
         assert_eq!(response.messages.len(), 0);
@@ -810,7 +815,7 @@ mod tests {
             execute(deps.as_mut(), mock_env(), mock_info(GATEWAY, &[]), msg).unwrap();
 
         // succeeds and incentivized
-        let msg: ExecuteMsg = make_add_round_msg(ROUND);
+        let msg = make_add_round_msg(Fastnet, ROUND);
         let response: Response =
             execute(deps.as_mut(), mock_env(), mock_info(BOT2, &[]), msg).unwrap();
         assert_eq!(response.messages.len(), 2);
@@ -847,7 +852,7 @@ mod tests {
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(min_round, TESTING_MIN_ROUND);
 
-        let msg = make_add_round_msg(10);
+        let msg = make_add_round_msg(Fastnet, 10);
         let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
         assert!(matches!(
             err,
@@ -887,7 +892,7 @@ mod tests {
         const EXPECTED_RANDOMNESS: &str =
             "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1";
 
-        let msg = make_add_round_msg(ROUND);
+        let msg = make_add_round_msg(Fastnet, ROUND);
         let info = mock_info("unregistered_bot", &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let attrs = response.attributes;
@@ -1165,7 +1170,7 @@ mod tests {
         const EXPECTED_RANDOMNESS: &str =
             "b84506d4342f4ec2506baa60a6b611ab006cf45e870d069ebb1b6a051c9e9acf";
 
-        let msg = make_add_round_msg(ROUND);
+        let msg = make_add_round_msg(Fastnet, ROUND);
         let info = mock_info(MYBOT, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(response.messages.len(), 0);
@@ -1236,7 +1241,7 @@ mod tests {
 
         // Same msg for all submissions
         const ROUND: u64 = 72775;
-        let msg = make_add_round_msg(ROUND);
+        let msg = make_add_round_msg(Fastnet, ROUND);
 
         // 1st
         let info = mock_info(bot1, &[]);
@@ -1329,7 +1334,7 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = make_add_round_msg(72780);
+        let msg = make_add_round_msg(Fastnet, 72780);
         let info = mock_info("unregistered_bot", &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let randomness = first_attr(response.attributes, "randomness").unwrap();
@@ -1384,7 +1389,7 @@ mod tests {
         let msg = ExecuteMsg::AddRound {
             network: Some("fastnet".to_string()),
             round: 72790, // wrong round
-            signature: testing_signature(72780).unwrap(),
+            signature: testing_signature_fastnet(72780).unwrap(),
         };
         let result = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg);
         match result.unwrap_err() {
@@ -1421,7 +1426,7 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = make_add_round_msg(72780);
+        let msg = make_add_round_msg(Fastnet, 72780);
 
         // Execute 1
         register_bot(deps.as_mut(), "anyone");
@@ -1459,7 +1464,7 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let msg = make_add_round_msg(72780);
+        let msg = make_add_round_msg(Fastnet, 72780);
 
         const A: &str = "bot_alice";
         const B: &str = "bot_bob";

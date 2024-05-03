@@ -1,6 +1,8 @@
 mod rounds;
 pub mod testing;
 
+use core::fmt;
+
 pub use rounds::{is_incentivized, round_after, time_of_round};
 
 use cosmwasm_std::Timestamp;
@@ -57,5 +59,25 @@ impl DrandNetwork {
                 30, 245, 236, 228, 90,
             ],
         }
+    }
+}
+
+impl fmt::Display for DrandNetwork {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DrandNetwork::Fastnet => f.write_str("fastnet"),
+            DrandNetwork::Quicknet => f.write_str("quicknet"),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn to_string_works() {
+        assert_eq!(DrandNetwork::Fastnet.to_string(), "fastnet");
+        assert_eq!(DrandNetwork::Quicknet.to_string(), "quicknet");
     }
 }
