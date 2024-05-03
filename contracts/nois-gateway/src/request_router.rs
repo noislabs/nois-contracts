@@ -66,8 +66,6 @@ impl RequestRouter {
     ) -> StdResult<RoutingReceipt> {
         let (network, round, source_id) = commit_to_drand_round(after);
 
-        let existing_randomness = archive_lookup(deps.storage, network, round);
-
         let job = Job {
             source_id: source_id.clone(),
             channel,
@@ -76,12 +74,18 @@ impl RequestRouter {
 
         let mut msgs = Vec::<CosmosMsg>::new();
 
-        let queued = if let Some(randomness) = existing_randomness {
-            //If the drand round already exists we send it
+        let queued = if let Some(existing_randomness) = archive_lookup(deps.storage, network, round)
+        {
+            // If the drand round already exists we send the deliver beacon packet right away
+            // without enqueuing the job.
             increment_processed_drand_jobs(deps.storage, round)?;
             let published = time_of_round(round, NETWORK);
-            let msg =
-                create_deliver_beacon_ibc_message(env.block.time, job, published, randomness)?;
+            let msg = create_deliver_beacon_ibc_message(
+                env.block.time,
+                job,
+                published,
+                existing_randomness,
+            )?;
             msgs.push(msg.into());
             false
         } else {
