@@ -1,23 +1,36 @@
 use cosmwasm_std::{HexBinary, Storage};
+use drand_common::DrandNetwork::{self, *};
 
-pub fn archive_lookup(storage: &dyn Storage, round: u64) -> Option<HexBinary> {
-    let key = drand_mainnet_randomness_key(round);
+pub fn archive_lookup(
+    storage: &dyn Storage,
+    network: DrandNetwork,
+    round: u64,
+) -> Option<HexBinary> {
+    let key = drand_randomness_key(network, round);
     storage.get(&key).map(Into::into)
 }
 
-pub fn archive_store(storage: &mut dyn Storage, round: u64, randomness: &HexBinary) {
-    let key = drand_mainnet_randomness_key(round);
+pub fn archive_store(
+    storage: &mut dyn Storage,
+    network: DrandNetwork,
+    round: u64,
+    randomness: &HexBinary,
+) {
+    let key = drand_randomness_key(network, round);
     storage.set(&key, randomness);
 }
 
 // Use raw storage key to allow storing and querying rounds
 // without serde
-fn drand_mainnet_randomness_key(round: u64) -> [u8; 11] {
-    let bytes = round.to_be_bytes();
+fn drand_randomness_key(network: DrandNetwork, round: u64) -> [u8; 11] {
+    let network = match network {
+        Fastnet => b'm',  // mainnet,
+        Quicknet => b'q', // quicknet,
+    };
+    let round = round.to_be_bytes();
     [
         7,    // BELL
         b'd', // drand
-        b'm', // mainnet
-        bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
+        network, round[0], round[1], round[2], round[3], round[4], round[5], round[6], round[7],
     ]
 }

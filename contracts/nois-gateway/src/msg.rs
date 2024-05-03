@@ -20,6 +20,8 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     /// Add drand beacon
     AddVerifiedRound {
+        /// "fastnet" or "quicknet", defaults to "fastnet" if not set
+        network: Option<String>,
         round: u64,
         randomness: HexBinary,
         is_verifying_tx: bool,

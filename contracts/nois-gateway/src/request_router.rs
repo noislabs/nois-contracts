@@ -64,9 +64,9 @@ impl RequestRouter {
         after: Timestamp,
         origin: Binary,
     ) -> StdResult<RoutingReceipt> {
-        let (round, source_id) = commit_to_drand_round(after);
+        let (network, round, source_id) = commit_to_drand_round(after);
 
-        let existing_randomness = archive_lookup(deps.storage, round);
+        let existing_randomness = archive_lookup(deps.storage, network, round);
 
         let job = Job {
             source_id: source_id.clone(),
@@ -124,11 +124,12 @@ impl RequestRouter {
         &self,
         deps: DepsMut,
         env: Env,
+        network: DrandNetwork,
         round: u64,
         randomness: &HexBinary,
         is_verifying_tx: bool,
     ) -> StdResult<NewDrand> {
-        archive_store(deps.storage, round, randomness);
+        archive_store(deps.storage, network, round, randomness);
 
         let max_jobs_per_submission = if is_verifying_tx {
             MAX_JOBS_PER_SUBMISSION_WITH_VERIFICATION
@@ -186,11 +187,11 @@ fn create_deliver_beacon_ibc_message(
 }
 
 /// Calculates the next round in the future, i.e. publish time > base time.
-fn commit_to_drand_round(after: Timestamp) -> (u64, String) {
+fn commit_to_drand_round(after: Timestamp) -> (DrandNetwork, u64, String) {
     let network = DrandNetwork::Fastnet;
     let round = round_after(after, network);
     let source_id = format!("drand:{}:{}", network.chain_hash(), round);
-    (round, source_id)
+    (network, round, source_id)
 }
 
 #[cfg(test)]
@@ -200,7 +201,7 @@ mod tests {
     #[test]
     fn commit_to_drand_round_works() {
         // UNIX epoch
-        let (round, source) = commit_to_drand_round(Timestamp::from_seconds(0));
+        let (_network, round, source) = commit_to_drand_round(Timestamp::from_seconds(0));
         assert_eq!(round, 1);
         assert_eq!(
             source,
@@ -208,7 +209,7 @@ mod tests {
         );
 
         // Before Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
-        let (round, source) =
+        let (_network, round, source) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).minus_nanos(1));
         assert_eq!(round, 1);
         assert_eq!(
@@ -217,7 +218,7 @@ mod tests {
         );
 
         // At Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
-        let (round, source) = commit_to_drand_round(Timestamp::from_seconds(1677685200));
+        let (_network, round, source) = commit_to_drand_round(Timestamp::from_seconds(1677685200));
         assert_eq!(round, 2);
         assert_eq!(
             source,
@@ -225,17 +226,18 @@ mod tests {
         );
 
         // After Drand genesis
-        let (round, _) = commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_nanos(1));
+        let (_network, round, _) =
+            commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_nanos(1));
         assert_eq!(round, 2);
 
         // Drand genesis +26s/27s/28s
-        let (round, _) =
+        let (_network, round, _) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(26));
         assert_eq!(round, 10);
-        let (round, _) =
+        let (_network, round, _) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(27));
         assert_eq!(round, 11);
-        let (round, _) =
+        let (_network, round, _) =
             commit_to_drand_round(Timestamp::from_seconds(1677685200).plus_seconds(28));
         assert_eq!(round, 11);
     }
