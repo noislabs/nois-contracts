@@ -1,7 +1,8 @@
 use core::fmt;
-use cosmwasm_std::Timestamp;
+use cosmwasm_std::{StdError, Timestamp};
+use std::str::FromStr;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DrandNetwork {
     Fastnet,
     Quicknet,
@@ -65,13 +66,41 @@ impl fmt::Display for DrandNetwork {
     }
 }
 
+impl FromStr for DrandNetwork {
+    type Err = StdError;
+
+    fn from_str(net: &str) -> Result<Self, Self::Err> {
+        match net {
+            "fastnet" => Ok(DrandNetwork::Fastnet),
+            "quicknet" => Ok(DrandNetwork::Quicknet),
+            _ => Err(StdError::generic_err(
+                "Unknown network identifier. Must be quicknet or fastnet",
+            )),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::DrandNetwork::*;
     use super::*;
 
     #[test]
     fn to_string_works() {
-        assert_eq!(DrandNetwork::Fastnet.to_string(), "fastnet");
-        assert_eq!(DrandNetwork::Quicknet.to_string(), "quicknet");
+        assert_eq!(Fastnet.to_string(), "fastnet");
+        assert_eq!(Quicknet.to_string(), "quicknet");
+    }
+
+    #[test]
+    fn from_str_works() {
+        assert_eq!(DrandNetwork::from_str("fastnet").unwrap(), Fastnet);
+        assert_eq!(DrandNetwork::from_str("quicknet").unwrap(), Quicknet);
+
+        DrandNetwork::from_str("Quicknet").unwrap_err();
+        DrandNetwork::from_str("FastNet").unwrap_err();
+        DrandNetwork::from_str("").unwrap_err();
+        DrandNetwork::from_str(" ").unwrap_err();
+        DrandNetwork::from_str(" fastnet").unwrap_err();
+        DrandNetwork::from_str("fastnet ").unwrap_err();
     }
 }

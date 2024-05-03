@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use cosmwasm_std::{
     ensure_eq, to_json_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty,
     Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128,
@@ -325,17 +327,7 @@ fn execute_add_round(
         return Err(ContractError::RoundTooLow { round, min_round });
     }
 
-    let network = match network {
-        None => DrandNetwork::Fastnet,
-        Some(net) if net == "fastnet" => DrandNetwork::Fastnet,
-        Some(net) if net == "quicknet" => DrandNetwork::Quicknet,
-        _ => {
-            return Err(StdError::generic_err(
-                "Unknown network identifier. Must be quicknet or fastnet",
-            )
-            .into())
-        }
-    };
+    let network = DrandNetwork::from_str(network.as_deref().unwrap_or("fastnet"))?;
 
     // Initialise the incentive to 0
     let mut reward_points = 0u64;

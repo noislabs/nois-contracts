@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use cosmwasm_std::{
     attr, ensure, ensure_eq, entry_point, from_json, instantiate2_address, to_json_binary, Addr,
     Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
@@ -534,17 +536,7 @@ fn execute_add_verified_round(
         ContractError::UnauthorizedAddVerifiedRound
     );
 
-    let network = match network {
-        None => DrandNetwork::Fastnet,
-        Some(net) if net == "fastnet" => DrandNetwork::Fastnet,
-        Some(net) if net == "quicknet" => DrandNetwork::Quicknet,
-        _ => {
-            return Err(StdError::generic_err(
-                "Unknown network identifier. Must be quicknet or fastnet",
-            )
-            .into())
-        }
-    };
+    let network = DrandNetwork::from_str(network.as_deref().unwrap_or("fastnet"))?;
 
     let mut attributes = Vec::<Attribute>::new();
     let router = RequestRouter::new();
