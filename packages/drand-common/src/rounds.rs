@@ -1,18 +1,24 @@
 use cosmwasm_std::Timestamp;
 
-use crate::{DRAND_GENESIS, DRAND_ROUND_LENGTH};
+use crate::DrandNetwork;
+
+// Same for Fastnet and Quicknet
+const DRAND_ROUND_LENGTH: u64 = 3_000_000_000; // in nanoseconds
 
 // See TimeOfRound implementation: https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L30-L33
-pub fn time_of_round(round: u64) -> Timestamp {
-    DRAND_GENESIS.plus_nanos((round - 1) * DRAND_ROUND_LENGTH)
+pub fn time_of_round(round: u64, network: DrandNetwork) -> Timestamp {
+    network
+        .genesis_time()
+        .plus_nanos((round - 1) * DRAND_ROUND_LENGTH)
 }
 
-pub fn round_after(base: Timestamp) -> u64 {
+pub fn round_after(base: Timestamp, network: DrandNetwork) -> u64 {
+    let genesis = network.genesis_time();
     // Losely ported from https://github.com/drand/drand/blob/eb36ba81e3f28c966f95bcd602f60e7ff8ef4c35/chain/time.go#L49-L63
-    if base < DRAND_GENESIS {
+    if base < genesis {
         1
     } else {
-        let from_genesis = base.nanos() - DRAND_GENESIS.nanos();
+        let from_genesis = base.nanos() - genesis.nanos();
         let periods_since_genesis = from_genesis / DRAND_ROUND_LENGTH;
         let next_period_index = periods_since_genesis + 1;
         next_period_index + 1 // Convert 0-based counting to 1-based counting
@@ -36,44 +42,82 @@ pub fn is_incentivized(round: u64) -> bool {
 mod tests {
     use super::*;
 
+    fn time_of_round_fastnet(round: u64) -> Timestamp {
+        time_of_round(round, DrandNetwork::Fastnet)
+    }
+
+    fn round_after_fastnet(base: Timestamp) -> u64 {
+        round_after(base, DrandNetwork::Fastnet)
+    }
+
     #[test]
     fn time_of_round_works() {
-        assert_eq!(time_of_round(1), DRAND_GENESIS);
-        assert_eq!(time_of_round(2), DRAND_GENESIS.plus_seconds(3));
-        assert_eq!(time_of_round(111765), Timestamp::from_seconds(1678020492));
+        assert_eq!(
+            time_of_round_fastnet(1),
+            DrandNetwork::Fastnet.genesis_time()
+        );
+        assert_eq!(
+            time_of_round_fastnet(2),
+            DrandNetwork::Fastnet.genesis_time().plus_seconds(3)
+        );
+        assert_eq!(
+            time_of_round_fastnet(111765),
+            Timestamp::from_seconds(1678020492)
+        );
     }
 
     #[test]
     #[should_panic(expected = "overflow")]
     fn time_of_round_panics_for_round_0() {
-        time_of_round(0);
+        time_of_round_fastnet(0);
     }
 
     #[test]
     fn round_after_works() {
         // UNIX epoch
-        let round = round_after(Timestamp::from_seconds(0));
+        let round = round_after_fastnet(Timestamp::from_seconds(0));
         assert_eq!(round, 1);
 
         // Before Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
-        let round = round_after(Timestamp::from_seconds(1677685200).minus_nanos(1));
+        let round = round_after_fastnet(Timestamp::from_seconds(1677685200).minus_nanos(1));
         assert_eq!(round, 1);
 
         // At Drand genesis
-        let round = round_after(Timestamp::from_seconds(1677685200));
+        let round = round_after_fastnet(Timestamp::from_seconds(1677685200));
         assert_eq!(round, 2);
 
         // After Drand genesis
-        let round = round_after(Timestamp::from_seconds(1677685200).plus_nanos(1));
+        let round = round_after_fastnet(Timestamp::from_seconds(1677685200).plus_nanos(1));
         assert_eq!(round, 2);
 
         // Drand genesis +2s/3s/4s
-        let round = round_after(Timestamp::from_seconds(1677685200).plus_seconds(2));
+        let round = round_after_fastnet(Timestamp::from_seconds(1677685200).plus_seconds(2));
         assert_eq!(round, 2);
-        let round = round_after(Timestamp::from_seconds(1677685200).plus_seconds(3));
+        let round = round_after_fastnet(Timestamp::from_seconds(1677685200).plus_seconds(3));
         assert_eq!(round, 3);
-        let round = round_after(Timestamp::from_seconds(1677685200).plus_seconds(4));
+        let round = round_after_fastnet(Timestamp::from_seconds(1677685200).plus_seconds(4));
         assert_eq!(round, 3);
+    }
+
+    #[test]
+    fn round_after_impl_can_calculate_round_at_nois_genesis() {
+        let nois_genesis = Timestamp::from_seconds(1680015600);
+        let quicknet_launch = Timestamp::from_seconds(1692803367);
+        let christmas = Timestamp::from_seconds(1703430000);
+        let ny = Timestamp::from_seconds(1704067200);
+
+        for t in [
+            nois_genesis,
+            quicknet_launch,
+            christmas,
+            ny,
+            Timestamp::from_seconds(1704236009),
+        ] {
+            let a = round_after(t, DrandNetwork::Fastnet);
+            let b = round_after(t, DrandNetwork::Quicknet);
+            eprintln!("Fastnet round: {a}");
+            eprintln!("Quicknet round: {b}");
+        }
     }
 
     #[test]

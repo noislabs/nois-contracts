@@ -2,7 +2,7 @@ use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Addr, HexBinary, Timestamp, Uint128};
 use cw_storage_plus::{Item, Map};
 
-use drand_common::time_of_round;
+use drand_common::{time_of_round, DrandNetwork};
 
 /// Top level storage key. Values must not conflict.
 /// Each key is only one byte long to ensure we use the smallest possible storage keys.
@@ -59,7 +59,7 @@ impl QueriedBeacon {
     pub fn make(beacon: VerifiedBeacon, round: u64) -> Self {
         Self {
             round,
-            published: time_of_round(round),
+            published: time_of_round(round, DrandNetwork::Fastnet),
             verified: beacon.verified,
             randomness: beacon.randomness,
         }
@@ -91,7 +91,10 @@ pub struct StoredSubmission {
 pub const SUBMISSIONS: Map<(u64, &Addr), StoredSubmission> = Map::new("submissions");
 
 /// The number of submissions done for each round
-pub const SUBMISSIONS_COUNT: Map<u64, u16> = Map::new("counts");
+pub const FASTNET_SUBMISSIONS_COUNT: Map<u64, u16> = Map::new("counts");
+
+/// The number of submissions done for each round
+pub const QUICKNET_SUBMISSIONS_COUNT: Map<u64, u16> = Map::new("qc");
 
 /// Dummy value. Don't rely on the value but just check existence.
 pub const INCENTIVIZED_BY_GATEWAY_MARKER: u8 = 1;

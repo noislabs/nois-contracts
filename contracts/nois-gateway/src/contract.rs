@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use cosmwasm_std::{
     attr, ensure, ensure_eq, entry_point, from_json, instantiate2_address, to_json_binary, Addr,
     Attribute, Binary, CodeInfoResponse, Coin, Deps, DepsMut, Empty, Env, Event, HexBinary,
@@ -9,6 +11,7 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
+use drand_common::DrandNetwork;
 use nois_protocol::{
     check_order, check_version, InPacket, InPacketAck, OutPacket, OutPacketAck,
     BEACON_PRICE_PACKET_LIFETIME, IBC_APP_VERSION, WELCOME_PACKET_LIFETIME,
@@ -108,10 +111,13 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::AddVerifiedRound {
+            network,
             round,
             randomness,
             is_verifying_tx,
-        } => execute_add_verified_round(deps, env, info, round, randomness, is_verifying_tx),
+        } => {
+            execute_add_verified_round(deps, env, info, network, round, randomness, is_verifying_tx)
+        }
         ExecuteMsg::SetConfig {
             manager,
             price,
@@ -516,6 +522,7 @@ fn execute_add_verified_round(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    network: Option<String>,
     round: u64,
     randomness: HexBinary,
     is_verifying_tx: bool,
@@ -529,12 +536,14 @@ fn execute_add_verified_round(
         ContractError::UnauthorizedAddVerifiedRound
     );
 
+    let network = DrandNetwork::from_str(network.as_deref().unwrap_or("fastnet"))?;
+
     let mut attributes = Vec::<Attribute>::new();
     let router = RequestRouter::new();
     let NewDrand {
         msgs,
         jobs_processed,
-    } = router.new_drand(deps, env, round, &randomness, is_verifying_tx)?;
+    } = router.new_drand(deps, env, network, round, &randomness, is_verifying_tx)?;
     attributes.push(Attribute::new("jobs_processed", jobs_processed.to_string()));
 
     Ok(Response::new()
@@ -681,8 +690,8 @@ mod tests {
         match round {
             9 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/public/9
+                network: Some("fastnet".to_string()),
                 round: 9,
-
                 randomness: HexBinary::from_hex(
                     "1b9acda1c43e333bcf02ddce634b18ff79803a904097a5896710c7ae798b47ab",
                 )
@@ -691,6 +700,7 @@ mod tests {
             },
             810 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/810
+                network: Some("fastnet".to_string()),
                 round: 810,
                 randomness: HexBinary::from_hex(
                     "192af38cb4e26fd9d15e8b4968fb3df137f3e6d9b4aeb04c7c5b6201091872cc",
@@ -700,6 +710,7 @@ mod tests {
             },
             820 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/820
+                network: Some("fastnet".to_string()),
                 round: 820,
                 randomness: HexBinary::from_hex(
                     "32f614c72e9a382540f6cdca5f4d58537ea11de9b692bcdef7b10e892690d233",
@@ -709,6 +720,7 @@ mod tests {
             },
             830 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/830
+                network: Some("fastnet".to_string()),
                 round: 830,
                 randomness: HexBinary::from_hex(
                     "9e8d112e4c9b66e17ca3cd78aca91e6c076a42917a03fe1fe837f7eaf2fa8b86",
@@ -718,6 +730,7 @@ mod tests {
             },
             840 => ExecuteMsg::AddVerifiedRound {
                 // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/840
+                network: Some("fastnet".to_string()),
                 round: 840,
                 randomness: HexBinary::from_hex(
                     "59b949f6455a6d7319232f8fe085cbba884727cccf79fa5239579078c0a19cd4",
@@ -726,7 +739,8 @@ mod tests {
                 is_verifying_tx,
             },
             72785 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/public/72785
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
+                network: Some("fastnet".to_string()),
                 round: 72785,
                 randomness: HexBinary::from_hex(
                     "650be14f6ffd7dcb67df9138c3b7d7d6bca455d0438fc81d3fbb24a4ee038f36",
@@ -735,55 +749,61 @@ mod tests {
                 is_verifying_tx,
             },
             72786 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/public/72786
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72786
+                network: Some("fastnet".to_string()),
                 round: 72786,
                 randomness: HexBinary::from_hex(
-                    "0ed47e6ebc311192000df4469bb5a5a00445a9365e428d61c8c08d78dd1e51a8",
+                    "97a082a640ae98913b076bc3d8d88df8e15d49f57b83cda8e26c9a6b56647d18",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
             72787 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/public/72787
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72787
+                network: Some("fastnet".to_string()),
                 round: 72787,
                 randomness: HexBinary::from_hex(
-                    "d4ea3e5e43bf510c1b086613a9e68257b317202dbe5aab1b9182b65f51f4b82c",
+                    "913cce02caa4e55ce979b7e86a6bfeff545fb19caf1b5c3b99ae740b411a245a",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
             2183668 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/public/2183668
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/2183668
+                network: Some("fastnet".to_string()),
                 round: 2183668,
                 randomness: HexBinary::from_hex(
-                    "3436462283a07e695c41854bb953e5964d8737e7e29745afe54a9f4897b6c319",
+                    "3ec104b7145a7a61c7b674a07d1e7dc7774b95f7ed7ba66063554b568ac63314",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
             2183669 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/public/2183669
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/2183669
+                network: Some("fastnet".to_string()),
                 round: 2183669,
                 randomness: HexBinary::from_hex(
-                    "408de94b8c7e1972b06a4ab7636eb1ba2a176022a30d018c3b55e89289d41149",
+                    "a47090dd5cde02721cb848271e75a8680bd0d34a254733fe331e824b8d5d2e5d",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
             2183670 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/public/2183670
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/2183670
+                network: Some("fastnet".to_string()),
                 round: 2183670,
                 randomness: HexBinary::from_hex(
-                    "e5f7ba655389eee248575dde70cb9f3293c9774c8538136a135601907158d957",
+                    "1c8b6ce9fbf58f06d9fa9d6e22f0b40927eba6a4313efbfde2316afd50212d05",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
             2183671 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/public/2183671
+                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/2183671
+                network: Some("fastnet".to_string()),
                 round: 2183671,
                 randomness: HexBinary::from_hex(
-                    "324e2a196293b42806c12c7bbd1aeba8d5617942f152a16588223f905f60801a",
+                    "0ad508d0ac170b172b6fb9de86c248a1f0373a6744b8feb2dd99ef508e36ad58",
                 )
                 .unwrap(),
                 is_verifying_tx,
