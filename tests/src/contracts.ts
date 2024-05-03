@@ -36,6 +36,7 @@ export interface DrandInstantiateMsg {
 
 export interface DrandExecuteMsg {
   readonly add_round?: {
+    readonly network?: null | "fastnet" | "quicknet";
     readonly round: number;
     readonly signature: string;
   };

@@ -5,8 +5,8 @@ use cosmwasm_std::{
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
-use drand_common::FASTNET_PUBKEY;
-use drand_verify::{derive_randomness, G2PubkeyFastnet, Pubkey};
+use drand_common::DrandNetwork;
+use drand_verify::{derive_randomness, G2PubkeyFastnet, G2PubkeyRfc, Pubkey};
 
 use crate::attributes::{
     ATTR_BOT, ATTR_RANDOMNESS, ATTR_REWARD_PAYOUT, ATTR_REWARD_POINTS, ATTR_ROUND,
@@ -20,8 +20,8 @@ use crate::msg::{
 };
 use crate::state::{
     Bot, Config, QueriedBeacon, QueriedBot, StoredSubmission, VerifiedBeacon, ALLOWLIST, BEACONS,
-    BOTS, CONFIG, INCENTIVIZED_BY_GATEWAY, INCENTIVIZED_BY_GATEWAY_MARKER, SUBMISSIONS,
-    SUBMISSIONS_COUNT,
+    BOTS, CONFIG, FASTNET_SUBMISSIONS_COUNT, INCENTIVIZED_BY_GATEWAY,
+    INCENTIVIZED_BY_GATEWAY_MARKER, QUICKNET_SUBMISSIONS_COUNT, SUBMISSIONS,
 };
 
 /// Constant defining how many submissions per round will be rewarded
@@ -80,9 +80,11 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::AddRound { round, signature } => {
-            execute_add_round(deps, env, info, round, signature)
-        }
+        ExecuteMsg::AddRound {
+            network,
+            round,
+            signature,
+        } => execute_add_round(deps, env, info, network, round, signature),
         ExecuteMsg::RegisterBot { moniker } => execute_register_bot(deps, env, info, moniker),
         ExecuteMsg::SetIncentivized { round } => execute_set_incentivized(deps, env, info, round),
         ExecuteMsg::UpdateAllowlistBots { add, remove } => {
@@ -307,6 +309,7 @@ fn execute_add_round(
     deps: DepsMut,
     env: Env,
     info: MessageInfo,
+    network: Option<String>,
     round: u64,
     signature: HexBinary,
 ) -> Result<Response, ContractError> {
@@ -322,13 +325,30 @@ fn execute_add_round(
         return Err(ContractError::RoundTooLow { round, min_round });
     }
 
+    let network = match network {
+        None => DrandNetwork::Fastnet,
+        Some(net) if net == "fastnet" => DrandNetwork::Fastnet,
+        Some(net) if net == "quicknet" => DrandNetwork::Quicknet,
+        _ => {
+            return Err(StdError::generic_err(
+                "Unknown network identifier. Must be quicknet or fastnet",
+            )
+            .into())
+        }
+    };
+
     // Initialise the incentive to 0
     let mut reward_points = 0u64;
 
     // Get the number of submission before this one.
-    let submissions_count = SUBMISSIONS_COUNT
-        .may_load(deps.storage, round)?
-        .unwrap_or_default();
+    let submissions_count = match network {
+        DrandNetwork::Fastnet => FASTNET_SUBMISSIONS_COUNT
+            .may_load(deps.storage, round)?
+            .unwrap_or_default(),
+        DrandNetwork::Quicknet => QUICKNET_SUBMISSIONS_COUNT
+            .may_load(deps.storage, round)?
+            .unwrap_or_default(),
+    };
 
     let randomness: HexBinary = derive_randomness(signature.as_slice()).into();
     // Check if we need to verify the submission  or we just compare it to the registered randomness from the first submission of this round
@@ -336,13 +356,28 @@ fn execute_add_round(
 
     if submissions_count < NUMBER_OF_SUBMISSION_VERIFICATION_PER_ROUND {
         is_verifying_tx = true;
-        // Since we have a static pubkey, it is safe to use the unchecked method
-        let pk = G2PubkeyFastnet::from_fixed_unchecked(FASTNET_PUBKEY)
-            .map_err(|_| ContractError::InvalidPubkey {})?;
-        // Verify BLS
-        if !pk.verify(round, b"", &signature).unwrap_or(false) {
-            return Err(ContractError::InvalidSignature {});
+
+        match network {
+            DrandNetwork::Fastnet => {
+                // Since we have a static pubkey, it is safe to use the unchecked method
+                let pk = G2PubkeyFastnet::from_fixed_unchecked(DrandNetwork::Fastnet.pubkey())
+                    .map_err(|_| ContractError::InvalidPubkey {})?;
+                // Verify BLS
+                if !pk.verify(round, b"", &signature).unwrap_or(false) {
+                    return Err(ContractError::InvalidSignature {});
+                }
+            }
+            DrandNetwork::Quicknet => {
+                // Since we have a static pubkey, it is safe to use the unchecked method
+                let pk = G2PubkeyRfc::from_fixed_unchecked(DrandNetwork::Quicknet.pubkey())
+                    .map_err(|_| ContractError::InvalidPubkey {})?;
+                // Verify BLS
+                if !pk.verify(round, b"", &signature).unwrap_or(false) {
+                    return Err(ContractError::InvalidSignature {});
+                }
+            }
         }
+
         // Send verification reward
         reward_points += INCENTIVE_POINTS_FOR_VERIFICATION;
     } else {
@@ -394,7 +429,7 @@ fn execute_add_round(
         },
     )?;
 
-    SUBMISSIONS_COUNT.save(deps.storage, round, &new_count)?;
+    FASTNET_SUBMISSIONS_COUNT.save(deps.storage, round, &new_count)?;
 
     let mut attributes = vec![
         Attribute::new(ATTR_ROUND, round.to_string()),
@@ -558,6 +593,7 @@ mod tests {
     };
     use cosmwasm_std::{coins, from_json, Addr, Timestamp, Uint128};
     use drand_common::testing::testing_signature;
+    use hex_literal::hex;
 
     const TESTING_MANAGER: &str = "mngr";
     const GATEWAY: &str = "thegateway";
@@ -569,7 +605,11 @@ mod tests {
 
     fn make_add_round_msg(round: u64) -> ExecuteMsg {
         if let Some(signature) = testing_signature(round) {
-            ExecuteMsg::AddRound { round, signature }
+            ExecuteMsg::AddRound {
+                network: None,
+                round,
+                signature,
+            }
         } else {
             panic!("Test round {round} not set");
         }
@@ -672,6 +712,44 @@ mod tests {
             beacon.unwrap().randomness.to_hex(),
             "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1"
         );
+    }
+
+    #[test]
+    fn add_round_works_for_quicknet() {
+        let mut deps = mock_dependencies();
+
+        let info = mock_info("creator", &[]);
+        let msg = InstantiateMsg {
+            manager: TESTING_MANAGER.to_string(),
+            min_round: TESTING_MIN_ROUND,
+            incentive_point_price: Uint128::new(20_000),
+            incentive_denom: "unois".to_string(),
+        };
+        instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        register_bot(deps.as_mut(), "anyone");
+
+        // https://api3.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/7307065
+        let msg = ExecuteMsg::AddRound {
+            network: Some("quicknet".to_string()),
+            round: 7307065,
+            signature: HexBinary::from_hex("a8f51ba7ab91c937aa8c54f58da04172a4a9a8af2d7c95502e99c1dc29e574968b4b832446a18c251e07f7abc16a362f").unwrap(),
+        };
+        let expected_randomness =
+            hex!("41155d35838a37100a908a4a713c593573d7ab6e845189fb24f7e31d72fc05e3");
+        let info = mock_info("anyone", &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        let BeaconResponse { beacon } = from_json(
+            query(
+                deps.as_ref(),
+                mock_env(),
+                QueryMsg::Beacon { round: 7307065 },
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(beacon.unwrap().randomness, &expected_randomness);
     }
 
     #[test]
@@ -1277,6 +1355,7 @@ mod tests {
         register_bot(deps.as_mut(), "anyone");
         let info = mock_info("anyone", &[]);
         let msg = ExecuteMsg::AddRound {
+            network: Some("fastnet".to_string()),
             round: 72780,
             signature: hex::decode("3cc6f6cdf59e95526d5a5d82aaa84fa6f181e4")
                 .unwrap()
@@ -1303,6 +1382,7 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::AddRound {
+            network: Some("fastnet".to_string()),
             round: 72790, // wrong round
             signature: testing_signature(72780).unwrap(),
         };
@@ -1314,6 +1394,7 @@ mod tests {
 
         let msg = ExecuteMsg::AddRound {
             // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+            network: Some("fastnet".to_string()),
             round: 72780,
             // wrong signature (first two bytes swapped)
             signature: hex::decode("ac86005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap().into(),

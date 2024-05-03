@@ -21,7 +21,12 @@ pub struct InstantiateMsg {
 #[cw_serde]
 pub enum ExecuteMsg {
     /// Add drand beacon
-    AddRound { round: u64, signature: HexBinary },
+    AddRound {
+        /// "fastnet" or "quicknet", defaults to "fastnet" if not set
+        network: Option<String>,
+        round: u64,
+        signature: HexBinary,
+    },
     /// Registers a bot using on the sender address of the message.
     /// A re-registation updates the information of the bot.
     RegisterBot { moniker: String },

@@ -347,6 +347,7 @@ fn integration_test() {
     // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72775
     const SIGNATURE: &str = "973ae0dd58e53c7ca80952ee26e0565627dd61cc5ded60b20d2d846e5354d2aec13d08a2bfbc240c794993d16a0dae90";
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        network: None,
         round: ROUND,
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
@@ -366,6 +367,7 @@ fn integration_test() {
     );
     // Add round 2nd submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        network: None,
         round: ROUND,
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
@@ -385,6 +387,7 @@ fn integration_test() {
     );
     // Add round 3rd submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        network: None,
         round: ROUND,
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
@@ -404,6 +407,7 @@ fn integration_test() {
     );
     // Add round 4th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        network: None,
         round: ROUND,
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
@@ -423,6 +427,7 @@ fn integration_test() {
     );
     // Add round 5th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        network: None,
         round: ROUND,
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
@@ -442,6 +447,7 @@ fn integration_test() {
     );
     // Add round 6th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        network: None,
         round: ROUND,
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
@@ -461,6 +467,7 @@ fn integration_test() {
     );
     // Add round 7th submission
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        network: None,
         round: ROUND,
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
@@ -483,6 +490,7 @@ fn integration_test() {
     // and when a new bot brings a submission that won't go through verification. It should fail if it
     // is different from the randomness already registered on contract state for that round.
     let msg = nois_drand::msg::ExecuteMsg::AddRound {
+        network: None,
         round: ROUND,
         signature: HexBinary::from_hex("886832ac1b059709a8966347fc447773e15ceff1eada944504fa541ab71c1d1c9ff4f2bbc69f90669a0cf936d018ab52").unwrap(),
     };
