@@ -6,6 +6,7 @@ resolver = "2"
 # nois = { git = "https://github.com/noislabs/nois", branch = "add-published-time" }
 nois = "0.7.0"
 cw2 = "1.1.1"
+hex-literal = "0.4.1"
 
 [profile.release.package.nois-protocol]
 codegen-units = 1
