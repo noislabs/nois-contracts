@@ -266,6 +266,7 @@ pub fn execute_get_randomness_impl(
                             denom: unois_denom.denom,
                         },
                         timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
+                        memo: None,
                     }
                     .into(),
                 );
@@ -802,8 +803,7 @@ pub fn ibc_packet_receive(
         // we try to capture all app-level errors and convert them into
         // acknowledgement packets that contain an error code.
         let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
-        Ok(IbcReceiveResponse::new()
-            .set_ack(acknowledgement)
+        Ok(IbcReceiveResponse::new(acknowledgement)
             .add_event(Event::new("ibc").add_attribute("packet", "receive")))
     })
 }
@@ -843,8 +843,7 @@ fn receive_deliver_beacon(
     .with_gas_limit(callback_gas_limit);
 
     let ack = StdAck::success(to_json_binary(&OutPacketAck::DeliverBeacon {})?);
-    Ok(IbcReceiveResponse::new()
-        .set_ack(ack)
+    Ok(IbcReceiveResponse::new(ack)
         .add_attribute(ATTR_ACTION, "receive_deliver_beacon")
         .add_attribute("job_id", job_id)
         .add_submessage(msg))
@@ -859,9 +858,7 @@ fn receive_welcome(
     config.payment = Some(payment);
     CONFIG.save(deps.storage, &config)?;
     let ack = StdAck::success(to_json_binary(&OutPacketAck::Welcome {})?);
-    Ok(IbcReceiveResponse::new()
-        .set_ack(ack)
-        .add_attribute(ATTR_ACTION, "receive_welcome"))
+    Ok(IbcReceiveResponse::new(ack).add_attribute(ATTR_ACTION, "receive_welcome"))
 }
 
 fn receive_push_beacon_price(
@@ -873,9 +870,7 @@ fn receive_push_beacon_price(
 ) -> Result<IbcReceiveResponse, ContractError> {
     update_nois_beacon_price(deps, timestamp, amount, denom)?;
     let ack = StdAck::success(to_json_binary(&OutPacketAck::PushBeaconPrice {})?);
-    Ok(IbcReceiveResponse::new()
-        .set_ack(ack)
-        .add_attribute(ATTR_ACTION, "receive_push_beacon_price"))
+    Ok(IbcReceiveResponse::new(ack).add_attribute(ATTR_ACTION, "receive_push_beacon_price"))
 }
 
 #[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
@@ -960,7 +955,7 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::{
-        coins,
+        coin, coins,
         testing::{
             mock_dependencies, mock_dependencies_with_balance, mock_env,
             mock_ibc_channel_close_confirm, mock_ibc_channel_close_init,
@@ -981,8 +976,8 @@ mod tests {
         instantiate_msg: Option<InstantiateMsg>,
     ) -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let initial_funds = vec![
-            Coin::new(22334455, "unoisx"),
-            Coin::new(
+            coin(22334455, "unoisx"),
+            coin(
                 123321,
                 "ibc/CB480EB3697F39DB828D9EFA021ABE681BFCD72E23894019B8DDB1AB94039081",
             ),
@@ -990,7 +985,7 @@ mod tests {
         let mut deps = mock_dependencies_with_balance(&initial_funds);
         let msg = instantiate_msg.unwrap_or_else(|| InstantiateMsg {
             manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1027,7 +1022,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: None,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1084,7 +1079,7 @@ mod tests {
     fn get_next_randomness_for_allowed_address() {
         let mut deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1116,7 +1111,7 @@ mod tests {
     fn get_next_randomness_for_disallowed_address() {
         let mut deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![Coin::new(1_000000u128, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1326,7 +1321,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: None,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1419,7 +1414,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             manager: None,
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: None,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1548,7 +1543,7 @@ mod tests {
         let addr_in_allowlist = vec![String::from("addr2"), String::from("addr1")];
         let deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1563,7 +1558,7 @@ mod tests {
         // empty list
         let deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1582,7 +1577,7 @@ mod tests {
         let addr_not_in_allowlist = String::from("addr2");
         let deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1625,7 +1620,7 @@ mod tests {
         let addr_not_in_allowlist = String::from("addr2");
         let deps = setup(Some(InstantiateMsg {
             manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},

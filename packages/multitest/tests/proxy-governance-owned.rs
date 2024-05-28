@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    testing::mock_env, Addr, Coin, Decimal, HexBinary, Timestamp, Uint128, Validator,
+    coin, testing::mock_env, Addr, Decimal, HexBinary, Timestamp, Uint128, Validator,
 };
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{mint_native, payment_initial};
@@ -22,12 +22,12 @@ fn integration_test() {
                 },
             )
             .unwrap();
-        let valoper1 = Validator {
-            address: "noislabs".to_string(),
-            commission: Decimal::percent(1),
-            max_commission: Decimal::percent(100),
-            max_change_rate: Decimal::percent(1),
-        };
+        let valoper1 = Validator::new(
+            "noislabs".to_string(),
+            Decimal::percent(1),
+            Decimal::percent(100),
+            Decimal::percent(1),
+        );
         let block = mock_env().block;
         router
             .staking
@@ -53,7 +53,7 @@ fn integration_test() {
             Addr::unchecked("owner"),
             &nois_gateway::msg::InstantiateMsg {
                 manager: "manager".to_string(),
-                price: Coin::new(1, "unois"),
+                price: coin(1, "unois"),
                 payment_code_id: PAYMENT,
                 payment_initial_funds: payment_initial(),
                 sink: SINK.to_string(),
@@ -75,7 +75,7 @@ fn integration_test() {
             drand: None,
             trusted_sources: None,
             manager: Addr::unchecked("manager"),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
             sink: Addr::unchecked(SINK),
@@ -112,7 +112,7 @@ fn integration_test() {
             drand: Some(Addr::unchecked(DRAND)),
             trusted_sources: Some(vec![Addr::unchecked(DRAND)]),
             manager: Addr::unchecked("manager"),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
             sink: Addr::unchecked(SINK),
@@ -135,7 +135,7 @@ fn integration_test() {
             Addr::unchecked("owner"),
             &nois_proxy_governance_owned::msg::InstantiateMsg {
                 manager: Some("manager".to_string()),
-                prices: vec![Coin::new(1_000_000, "unoisx")],
+                prices: vec![coin(1_000_000, "unoisx")],
                 test_mode: None,
                 callback_gas_limit: 500_000,
                 mode: nois_proxy_governance_owned::state::OperationalMode::Funded {},
@@ -161,7 +161,7 @@ fn integration_test() {
         nois_proxy_governance_owned::msg::ConfigResponse {
             config: nois_proxy_governance_owned::state::Config {
                 manager: Some(Addr::unchecked("manager")),
-                prices: vec![Coin::new(1_000_000, "unoisx")],
+                prices: vec![coin(1_000_000, "unoisx")],
                 test_mode: false,
                 callback_gas_limit: 500_000,
                 payment: None,
@@ -206,7 +206,7 @@ fn integration_test() {
         nois_proxy_governance_owned::msg::ConfigResponse {
             config: nois_proxy_governance_owned::state::Config {
                 manager: Some(Addr::unchecked("manager")),
-                prices: vec![Coin::new(1_000_000, "unoisx")],
+                prices: vec![coin(1_000_000, "unoisx")],
                 test_mode: false,
                 callback_gas_limit: 678_900,
                 payment: None,

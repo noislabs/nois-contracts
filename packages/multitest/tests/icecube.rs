@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    coin, testing::mock_env, Addr, BlockInfo, Coin, Decimal, Delegation, Uint128, Validator,
+    coin, testing::mock_env, Addr, BlockInfo, Decimal, Delegation, Uint128, Validator,
 };
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
 use nois_multitest::{first_attr, mint_native, query_balance_native};
@@ -19,12 +19,12 @@ fn integration_test() {
                 },
             )
             .unwrap();
-        let valoper1 = Validator {
-            address: "noislabs".to_string(),
-            commission: Decimal::percent(1),
-            max_commission: Decimal::percent(100),
-            max_change_rate: Decimal::percent(1),
-        };
+        let valoper1 = Validator::new(
+            "noislabs".to_string(),
+            Decimal::percent(1),
+            Decimal::percent(100),
+            Decimal::percent(1),
+        );
         let block = mock_env().block;
         router
             .staking
@@ -76,7 +76,7 @@ fn integration_test() {
             &nois_icecube::msg::InstantiateMsg {
                 manager: "boss".to_string(),
             },
-            &[Coin::new(1_000_000, "unois")],
+            &[coin(1_000_000, "unois")],
             "Nois-Icecube",
             None,
         )
@@ -189,11 +189,11 @@ fn integration_test() {
         app.wrap()
             .query_all_delegations(&addr_nois_icecube)
             .unwrap()[0],
-        Delegation {
-            amount: Coin::new(500_000, "unois"),
-            delegator: Addr::unchecked("contract1"),
-            validator: "noislabs".to_string(),
-        }
+        Delegation::new(
+            Addr::unchecked("contract1"),
+            "noislabs".to_string(),
+            coin(500_000, "unois"),
+        )
     );
 
     let block = app.block_info();

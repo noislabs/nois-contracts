@@ -4,8 +4,8 @@ resolver = "2"
 
 [workspace.dependencies]
 # nois = { git = "https://github.com/noislabs/nois", branch = "add-published-time" }
-nois = "0.7.0"
-cw2 = "1.1.1"
+nois = "2.0.0-rc.1"
+cw2 = "2"
 
 [profile.release.package.nois-protocol]
 codegen-units = 1

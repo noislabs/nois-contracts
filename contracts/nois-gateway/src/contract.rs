@@ -284,7 +284,7 @@ pub fn ibc_channel_connect(
         deps.querier.query_wasm_code_info(config.payment_code_id)?;
     let salt = hash_channel(&chan_id);
     #[allow(unused)]
-    let address = instantiate2_address(&checksum, &creator, &salt)
+    let address = instantiate2_address(checksum.as_slice(), &creator, &salt)
         .map_err(|e| StdError::generic_err(format!("Cound not generate address: {}", e)))?;
 
     let address = {
@@ -390,8 +390,7 @@ pub fn ibc_packet_receive(
         // we try to capture all app-level errors and convert them into
         // acknowledgement packets that contain an error code.
         let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
-        Ok(IbcReceiveResponse::new()
-            .set_ack(acknowledgement)
+        Ok(IbcReceiveResponse::new(acknowledgement)
             .add_event(Event::new("ibc").add_attribute("packet", "receive")))
     })
 }
@@ -455,8 +454,7 @@ fn receive_request_beacon(
     };
     msgs.push(msg.into());
 
-    Ok(IbcReceiveResponse::new()
-        .set_ack(acknowledgement)
+    Ok(IbcReceiveResponse::new(acknowledgement)
         .add_messages(msgs)
         .add_attribute("action", "receive_request_beacon"))
 }
@@ -470,9 +468,7 @@ fn receive_pull_beacon_price(deps: DepsMut, env: Env) -> Result<IbcReceiveRespon
         amount,
         denom,
     })?);
-    Ok(IbcReceiveResponse::new()
-        .set_ack(ack)
-        .add_attribute("action", "receive_pull_beacon_price"))
+    Ok(IbcReceiveResponse::new(ack).add_attribute("action", "receive_pull_beacon_price"))
 }
 
 #[entry_point]
@@ -635,7 +631,7 @@ mod tests {
         MockQuerier, MockStorage,
     };
     use cosmwasm_std::{
-        coin, from_json, Addr, Binary, CodeInfoResponse, Coin, ContractResult, CosmosMsg,
+        coin, from_json, Addr, Binary, Checksum, CodeInfoResponse, Coin, ContractResult, CosmosMsg,
         IbcAcknowledgement, IbcMsg, OwnedDeps, QuerierResult, SystemError, SystemResult, Timestamp,
         WasmQuery,
     };
@@ -666,7 +662,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
@@ -856,23 +852,14 @@ mod tests {
                     }
                     WasmQuery::CodeInfo { code_id, .. } => match *code_id {
                         PAYMENT => {
-                            let mut resp = CodeInfoResponse::default();
-                            resp.code_id = PAYMENT;
-                            resp.creator = "whoever".to_string();
-                            resp.checksum = HexBinary::from_hex(
-                                "04b59c31429dcc5bdc58fb1ded3894797a0f0c324f5db40e1fa2c7812a300b83",
-                            )
-                            .unwrap();
+                            let resp = CodeInfoResponse::new(PAYMENT, Addr::unchecked("whoever"), Checksum::from_hex("04b59c31429dcc5bdc58fb1ded3894797a0f0c324f5db40e1fa2c7812a300b83").unwrap());
                             SystemResult::Ok(ContractResult::Ok(to_json_binary(&resp).unwrap()))
                         }
                         PAYMENT2 => {
-                            let mut resp = CodeInfoResponse::default();
-                            resp.code_id = PAYMENT2;
-                            resp.creator = "anotherone".to_string();
-                            resp.checksum = HexBinary::from_hex(
+                            let resp = CodeInfoResponse::new(PAYMENT2, Addr::unchecked("anotherone"), Checksum::from_hex(
                                 "f9ed2a2e7c03937004a2079747e79e508288e721bfe63f441f3e1c397c55b88d",
                             )
-                            .unwrap();
+                            .unwrap());
                             SystemResult::Ok(ContractResult::Ok(to_json_binary(&resp).unwrap()))
                         }
                         _ => SystemResult::Err(SystemError::NoSuchCode { code_id: *code_id }),
@@ -895,7 +882,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: None,
             sink: SINK.to_string(),
@@ -911,7 +898,7 @@ mod tests {
                 drand: None,
                 trusted_sources: None,
                 manager: Addr::unchecked(MANAGER),
-                price: Coin::new(1, "unois"),
+                price: coin(1, "unois"),
                 payment_code_id: PAYMENT,
                 payment_initial_funds: None,
                 sink: Addr::unchecked(SINK),
@@ -922,7 +909,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
@@ -938,7 +925,7 @@ mod tests {
                 drand: None,
                 trusted_sources: None,
                 manager: Addr::unchecked(MANAGER),
-                price: Coin::new(1, "unois"),
+                price: coin(1, "unois"),
                 payment_code_id: PAYMENT,
                 payment_initial_funds: payment_initial(),
                 sink: Addr::unchecked(SINK),
@@ -952,7 +939,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: 654321,
             payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
@@ -976,7 +963,7 @@ mod tests {
 
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: None,
             sink: SINK.to_string(),
@@ -987,10 +974,10 @@ mod tests {
 
         let msg = ExecuteMsg::SetConfig {
             manager: Some(MANAGER2.to_string()),
-            price: Some(Coin::new(123, "unois")),
+            price: Some(coin(123, "unois")),
             drand_addr: Some("somewhere".to_string()),
             trusted_sources: Some(vec!["somewhere".to_string(), MANAGER2.to_string()]),
-            payment_initial_funds: Some(Coin::new(500, "unois")),
+            payment_initial_funds: Some(coin(500, "unois")),
         };
 
         // Fails for incorrect manager
@@ -1015,14 +1002,14 @@ mod tests {
             config,
             ConfigResponse {
                 manager: Addr::unchecked(MANAGER2),
-                price: Coin::new(123, "unois"),
+                price: coin(123, "unois"),
                 drand: Some(Addr::unchecked("somewhere")),
                 trusted_sources: Some(vec![
                     Addr::unchecked("somewhere"),
                     Addr::unchecked(MANAGER2)
                 ]),
                 payment_code_id: PAYMENT,
-                payment_initial_funds: Some(Coin::new(500, "unois")),
+                payment_initial_funds: Some(coin(500, "unois")),
                 sink: Addr::unchecked(SINK),
             }
         )
@@ -1035,7 +1022,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
@@ -1097,7 +1084,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
@@ -1251,7 +1238,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
@@ -1384,7 +1371,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
             manager: MANAGER.to_string(),
-            price: Coin::new(1, "unois"),
+            price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
             sink: SINK.to_string(),
@@ -1599,7 +1586,7 @@ mod tests {
         connect(deps.as_mut(), channel_id);
         // assign it some funds
         let funds = vec![coin(123456, "uatom"), coin(7654321, "tgrd")];
-        deps.querier.update_balance(account, funds);
+        deps.querier.bank.update_balance(account, funds);
 
         // close the channel
         let channel = mock_ibc_channel_close_init(channel_id, APP_ORDER, IBC_APP_VERSION);

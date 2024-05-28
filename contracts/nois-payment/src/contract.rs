@@ -160,7 +160,7 @@ mod tests {
     use crate::msg::{ConfigResponse, QueryMsg};
 
     use cosmwasm_std::{
-        coins, from_json,
+        coin, coins, from_json,
         testing::{mock_dependencies, mock_env, mock_info},
         Addr, Attribute, Binary, Uint128,
     };
@@ -299,7 +299,7 @@ mod tests {
             CosmosMsg::Wasm(WasmMsg::Execute {
                 contract_addr: "sink".to_string(),
                 msg: Binary::from(br#"{"burn":{}}"#),
-                funds: vec![Coin::new(500_000, "unois")],
+                funds: vec![coin(500_000, "unois")],
             })
         );
         assert_eq!(
@@ -329,9 +329,9 @@ mod tests {
         // Zero amount is supported
         let info = mock_info(NOIS_GATEWAY, &[]);
         let msg = ExecuteMsg::Pay {
-            burn: Coin::new(0, "unois"),
-            community_pool: Coin::new(0, "unois"),
-            relayer: ("some-relayer".to_string(), Coin::new(0, "unois")),
+            burn: coin(0, "unois"),
+            community_pool: coin(0, "unois"),
+            relayer: ("some-relayer".to_string(), coin(0, "unois")),
         };
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         // 0 because sink does not like empty funds array and bank send does not like zero coins
@@ -353,7 +353,7 @@ mod tests {
         // tx from https://stargaze-rpc.polkachu.com/tx?hash=0x0F52332EA355E306363FE321C218A3873730A6C20748425D2888063B36DCFAFB
         // "Cr0BCroBCjEvY29zbW9zLmRpc3RyaWJ1dGlvbi52MWJldGExLk1zZ0Z1bmRDb21tdW5pdHlQb29sEoQBClQKRGliYy8wRjE4MUQ5RjVCQjE4QTg0OTYxNTNDMTY2NkU5MzQxNjk1MTU1OTJDMTM1RThFOUZDQ0MzNTU4ODk4NThFQUY5Egw3OTk5OTk5OTk5OTkSLHN0YXJzMTh4c3AzN3pjNjU2OTBobHEwem0zcTVzeGN1MnJwbTRtcnR4NmVjElgKUApGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQMP/0ZvxxP7PnrW5662nEqW6GMqA1k4sWiLzoFvws+o9xIECgIIARgBEgQQwJoMGkAQ0WA71nUCX0QoOFL6KRqWrGnYsZRn9T0TtpLI6YQVVzoqat5sRdoVkNyN7HP04mzc3nZxXxJZ9//JKUx0wDXP"
 
-        let amount = Coin::new(
+        let amount = coin(
             799999999999,
             "ibc/0F181D9F5BB18A8496153C1666E934169515592C135E8E9FCCC355889858EAF9",
         );

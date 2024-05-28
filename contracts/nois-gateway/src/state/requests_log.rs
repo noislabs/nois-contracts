@@ -26,7 +26,7 @@ pub fn requests_log_add(
     request_log_entry: &RequestLogEntry,
 ) -> StdResult<()> {
     let prefix = requests_log_key(channel_id);
-    Deque::new(&prefix).push_back(storage, request_log_entry)
+    Deque::new_dyn(prefix).push_back(storage, request_log_entry)
 }
 
 pub fn requests_log_asc(
@@ -36,7 +36,7 @@ pub fn requests_log_asc(
     limit: usize,
 ) -> StdResult<Vec<RequestLogEntry>> {
     let prefix = requests_log_key(channel_id);
-    Deque::new(&prefix)
+    Deque::new_dyn(prefix)
         .iter(storage)?
         .skip(offset)
         .take(limit)
@@ -50,7 +50,7 @@ pub fn requests_log_desc(
     limit: usize,
 ) -> StdResult<Vec<RequestLogEntry>> {
     let prefix = requests_log_key(channel_id);
-    Deque::new(&prefix)
+    Deque::new_dyn(prefix)
         .iter(storage)?
         .rev()
         .skip(offset)

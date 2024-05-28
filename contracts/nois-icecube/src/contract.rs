@@ -230,7 +230,7 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::{
-        from_json,
+        coin, from_json,
         testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
         Addr, CosmosMsg, Empty, OwnedDeps, Uint128,
     };
@@ -296,7 +296,7 @@ mod tests {
         let mut deps = setup();
 
         let msg = ExecuteMsg::SendFundsToDrand {
-            funds: Coin::new(123, "foocoin"),
+            funds: coin(123, "foocoin"),
         };
         let info = mock_info("some_random_person", &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();

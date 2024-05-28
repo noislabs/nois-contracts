@@ -12,9 +12,6 @@ license = "Apache-2.0"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-# for quicker tests, cargo test --lib
-# for more explicit tests, cargo test --features=backtraces
-backtraces = ["cosmwasm-std/backtraces"]
 
 [dependencies]
 nois-drand = { path = "../../contracts/nois-drand"}
@@ -24,7 +21,7 @@ nois-payment = { path = "../../contracts/nois-payment" }
 nois-proxy = { path = "../../contracts/nois-proxy" }
 nois-proxy-governance-owned = { path = "../../contracts/nois-proxy-governance-owned" }
 
-cosmwasm-std = { version = "1.5.4", features = ["iterator", "ibc3"] }
-cw-multi-test = "0.18.0"
+cosmwasm-std = { version = "2", features = ["iterator"] }
+cw-multi-test = "2"
 
 [dev-dependencies]

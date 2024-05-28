@@ -1,7 +1,7 @@
 use cosmwasm_std::{
-    ensure_eq, to_json_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut, Empty,
-    Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult, Uint128,
-    WasmMsg,
+    coin, ensure_eq, to_json_binary, Addr, Attribute, BankMsg, Coin, CosmosMsg, Deps, DepsMut,
+    Empty, Env, HexBinary, MessageInfo, Order, QueryResponse, Response, StdError, StdResult,
+    Uint128, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_storage_plus::Bound;
@@ -462,10 +462,10 @@ fn execute_add_round(
                 denom: config.incentive_denom,
             }
         } else {
-            Coin::new(0, config.incentive_denom)
+            coin(0, config.incentive_denom)
         }
     } else {
-        Coin::new(0, config.incentive_denom)
+        coin(0, config.incentive_denom)
     };
 
     attributes.push(Attribute::new(ATTR_REWARD_PAYOUT, payout.to_string()));
@@ -676,7 +676,7 @@ mod tests {
 
     #[test]
     fn add_round_not_divisible_by_15_succeeds() {
-        let mut deps = mock_dependencies_with_balance(&[Coin::new(9999999, "unois")]);
+        let mut deps = mock_dependencies_with_balance(&[coin(9999999, "unois")]);
 
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
@@ -789,7 +789,7 @@ mod tests {
         let env = mock_env();
         let contract = env.contract.address;
         //add balance to this contract
-        deps.querier.update_balance(
+        deps.querier.bank.update_balance(
             contract,
             vec![Coin {
                 denom: "unois".to_string(),
@@ -1009,7 +1009,7 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
-            ContractError::Std(StdError::GenericErr { msg }) => {
+            ContractError::Std(StdError::GenericErr { msg, backtrace: _ }) => {
                 assert_eq!(msg, "Invalid input: human address too short for this mock implementation (must be >= 3).")
             }
             _ => panic!("Unexpected error: {err:?}"),
@@ -1023,7 +1023,7 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
-            ContractError::Std(StdError::GenericErr { msg }) => {
+            ContractError::Std(StdError::GenericErr { msg, backtrace: _ }) => {
                 assert_eq!(msg, "Invalid input: address not normalized")
             }
             _ => panic!("Unexpected error: {err:?}"),
@@ -1037,7 +1037,7 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
-            ContractError::Std(StdError::GenericErr { msg }) => {
+            ContractError::Std(StdError::GenericErr { msg, backtrace: _ }) => {
                 assert_eq!(msg, "Invalid input: human address too short for this mock implementation (must be >= 3).")
             }
             _ => panic!("Unexpected error: {err:?}"),
@@ -1051,7 +1051,7 @@ mod tests {
         let info = mock_info(TESTING_MANAGER, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
-            ContractError::Std(StdError::GenericErr { msg }) => {
+            ContractError::Std(StdError::GenericErr { msg, backtrace: _ }) => {
                 assert_eq!(msg, "Invalid input: address not normalized")
             }
             _ => panic!("Unexpected error: {err:?}"),
@@ -1068,7 +1068,8 @@ mod tests {
         let contract = env.contract.address;
         //add balance to the contract
         deps.querier
-            .update_balance(contract, vec![Coin::new(10_000, "unois")]);
+            .bank
+            .update_balance(contract, vec![coin(10_000, "unois")]);
 
         let msg = InstantiateMsg {
             manager: TESTING_MANAGER.to_string(),
@@ -1104,11 +1105,11 @@ mod tests {
     fn only_top_x_bots_receive_incentive() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[Coin::new(100_000_000, "unois")]);
+        let info = mock_info("creator", &[coin(100_000_000, "unois")]);
         let env = mock_env();
         let contract = env.contract.address;
         // add balance to the drand contract
-        deps.querier.update_balance(
+        deps.querier.bank.update_balance(
             contract,
             vec![Coin {
                 denom: "unois".to_string(),
