@@ -628,7 +628,7 @@ mod tests {
     use cosmwasm_std::testing::{
         self, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_confirm,
         mock_ibc_channel_open_try, mock_ibc_packet_ack, mock_ibc_packet_recv, mock_info, MockApi,
-        MockQuerier, MockStorage,
+        MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
     };
     use cosmwasm_std::{
         coin, from_json, Addr, Binary, Checksum, CodeInfoResponse, Coin, ContractResult, CosmosMsg,
@@ -660,12 +660,14 @@ mod tests {
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
+        let manager = deps.api.addr_make(MANAGER);
+        let sink = deps.api.addr_make(SINK);
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
-            sink: SINK.to_string(),
+            sink: sink.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -804,6 +806,16 @@ mod tests {
         format!("job {job}").into_bytes().into()
     }
 
+    fn addr(input: &str) -> Addr {
+        MockApi::default().addr_make(input)
+    }
+
+    fn mock_env_addr() -> Env {
+        let mut env = mock_env();
+        env.contract.address = addr(MOCK_CONTRACT_ADDR);
+        env
+    }
+
     fn connect(mut deps: DepsMut, channel_id: &str) {
         let handshake_open = mock_ibc_channel_open_try(channel_id, APP_ORDER, IBC_APP_VERSION);
         // first we try to open with a valid handshake
@@ -812,7 +824,8 @@ mod tests {
         // then we connect (with counter-party version set)
         let handshake_connect =
             mock_ibc_channel_connect_confirm(channel_id, APP_ORDER, IBC_APP_VERSION);
-        let res = ibc_channel_connect(deps.branch(), mock_env(), handshake_connect).unwrap();
+        let env = mock_env_addr();
+        let res = ibc_channel_connect(deps.branch(), env, handshake_connect).unwrap();
         assert_eq!(res.messages.len(), 3);
         assert!(matches!(res.messages[0].msg, CosmosMsg::Wasm(_)));
         assert!(matches!(
@@ -878,14 +891,16 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
-        // Without payment_initial_funds
+        let manager = deps.api.addr_make(MANAGER);
+        let sink = deps.api.addr_make(SINK);
 
+        // Without payment_initial_funds
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: None,
-            sink: SINK.to_string(),
+            sink: sink.to_string(),
         };
         let info = mock_info("creator", &[]);
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -897,22 +912,22 @@ mod tests {
             ConfigResponse {
                 drand: None,
                 trusted_sources: None,
-                manager: Addr::unchecked(MANAGER),
+                manager: manager.clone(),
                 price: coin(1, "unois"),
                 payment_code_id: PAYMENT,
                 payment_initial_funds: None,
-                sink: Addr::unchecked(SINK),
+                sink: sink.clone(),
             }
         );
 
         // With payment_initial_funds
 
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
-            sink: SINK.to_string(),
+            sink: sink.to_string(),
         };
         let info = mock_info("creator", &[]);
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -924,11 +939,11 @@ mod tests {
             ConfigResponse {
                 drand: None,
                 trusted_sources: None,
-                manager: Addr::unchecked(MANAGER),
+                manager: manager.clone(),
                 price: coin(1, "unois"),
                 payment_code_id: PAYMENT,
                 payment_initial_funds: payment_initial(),
-                sink: Addr::unchecked(SINK),
+                sink: sink.clone(),
             }
         );
     }
@@ -937,12 +952,15 @@ mod tests {
     fn instantiate_with_non_existing_code_id_fails() {
         let mut deps = mock_dependencies();
 
+        let manager = deps.api.addr_make(MANAGER);
+        let sink = deps.api.addr_make(SINK);
+
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
             price: coin(1, "unois"),
             payment_code_id: 654321,
             payment_initial_funds: payment_initial(),
-            sink: SINK.to_string(),
+            sink: sink.to_string(),
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
@@ -961,22 +979,27 @@ mod tests {
     fn execute_set_config_works() {
         let mut deps = mock_dependencies();
 
+        let manager = deps.api.addr_make(MANAGER);
+        let manager2 = deps.api.addr_make(MANAGER2);
+        let sink = deps.api.addr_make(SINK);
+        let somewhere = deps.api.addr_make("somewhere");
+
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: None,
-            sink: SINK.to_string(),
+            sink: sink.to_string(),
         };
         let info = mock_info("creator", &[]);
         let env = mock_env();
         instantiate(deps.as_mut(), env, info, msg).unwrap();
 
         let msg = ExecuteMsg::SetConfig {
-            manager: Some(MANAGER2.to_string()),
+            manager: Some(manager2.to_string()),
             price: Some(coin(123, "unois")),
-            drand_addr: Some("somewhere".to_string()),
-            trusted_sources: Some(vec!["somewhere".to_string(), MANAGER2.to_string()]),
+            drand_addr: Some(somewhere.to_string()),
+            trusted_sources: Some(vec![somewhere.to_string(), manager2.to_string()]),
             payment_initial_funds: Some(coin(500, "unois")),
         };
 
@@ -984,7 +1007,7 @@ mod tests {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info(MANAGER2, &[]),
+            mock_info(manager2.as_str(), &[]),
             msg.clone(),
         )
         .unwrap_err();
@@ -994,23 +1017,26 @@ mod tests {
         }
 
         // Works for correct manager
-        execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(manager.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         let config: ConfigResponse =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(
             config,
             ConfigResponse {
-                manager: Addr::unchecked(MANAGER2),
+                manager: manager2.clone(),
                 price: coin(123, "unois"),
-                drand: Some(Addr::unchecked("somewhere")),
-                trusted_sources: Some(vec![
-                    Addr::unchecked("somewhere"),
-                    Addr::unchecked(MANAGER2)
-                ]),
+                drand: Some(somewhere.clone()),
+                trusted_sources: Some(vec![somewhere.clone(), manager2.clone()]),
                 payment_code_id: PAYMENT,
                 payment_initial_funds: Some(coin(500, "unois")),
-                sink: Addr::unchecked(SINK),
+                sink,
             }
         )
     }
@@ -1019,40 +1045,67 @@ mod tests {
     fn add_round_verified_must_only_be_called_by_drand() {
         let mut deps = mock_dependencies();
 
+        let manager = deps.api.addr_make(MANAGER);
+        let manager2 = deps.api.addr_make(MANAGER2);
+        let sink = deps.api.addr_make(SINK);
+        let anon = deps.api.addr_make("anon");
+        let drand = deps.api.addr_make("drand_verifier_7");
+
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
-            sink: SINK.to_string(),
+            sink: sink.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        const ANON: &str = "anon";
-        const DRAND: &str = "drand_verifier_7";
-
         // drand contract unset, i.e. noone can submit
         let msg = make_add_verified_round_msg(2183668, true);
-        let err = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap_err();
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(anon.as_str(), &[]),
+            msg,
+        )
+        .unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
         let msg = make_add_verified_round_msg(2183668, true);
-        let err = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap_err();
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
         // Set drand contract
         let msg = ExecuteMsg::SetConfig {
             manager: None,
             price: None,
-            drand_addr: Some(DRAND.to_string()),
+            drand_addr: Some(drand.to_string()),
             trusted_sources: None,
             payment_initial_funds: None,
         };
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(manager.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         // drand cannot add
         let msg = make_add_verified_round_msg(2183668, true);
-        let err = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap_err();
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
         // Set trusted sources
@@ -1060,48 +1113,80 @@ mod tests {
             manager: None,
             price: None,
             drand_addr: None,
-            trusted_sources: Some(vec![DRAND.to_string(), MANAGER2.to_string()]),
+            trusted_sources: Some(vec![drand.to_string(), manager2.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(manager.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         // Anon still cannot add round
         let msg = make_add_verified_round_msg(2183668, true);
-        let err = execute(deps.as_mut(), mock_env(), mock_info(ANON, &[]), msg).unwrap_err();
+        let err = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(anon.as_str(), &[]),
+            msg,
+        )
+        .unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
         // But drand and manager2 can
         let msg = make_add_verified_round_msg(2183668, true);
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         let msg = make_add_verified_round_msg(2183668, true);
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER2, &[]), msg).unwrap();
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(manager2.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
     }
 
     #[test]
     fn add_round_verified_processes_jobs() {
         let mut deps = mock_dependencies();
 
+        let manager = deps.api.addr_make(MANAGER);
+        let sink = deps.api.addr_make(SINK);
+        let drand = deps.api.addr_make("drand_verifier_7");
+
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
-            sink: SINK.to_string(),
+            sink: sink.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        const DRAND: &str = "drand_verifier_7";
 
         // Set drand contract
         let msg = ExecuteMsg::SetConfig {
             manager: None,
             price: None,
-            drand_addr: Some(DRAND.to_string()),
-            trusted_sources: Some(vec![DRAND.to_string()]),
+            drand_addr: Some(drand.to_string()),
+            trusted_sources: Some(vec![drand.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(manager.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         // Create one job
         let msg = mock_ibc_packet_recv(
@@ -1116,14 +1201,26 @@ mod tests {
 
         // Previous round processes no job
         let msg = make_add_verified_round_msg(ROUND1, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "0");
 
         // Process one job
         let msg = make_add_verified_round_msg(ROUND2, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
         assert!(matches!(
@@ -1148,7 +1245,13 @@ mod tests {
 
         // Process first jobs
         let msg = make_add_verified_round_msg(ROUND3, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
         assert!(matches!(
@@ -1160,7 +1263,13 @@ mod tests {
 
         // Process second job
         let msg = make_add_verified_round_msg(ROUND3, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
         assert!(matches!(
@@ -1186,42 +1295,78 @@ mod tests {
 
         // Process first job
         let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
 
         // Process next job
         let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
 
         // Process next job
         let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
 
         // Process next 10 jobs
         let msg = make_add_verified_round_msg(ROUND4, false);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 10);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "10");
 
         // Process remaining jobs
         let msg = make_add_verified_round_msg(ROUND4, false);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 8);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "8");
 
         // No jobs left for later submissions
         let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        let res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "0");
@@ -1235,27 +1380,35 @@ mod tests {
     fn query_job_stats_works() {
         let mut deps = mock_dependencies();
 
+        let manager = deps.api.addr_make(MANAGER);
+        let sink = deps.api.addr_make(SINK);
+        let drand = deps.api.addr_make("drand_verifier_7");
+
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
-            sink: SINK.to_string(),
+            sink: sink.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
-
-        const DRAND: &str = "drand_verifier_7";
 
         // Set drand contract
         let msg = ExecuteMsg::SetConfig {
             manager: None,
             price: None,
-            drand_addr: Some(DRAND.to_string()),
-            trusted_sources: Some(vec![DRAND.to_string()]),
+            drand_addr: Some(drand.to_string()),
+            trusted_sources: Some(vec![drand.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(manager.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         fn job_stats(deps: Deps, round: u64) -> DrandJobStatsResponse {
             from_json(query(deps, mock_env(), QueryMsg::DrandJobStats { round }).unwrap()).unwrap()
@@ -1293,7 +1446,13 @@ mod tests {
         );
 
         let msg = make_add_verified_round_msg(ROUND1, true);
-        execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         // 1 processed job, no unprocessed jobs
         assert_eq!(
@@ -1351,7 +1510,13 @@ mod tests {
 
         // process some
         let msg = make_add_verified_round_msg(ROUND2, true);
-        execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         // Some processed, rest unprocessed
         assert_eq!(
@@ -1368,13 +1533,17 @@ mod tests {
     fn query_requests_works() {
         let mut deps = mock_dependencies();
 
+        let manager = deps.api.addr_make(MANAGER);
+        let sink = deps.api.addr_make(SINK);
+        let drand = deps.api.addr_make(DRAND);
+
         let info = mock_info("creator", &[]);
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
-            sink: SINK.to_string(),
+            sink: sink.to_string(),
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -1385,11 +1554,17 @@ mod tests {
         let msg = ExecuteMsg::SetConfig {
             manager: None,
             price: None,
-            drand_addr: Some(DRAND.to_string()),
-            trusted_sources: Some(vec![DRAND.to_string()]),
+            drand_addr: Some(drand.to_string()),
+            trusted_sources: Some(vec![drand.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(manager.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         fn requests_asc(deps: Deps, channel_id: &str) -> RequestsLogResponse {
             from_json(
@@ -1572,7 +1747,8 @@ mod tests {
         // then we connect (with counter-party version set)
         let handshake_connect =
             mock_ibc_channel_connect_confirm(channel_id, APP_ORDER, IBC_APP_VERSION);
-        let _res = ibc_channel_connect(deps.as_mut(), mock_env(), handshake_connect).unwrap();
+        let env = mock_env_addr();
+        let _res = ibc_channel_connect(deps.as_mut(), env, handshake_connect).unwrap();
     }
 
     #[test]
@@ -1686,7 +1862,9 @@ mod tests {
     fn query_customer_requested_beacons_works() {
         let mut deps = setup();
 
-        const DRAND: &str = "drand_verifier_7";
+        let manager = deps.api.addr_make(MANAGER);
+        let drand = deps.api.addr_make("drand_verifier_7");
+
         const CHANNEL_ID: &str = "the-channel";
 
         // register the channel
@@ -1696,11 +1874,17 @@ mod tests {
         let msg = ExecuteMsg::SetConfig {
             manager: None,
             price: None,
-            drand_addr: Some(DRAND.to_string()),
-            trusted_sources: Some(vec![DRAND.to_string()]),
+            drand_addr: Some(drand.to_string()),
+            trusted_sources: Some(vec![drand.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(deps.as_mut(), mock_env(), mock_info(MANAGER, &[]), msg).unwrap();
+        let _res = execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(manager.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         fn customer(deps: Deps, channel_id: &str) -> QueriedCustomer {
             let res: CustomerResponse = from_json(
@@ -1735,7 +1919,13 @@ mod tests {
         assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 1);
 
         let msg = make_add_verified_round_msg(ROUND1, true);
-        execute(deps.as_mut(), mock_env(), mock_info(DRAND, &[]), msg).unwrap();
+        execute(
+            deps.as_mut(),
+            mock_env(),
+            mock_info(drand.as_str(), &[]),
+            msg,
+        )
+        .unwrap();
 
         // New job for existing round gets processed immediately
         let msg = mock_ibc_packet_recv(

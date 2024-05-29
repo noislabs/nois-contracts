@@ -1,10 +1,15 @@
 // Testing utils. See tests folder for actual tests.
 
+use cosmwasm_std::testing::MockApi;
 use cosmwasm_std::{
     coin, from_json, to_json_binary, Addr, Attribute, BalanceResponse, BankQuery, Coin, Querier,
     QueryRequest,
 };
 use cw_multi_test::App;
+
+pub fn addr(input: &str) -> Addr {
+    MockApi::default().addr_make(input)
+}
 
 /// Gets the value of the first attribute with the given key
 pub fn first_attr(data: impl AsRef<[Attribute]>, search_key: &str) -> Option<String> {
@@ -31,15 +36,10 @@ pub fn query_balance_native(app: &App, address: &Addr, denom: &str) -> Coin {
     balance.amount
 }
 
-pub fn mint_native(
-    app: &mut App,
-    beneficiary: impl Into<String>,
-    denom: impl Into<String>,
-    amount: u128,
-) {
+pub fn mint_native(app: &mut App, beneficiary: &Addr, denom: impl Into<String>, amount: u128) {
     app.sudo(cw_multi_test::SudoMsg::Bank(
         cw_multi_test::BankSudo::Mint {
-            to_address: beneficiary.into(),
+            to_address: beneficiary.to_string(),
             amount: vec![Coin::new(amount, denom)],
         },
     ))

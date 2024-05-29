@@ -232,7 +232,7 @@ mod tests {
     use cosmwasm_std::{
         coin, from_json,
         testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
-        Addr, CosmosMsg, Empty, OwnedDeps, Uint128,
+        CosmosMsg, Empty, OwnedDeps, Uint128,
     };
 
     const CREATOR: &str = "creator";
@@ -241,8 +241,9 @@ mod tests {
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
+        let manager = deps.api.addr_make(MANAGER);
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -252,7 +253,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                manager: Addr::unchecked(MANAGER),
+                manager: manager.clone(),
                 drand: None,
             }
         );
@@ -260,17 +261,20 @@ mod tests {
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();
+
+        let manager = deps.api.addr_make(MANAGER);
+        let drand = deps.api.addr_make("the-drand-address");
+
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::SetDrandAddr {
-            addr: "the-drand-address".to_string(),
+            addr: drand.to_string(),
         };
-
-        let info = mock_info(MANAGER, &[]);
+        let info = mock_info(manager.as_str(), &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         deps
     }
@@ -310,8 +314,9 @@ mod tests {
     #[test]
     fn only_manager_can_delegate_undelegate_redelegate() {
         let mut deps = mock_dependencies();
+        let manager = deps.api.addr_make(MANAGER);
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -319,7 +324,7 @@ mod tests {
         // check manager operations work
 
         // delegate for manager works
-        let info = mock_info(MANAGER, &[]);
+        let info = mock_info(manager.as_str(), &[]);
         let msg = ExecuteMsg::Delegate {
             addr: "validator".to_string(),
             amount: Uint128::new(1_000),
@@ -407,32 +412,37 @@ mod tests {
     #[test]
     fn only_manager_can_set_manager() {
         let mut deps = mock_dependencies();
+
+        let creator = deps.api.addr_make(CREATOR);
+        let manager = deps.api.addr_make(MANAGER);
+        let new_manager = deps.api.addr_make("new manager");
+
         let msg = InstantiateMsg {
-            manager: MANAGER.to_string(),
+            manager: manager.to_string(),
         };
-        let info = mock_info(CREATOR, &[]);
+        let info = mock_info(creator.as_str(), &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // A random addr cannot set a new manager
         let info = mock_info("some_random_person", &[]);
         let msg = ExecuteMsg::SetManagerAddr {
-            manager: "new_manager".to_string(),
+            manager: new_manager.to_string(),
         };
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
         // Creator cannot set a new manager
-        let info = mock_info(CREATOR, &[]);
+        let info = mock_info(creator.as_str(), &[]);
         let msg = ExecuteMsg::SetManagerAddr {
-            manager: "new_manager".to_string(),
+            manager: new_manager.to_string(),
         };
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
         // Manager can set a new manager
-        let info = mock_info(MANAGER, &[]);
+        let info = mock_info(manager.as_str(), &[]);
         let msg = ExecuteMsg::SetManagerAddr {
-            manager: "new_manager".to_string(),
+            manager: new_manager.to_string(),
         };
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let config: ConfigResponse =
@@ -440,7 +450,7 @@ mod tests {
         assert_eq!(
             config,
             ConfigResponse {
-                manager: Addr::unchecked("new_manager"),
+                manager: new_manager,
                 drand: None,
             }
         );

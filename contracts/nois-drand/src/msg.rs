@@ -120,7 +120,8 @@ pub struct BotsResponse {
 
 #[cw_serde]
 pub struct AllowlistResponse {
-    /// List of bot addresses
+    /// List of bot addresses. The result is unsorted and depends
+    /// on the behaviour of the underlying database.
     pub allowed: Vec<String>,
 }
 

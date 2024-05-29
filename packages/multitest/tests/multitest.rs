@@ -1,11 +1,8 @@
-use cosmwasm_std::{
-    coin, testing::mock_env, Addr, Decimal, HexBinary, Timestamp, Uint128, Validator,
-};
+use cosmwasm_std::{coin, testing::mock_env, Decimal, HexBinary, Timestamp, Uint128, Validator};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::{mint_native, payment_initial};
+use nois_multitest::{addr, mint_native, payment_initial};
 
 const PAYMENT: u64 = 17;
-const SINK: &str = "sink";
 
 #[test]
 fn integration_test() {
@@ -23,7 +20,7 @@ fn integration_test() {
             )
             .unwrap();
         let valoper1 = Validator::new(
-            "noislabs".to_string(),
+            addr("noislabs").to_string(), // TODO: this should not be an account address
             Decimal::percent(1),
             Decimal::percent(100),
             Decimal::percent(1),
@@ -35,8 +32,13 @@ fn integration_test() {
             .unwrap();
     });
 
+    let owner = addr("owner");
+    let manager = addr("manager");
+    let sink = addr("sink");
+    let drand = addr("drand_verifier_7");
+
     //Mint some coins for owner
-    mint_native(&mut app, "owner", "unois", 100_000_000);
+    mint_native(&mut app, &owner, "unois", 100_000_000);
 
     // Storing nois-gateway code
     let code_nois_gateway = ContractWrapper::new(
@@ -50,13 +52,13 @@ fn integration_test() {
     let addr_nois_gateway = app
         .instantiate_contract(
             code_id_nois_gateway,
-            Addr::unchecked("owner"),
+            owner.clone(),
             &nois_gateway::msg::InstantiateMsg {
-                manager: "manager".to_string(),
+                manager: manager.to_string(),
                 price: coin(1, "unois"),
                 payment_code_id: PAYMENT,
                 payment_initial_funds: payment_initial(),
-                sink: SINK.to_string(),
+                sink: sink.to_string(),
             },
             &[],
             "Nois-Gateway",
@@ -74,31 +76,24 @@ fn integration_test() {
         nois_gateway::msg::ConfigResponse {
             drand: None,
             trusted_sources: None,
-            manager: Addr::unchecked("manager"),
+            manager: manager.clone(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
-            sink: Addr::unchecked(SINK),
+            sink: sink.clone(),
         }
     );
-
-    const DRAND: &str = "drand_verifier_7";
 
     // Set drand
     let msg = nois_gateway::msg::ExecuteMsg::SetConfig {
         manager: None,
         price: None,
-        drand_addr: Some(DRAND.to_string()),
-        trusted_sources: Some(vec![DRAND.to_string()]),
+        drand_addr: Some(drand.to_string()),
+        trusted_sources: Some(vec![drand.to_string()]),
         payment_initial_funds: None,
     };
     let _resp = app
-        .execute_contract(
-            Addr::unchecked("manager"),
-            addr_nois_gateway.clone(),
-            &msg,
-            &[],
-        )
+        .execute_contract(manager.clone(), addr_nois_gateway.clone(), &msg, &[])
         .unwrap();
 
     // Check updated config
@@ -109,13 +104,13 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_gateway::msg::ConfigResponse {
-            drand: Some(Addr::unchecked(DRAND)),
-            trusted_sources: Some(vec![Addr::unchecked(DRAND)]),
-            manager: Addr::unchecked("manager"),
+            drand: Some(drand.clone()),
+            trusted_sources: Some(vec![drand.clone()]),
+            manager: manager.clone(),
             price: coin(1, "unois"),
             payment_code_id: PAYMENT,
             payment_initial_funds: payment_initial(),
-            sink: Addr::unchecked(SINK),
+            sink: sink.clone(),
         }
     );
 
@@ -131,9 +126,9 @@ fn integration_test() {
     let addr_nois_proxy = app
         .instantiate_contract(
             code_id_nois_proxy,
-            Addr::unchecked("owner"),
+            owner.clone(),
             &nois_proxy::msg::InstantiateMsg {
-                manager: Some("manager".to_string()),
+                manager: Some(manager.to_string()),
                 prices: vec![coin(1_000_000, "unoisx")],
                 test_mode: None,
                 callback_gas_limit: 500_000,
@@ -156,7 +151,7 @@ fn integration_test() {
         resp,
         nois_proxy::msg::ConfigResponse {
             config: nois_proxy::state::Config {
-                manager: Some(Addr::unchecked("manager")),
+                manager: Some(manager.clone()),
                 prices: vec![coin(1_000_000, "unoisx")],
                 test_mode: false,
                 callback_gas_limit: 500_000,
@@ -182,6 +177,6 @@ fn integration_test() {
         is_verifying_tx: true,
     };
     let _resp = app
-        .execute_contract(Addr::unchecked(DRAND), addr_nois_gateway, &msg, &[])
+        .execute_contract(drand.clone(), addr_nois_gateway, &msg, &[])
         .unwrap();
 }

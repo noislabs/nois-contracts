@@ -134,7 +134,7 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_proxy: "address123".to_string(),
+            nois_proxy: deps.api.addr_make("address123").into(),
         };
         let info = mock_info(CREATOR, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -155,7 +155,7 @@ mod tests {
     fn instantiate_proxy() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();
         let msg = InstantiateMsg {
-            nois_proxy: PROXY_ADDRESS.to_string(),
+            nois_proxy: deps.api.addr_make(PROXY_ADDRESS).into(),
         };
         let info = mock_info(CREATOR, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -187,7 +187,8 @@ mod tests {
                 .unwrap(),
             },
         };
-        let info = mock_info(PROXY_ADDRESS, &[]);
+        let proxy_addr = deps.api.addr_make(PROXY_ADDRESS);
+        let info = mock_info(proxy_addr.as_str(), &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     }
 
