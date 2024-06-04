@@ -162,7 +162,7 @@ mod tests {
 
     use cosmwasm_std::{
         coin, coins, from_json,
-        testing::{mock_dependencies, mock_env, mock_info},
+        testing::{message_info, mock_dependencies, mock_env},
         Addr, Attribute, Binary, Uint128,
     };
     use hex;
@@ -189,7 +189,7 @@ mod tests {
         let msg = InstantiateMsg {
             sink: sink.to_string(),
         };
-        let info = mock_info(gateway.as_str(), &[]);
+        let info = message_info(&gateway, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
         let config: ConfigResponse =
@@ -201,14 +201,15 @@ mod tests {
     fn cannot_send_funds() {
         let mut deps = mock_dependencies();
         let sink = deps.api.addr_make(NOIS_SINK);
+        let gateway = deps.api.addr_make(NOIS_GATEWAY);
         let relayer = deps.api.addr_make("some-relayer");
         let msg = InstantiateMsg {
             sink: sink.to_string(),
         };
-        let info = mock_info(NOIS_GATEWAY, &[]);
+        let info = message_info(&gateway, &[]);
         let _response = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info(NOIS_GATEWAY, &coins(12345, "unoisx"));
+        let info = message_info(&gateway, &coins(12345, "unoisx"));
         let msg = ExecuteMsg::Pay {
             burn: Coin {
                 denom: "unois".to_string(),
@@ -235,13 +236,15 @@ mod tests {
     fn only_gateway_can_pay() {
         let mut deps = mock_dependencies();
         let sink = deps.api.addr_make(NOIS_SINK);
+        let gateway = deps.api.addr_make(NOIS_GATEWAY);
+        let malicious = deps.api.addr_make("a-malicious-person");
         let msg = InstantiateMsg {
             sink: sink.to_string(),
         };
-        let info = mock_info(NOIS_GATEWAY, &[]);
+        let info = message_info(&gateway, &[]);
         let _response = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("a-malicious-person", &[]);
+        let info = message_info(&malicious, &[]);
         let msg = ExecuteMsg::Pay {
             burn: Coin {
                 denom: "unois".to_string(),
@@ -269,14 +272,15 @@ mod tests {
     fn pay_fund_send_works() {
         let mut deps = mock_dependencies();
         let sink = deps.api.addr_make(NOIS_SINK);
+        let gateway = deps.api.addr_make(NOIS_GATEWAY);
         let relayer = deps.api.addr_make("some-relayer");
         let msg = InstantiateMsg {
             sink: sink.to_string(),
         };
-        let info = mock_info(NOIS_GATEWAY, &[]);
+        let info = message_info(&gateway, &[]);
         let _response = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info(NOIS_GATEWAY, &[]);
+        let info = message_info(&gateway, &[]);
         let msg = ExecuteMsg::Pay {
             burn: Coin {
                 denom: "unois".to_string(),
@@ -330,7 +334,7 @@ mod tests {
         );
 
         // Zero amount is supported
-        let info = mock_info(NOIS_GATEWAY, &[]);
+        let info = message_info(&gateway, &[]);
         let msg = ExecuteMsg::Pay {
             burn: coin(0, "unois"),
             community_pool: coin(0, "unois"),

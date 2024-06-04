@@ -556,7 +556,7 @@ mod tests {
     use crate::msg::ExecuteMsg;
 
     use cosmwasm_std::testing::{
-        mock_dependencies, mock_dependencies_with_balance, mock_env, mock_info, MockApi,
+        message_info, mock_dependencies, mock_dependencies_with_balance, mock_env, MockApi,
     };
     use cosmwasm_std::{coins, from_json, Addr, Timestamp, Uint128};
     use drand_common::testing::testing_signature;
@@ -578,16 +578,12 @@ mod tests {
     }
 
     /// Adds round 72750, 72775, 72800, 72825
-    fn add_test_rounds(mut deps: DepsMut, bot_addr: &Addr) {
+    /// using bot address `sender`.
+    fn add_test_rounds(mut deps: DepsMut, sender: &Addr) {
         for round in [72750, 72775, 72800, 72825] {
+            let info = message_info(sender, &[]);
             let msg = make_add_round_msg(round);
-            execute(
-                deps.branch(),
-                mock_env(),
-                mock_info(bot_addr.as_str(), &[]),
-                msg,
-            )
-            .unwrap();
+            execute(deps.branch(), mock_env(), info, msg).unwrap();
         }
     }
 
@@ -610,6 +606,7 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
 
         let msg = InstantiateMsg {
@@ -618,7 +615,7 @@ mod tests {
             incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let env = mock_env();
         let res = instantiate(deps.as_mut(), env, info, msg).unwrap();
         assert_eq!(0, res.messages.len());
@@ -641,7 +638,7 @@ mod tests {
     // Execute tests
     //
     fn register_bot(deps: DepsMut, sender_addr: &Addr) {
-        let info = mock_info(sender_addr.as_str(), &[]);
+        let info = message_info(sender_addr, &[]);
         let register_bot_msg = ExecuteMsg::RegisterBot {
             moniker: "Best Bot".to_string(),
         };
@@ -654,14 +651,17 @@ mod tests {
             remove: vec![],
         };
         let manager = MockApi::default().addr_make(TESTING_MANAGER);
-        execute(deps, mock_env(), mock_info(manager.as_str(), &[]), msg).unwrap();
+        execute(deps, mock_env(), message_info(&manager, &[]), msg).unwrap();
     }
 
     #[test]
     fn add_round_verifies_and_stores_randomness() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+        let anyone = deps.api.addr_make("anyone");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -670,12 +670,10 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let anyone = deps.api.addr_make("anyone");
-
         register_bot(deps.as_mut(), &anyone);
 
         let msg = make_add_round_msg(72780);
-        let info = mock_info(anyone.as_str(), &[]);
+        let info = message_info(&anyone, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let BeaconResponse { beacon } =
@@ -691,8 +689,11 @@ mod tests {
     fn add_round_not_divisible_by_15_succeeds() {
         let mut deps = mock_dependencies_with_balance(&[coin(9999999, "unois")]);
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
         let gateway = deps.api.addr_make(GATEWAY);
+        let bot1 = deps.api.addr_make("mr_bot");
+        let bot2 = deps.api.addr_make("mrs_bot");
 
         let msg = InstantiateMsg {
             manager: manager.to_string(),
@@ -700,16 +701,13 @@ mod tests {
             incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 0);
 
         const ROUND: u64 = 72762; // https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72762
         const EXPECTED_RANDOMNESS: &str =
             "528bb3e953412bea63dff0f86ad44aeda64953cd50040279e7b1aba4b9196f28";
-
-        let bot1 = deps.api.addr_make("mr_bot");
-        let bot2 = deps.api.addr_make("mrs_bot");
 
         register_bot(deps.as_mut(), &bot1);
         register_bot(deps.as_mut(), &bot2);
@@ -718,13 +716,8 @@ mod tests {
 
         // succeeds but not incentivized
         let msg: ExecuteMsg = make_add_round_msg(ROUND);
-        let response: Response = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(bot1.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let response: Response =
+            execute(deps.as_mut(), mock_env(), message_info(&bot1, &[]), msg).unwrap();
         assert_eq!(response.messages.len(), 0);
         let attrs = response.attributes;
         let randomness = first_attr(&attrs, "randomness").unwrap();
@@ -740,33 +733,17 @@ mod tests {
             incentive_point_price: None,
             incentive_denom: None,
         };
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&manager, &[]), msg).unwrap();
 
         // Set incentivized
         let msg = ExecuteMsg::SetIncentivized { round: ROUND };
-        let _response: Response = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(gateway.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _response: Response =
+            execute(deps.as_mut(), mock_env(), message_info(&gateway, &[]), msg).unwrap();
 
         // succeeds and incentivized
         let msg: ExecuteMsg = make_add_round_msg(ROUND);
-        let response: Response = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(bot2.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let response: Response =
+            execute(deps.as_mut(), mock_env(), message_info(&bot2, &[]), msg).unwrap();
         assert_eq!(response.messages.len(), 2);
         assert!(matches!(response.messages[0].msg, CosmosMsg::Wasm(_)));
         assert!(matches!(
@@ -787,14 +764,17 @@ mod tests {
     fn add_round_fails_when_round_too_low() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
+        let anyone = deps.api.addr_make("anyone");
+
         let msg = InstantiateMsg {
             manager: manager.to_string(),
             min_round: TESTING_MIN_ROUND,
             incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
@@ -803,7 +783,7 @@ mod tests {
         assert_eq!(min_round, TESTING_MIN_ROUND);
 
         let msg = make_add_round_msg(10);
-        let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&anyone, &[]), msg).unwrap_err();
         assert!(matches!(
             err,
             ContractError::RoundTooLow {
@@ -817,9 +797,11 @@ mod tests {
     fn unregistered_bot_does_not_get_incentives() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let managers = deps.api.addr_make(TESTING_MANAGER);
-        let info = mock_info("creator", &[]);
+        let unregistered = deps.api.addr_make("unregistered_bot");
 
+        let info = message_info(&creator, &[]);
         let env = mock_env();
         let contract = env.contract.address;
         //add balance to this contract
@@ -844,7 +826,7 @@ mod tests {
             "2f3a6976baf6847d75b5eae60c0e460bb55ab6034ee28aef2f0d10b0b5cc57c1";
 
         let msg = make_add_round_msg(ROUND);
-        let info = mock_info("unregistered_bot", &[]);
+        let info = message_info(&unregistered, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let attrs = response.attributes;
         let randomness = first_attr(&attrs, "randomness").unwrap();
@@ -858,8 +840,10 @@ mod tests {
     fn set_incentivized_works() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
         let gateway = deps.api.addr_make(GATEWAY);
+        let anyone = deps.api.addr_make("anyone");
 
         let msg = InstantiateMsg {
             manager: manager.to_string(),
@@ -867,7 +851,7 @@ mod tests {
             incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
 
@@ -880,13 +864,7 @@ mod tests {
 
         // Gateway not set, unauthorized
         let msg = ExecuteMsg::SetIncentivized { round: GOOD_ROUND };
-        let err = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(gateway.as_str(), &[]),
-            msg,
-        )
-        .unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&gateway, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized {}));
 
         // Set gateway
@@ -897,37 +875,19 @@ mod tests {
             incentive_point_price: None,
             incentive_denom: None,
         };
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&manager, &[]), msg).unwrap();
 
         // Gateway can set now
         let msg = ExecuteMsg::SetIncentivized { round: GOOD_ROUND };
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(gateway.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&gateway, &[]), msg).unwrap();
 
         // Someone else is unauthoized
         let msg = ExecuteMsg::SetIncentivized { round: GOOD_ROUND };
-        let err = execute(deps.as_mut(), mock_env(), mock_info("anyone", &[]), msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&anyone, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized {}));
 
         let msg = ExecuteMsg::SetIncentivized { round: BAD_ROUND };
-        let err = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(gateway.as_str(), &[]),
-            msg,
-        )
-        .unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&gateway, &[]), msg).unwrap_err();
         assert!(matches!(
             err,
             ContractError::RoundTooLow {
@@ -947,6 +907,7 @@ mod tests {
         // because the same bot operator is not allowed to submit the same randomness
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
         let bot = deps.api.addr_make("bobbybot");
 
@@ -956,7 +917,7 @@ mod tests {
             incentive_point_price: Uint128::new(20_000),
             incentive_denom: "unois".to_string(),
         };
-        instantiate(deps.as_mut(), mock_env(), mock_info("creator", &[]), msg).unwrap();
+        instantiate(deps.as_mut(), mock_env(), message_info(&creator, &[]), msg).unwrap();
 
         let IsAllowlistedResponse { listed } = from_json(
             query(
@@ -976,7 +937,7 @@ mod tests {
             add: vec![bot.to_string()],
             remove: vec![],
         };
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // adding same address again is fine
@@ -984,7 +945,7 @@ mod tests {
             add: vec![bot.to_string()],
             remove: vec![],
         };
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let IsAllowlistedResponse { listed } = from_json(
@@ -1005,7 +966,7 @@ mod tests {
             add: vec![],
             remove: vec![bot.to_string()],
         };
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let IsAllowlistedResponse { listed } = from_json(
@@ -1026,7 +987,7 @@ mod tests {
             add: vec![bot.to_string()],
             remove: vec![bot.to_string()],
         };
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let IsAllowlistedResponse { listed } = from_json(
@@ -1047,9 +1008,10 @@ mod tests {
     fn updateallowlistbots_handles_invalid_addresses() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
-        let info = mock_info("creator", &[]);
 
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: manager.to_string(),
             min_round: TESTING_MIN_ROUND,
@@ -1063,7 +1025,7 @@ mod tests {
             add: vec!["".to_string()],
             remove: vec![],
         };
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg, backtrace: _ }) => {
@@ -1077,7 +1039,7 @@ mod tests {
             add: vec!["theADDRESS".to_string()],
             remove: vec![],
         };
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg, backtrace: _ }) => {
@@ -1091,7 +1053,7 @@ mod tests {
             add: vec![],
             remove: vec!["".to_string()],
         };
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg, backtrace: _ }) => {
@@ -1105,7 +1067,7 @@ mod tests {
             add: vec![],
             remove: vec!["theADDRESS".to_string()],
         };
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::Std(StdError::GenericErr { msg, backtrace: _ }) => {
@@ -1119,9 +1081,11 @@ mod tests {
     fn when_contract_does_not_have_enough_funds_no_bot_incentives_are_sent() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
-        let info = mock_info("creator", &[]);
+        let bot_address = deps.api.addr_make("mybot_12"); // eligable for odd rounds
 
+        let info = message_info(&creator, &[]);
         let env = mock_env();
         let contract = env.contract.address;
         //add balance to the contract
@@ -1137,8 +1101,6 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let bot_address = deps.api.addr_make("mybot_12"); // eligable for odd rounds
-
         register_bot(deps.as_mut(), &bot_address);
         allowlist_bot(deps.as_mut(), &bot_address);
 
@@ -1147,7 +1109,7 @@ mod tests {
             "b84506d4342f4ec2506baa60a6b611ab006cf45e870d069ebb1b6a051c9e9acf";
 
         let msg = make_add_round_msg(ROUND);
-        let info = mock_info(bot_address.as_str(), &[]);
+        let info = message_info(&bot_address, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(response.messages.len(), 0);
         let attrs = response.attributes;
@@ -1163,9 +1125,10 @@ mod tests {
     fn only_top_x_bots_receive_incentive() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
 
-        let info = mock_info("creator", &[coin(100_000_000, "unois")]);
+        let info = message_info(&creator, &[coin(100_000_000, "unois")]);
         let env = mock_env();
         let contract = env.contract.address;
         // add balance to the drand contract
@@ -1214,7 +1177,7 @@ mod tests {
             ],
             remove: vec![],
         };
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Same msg for all submissions
@@ -1222,7 +1185,7 @@ mod tests {
         let msg = make_add_round_msg(ROUND);
 
         // 1st
-        let info = mock_info(bot1.as_str(), &[]);
+        let info = message_info(&bot1, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
         assert_eq!(
@@ -1234,7 +1197,7 @@ mod tests {
         );
 
         // 2nd
-        let info = mock_info(bot2.as_str(), &[]);
+        let info = message_info(&bot2, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
         assert_eq!(
@@ -1246,7 +1209,7 @@ mod tests {
         );
 
         // 3rd
-        let info = mock_info(bot3.as_str(), &[]);
+        let info = message_info(&bot3, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
         assert_eq!(
@@ -1258,7 +1221,7 @@ mod tests {
         );
 
         // 4th
-        let info = mock_info(bot4.as_str(), &[]);
+        let info = message_info(&bot4, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
         assert_eq!(
@@ -1270,7 +1233,7 @@ mod tests {
         );
 
         // 5th
-        let info = mock_info(bot5.as_str(), &[]);
+        let info = message_info(&bot5, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
         assert_eq!(
@@ -1282,7 +1245,7 @@ mod tests {
         );
 
         // 6th
-        let info = mock_info(bot6.as_str(), &[]);
+        let info = message_info(&bot6, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         assert_eq!(response.messages.len(), 1);
         assert_eq!(
@@ -1294,7 +1257,7 @@ mod tests {
         );
 
         // 7th, here no message is emitted
-        let info = mock_info(bot7.as_str(), &[]);
+        let info = message_info(&bot7, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(response.messages.len(), 0);
     }
@@ -1303,7 +1266,10 @@ mod tests {
     fn unregistered_bot_can_add_round() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+        let unregistered = deps.api.addr_make("unregistered_bot");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -1313,7 +1279,7 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = make_add_round_msg(72780);
-        let info = mock_info("unregistered_bot", &[]);
+        let info = message_info(&unregistered, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
@@ -1326,7 +1292,10 @@ mod tests {
     fn add_round_fails_for_broken_signature() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+        let anyone = deps.api.addr_make("anyone");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -1335,10 +1304,8 @@ mod tests {
         };
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let anyone = deps.api.addr_make("anyone");
-
         register_bot(deps.as_mut(), &anyone);
-        let info = mock_info(anyone.as_str(), &[]);
+        let info = message_info(&anyone, &[]);
         let msg = ExecuteMsg::AddRound {
             round: 72780,
             signature: hex::decode("3cc6f6cdf59e95526d5a5d82aaa84fa6f181e4")
@@ -1356,7 +1323,10 @@ mod tests {
     fn add_round_fails_for_invalid_signature() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+        let anon = deps.api.addr_make("anon");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -1369,7 +1339,7 @@ mod tests {
             round: 72790, // wrong round
             signature: testing_signature(72780).unwrap(),
         };
-        let result = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg);
+        let result = execute(deps.as_mut(), mock_env(), message_info(&anon, &[]), msg);
         match result.unwrap_err() {
             ContractError::InvalidSignature {} => {}
             err => panic!("Unexpected error: {:?}", err),
@@ -1381,7 +1351,7 @@ mod tests {
             // wrong signature (first two bytes swapped)
             signature: hex::decode("ac86005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap().into(),
         };
-        let result = execute(deps.as_mut(), mock_env(), mock_info("anon", &[]), msg);
+        let result = execute(deps.as_mut(), mock_env(), message_info(&anon, &[]), msg);
         match result.unwrap_err() {
             ContractError::InvalidSignature {} => {}
             err => panic!("Unexpected error: {:?}", err),
@@ -1395,7 +1365,7 @@ mod tests {
         let creator = deps.api.addr_make("creator");
         register_bot(deps.as_mut(), &creator);
 
-        let info = mock_info(creator.as_str(), &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -1409,7 +1379,7 @@ mod tests {
         // Execute 1
         let anyone = deps.api.addr_make("anyone");
         register_bot(deps.as_mut(), &anyone);
-        let info = mock_info("anyone", &[]);
+        let info = message_info(&anyone, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
@@ -1420,7 +1390,7 @@ mod tests {
         // Execute 2
         let someone_else = deps.api.addr_make("someone else");
         register_bot(deps.as_mut(), &someone_else);
-        let info = mock_info(someone_else.as_str(), &[]);
+        let info = message_info(&someone_else, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         let randomness = first_attr(response.attributes, "randomness").unwrap();
         assert_eq!(
@@ -1434,9 +1404,10 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let creator = deps.api.addr_make("creator");
+
         register_bot(deps.as_mut(), &creator);
 
-        let info = mock_info(creator.as_str(), &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -1453,18 +1424,18 @@ mod tests {
         register_bot(deps.as_mut(), &b);
 
         // Execute A1
-        let info = mock_info(a.as_str(), &[]);
+        let info = message_info(&a, &[]);
         execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
         // Execute B1
-        let info = mock_info(b.as_str(), &[]);
+        let info = message_info(&b, &[]);
         execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap();
 
         // Execute A2
-        let info = mock_info(a.as_str(), &[]);
+        let info = message_info(&a, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
         // Execute B2
-        let info = mock_info(b.as_str(), &[]);
+        let info = message_info(&b, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::SubmissionExists));
     }
@@ -1477,7 +1448,7 @@ mod tests {
 
         // first registration
 
-        let info = mock_info(bot_addr.as_str(), &[]);
+        let info = message_info(&bot_addr, &[]);
         let register_bot_msg = ExecuteMsg::RegisterBot {
             moniker: "Nickname1".to_string(),
         };
@@ -1506,7 +1477,7 @@ mod tests {
 
         // re-register
 
-        let info = mock_info(bot_addr.as_str(), &[]);
+        let info = message_info(&bot_addr, &[]);
         let register_bot_msg = ExecuteMsg::RegisterBot {
             moniker: "Another nickname".to_string(),
         };
@@ -1542,7 +1513,9 @@ mod tests {
     fn query_beacons_asc_works() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -1641,8 +1614,9 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let creator = deps.api.addr_make("creator");
+
         register_bot(deps.as_mut(), &creator);
-        let info = mock_info(creator.as_str(), &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -1740,7 +1714,9 @@ mod tests {
     fn query_is_incentivized_works() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -1903,7 +1879,7 @@ mod tests {
         let mut deps = mock_dependencies();
         let creator = deps.api.addr_make("creator");
         register_bot(deps.as_mut(), &creator);
-        let info = mock_info(creator.as_str(), &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -2031,12 +2007,13 @@ mod tests {
     fn query_allowlist_works() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
         let bot_a = deps.api.addr_make("bot_a");
         let bot_b = deps.api.addr_make("bot_b");
         let bot_c = deps.api.addr_make("bot_c");
 
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: manager.to_string(),
             min_round: TESTING_MIN_ROUND,
@@ -2050,7 +2027,7 @@ mod tests {
         assert_eq!(allowed, Vec::<String>::new());
 
         // Add one entry
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         execute(
             deps.as_mut(),
             mock_env(),
@@ -2067,7 +2044,7 @@ mod tests {
         assert_eq!(allowed, vec![bot_b.to_string()]);
 
         // Add two more entries
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         execute(
             deps.as_mut(),
             mock_env(),
@@ -2091,7 +2068,9 @@ mod tests {
     fn query_bot_works() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: deps.api.addr_make(TESTING_MANAGER).into(),
             min_round: TESTING_MIN_ROUND,
@@ -2218,11 +2197,12 @@ mod tests {
     fn is_query_allowlisted_works() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
         let bot_a = deps.api.addr_make("bot_a");
         let bot_b = deps.api.addr_make("bot_b");
 
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: manager.to_string(),
             min_round: TESTING_MIN_ROUND,
@@ -2232,7 +2212,7 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Add one entry
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         execute(
             deps.as_mut(),
             mock_env(),
@@ -2280,9 +2260,10 @@ mod tests {
         let creator = deps.api.addr_make("creator");
         let manager = deps.api.addr_make(TESTING_MANAGER);
         let new_manager = deps.api.addr_make("new manager");
+        let guest = deps.api.addr_make("guest");
 
         register_bot(deps.as_mut(), &creator);
-        let info = mock_info(creator.as_str(), &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: manager.to_string(),
             min_round: TESTING_MIN_ROUND,
@@ -2292,7 +2273,7 @@ mod tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // A random addr cannot set a new manager
-        let info = mock_info("some_random_person", &[]);
+        let info = message_info(&guest, &[]);
         let msg = ExecuteMsg::SetConfig {
             manager: Some(new_manager.to_string()),
             gateway: None,
@@ -2304,7 +2285,7 @@ mod tests {
         assert!(matches!(err, ContractError::Unauthorized));
 
         // Creator cannot set a new manager
-        let info = mock_info(creator.as_str(), &[]);
+        let info = message_info(&creator, &[]);
         let msg = ExecuteMsg::SetConfig {
             manager: Some(new_manager.to_string()),
             gateway: None,
@@ -2317,7 +2298,7 @@ mod tests {
         assert!(matches!(err, ContractError::Unauthorized));
 
         // Manager can set a new manager
-        let info = mock_info(manager.as_str(), &[]);
+        let info = message_info(&manager, &[]);
         let msg = ExecuteMsg::SetConfig {
             manager: Some(new_manager.to_string()),
             gateway: None,

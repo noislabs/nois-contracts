@@ -19,4 +19,4 @@ library = ["nois-proxy/library"]
 nois-proxy = { path = "../../contracts/nois-proxy", features = ["governance_owned"]}
 
 [dev-dependencies]
-cosmwasm-schema = { version = "2" }
+cosmwasm-schema = { version = "2.0.4" }

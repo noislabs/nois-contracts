@@ -180,8 +180,8 @@ mod tests {
     use super::*;
     use crate::msg::{ExecuteMsg, QueriedAsh};
 
-    use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{coin, from_json, Addr, Attribute, Coin, Timestamp, Uint128};
+    use cosmwasm_std::testing::{message_info, mock_dependencies, mock_env};
+    use cosmwasm_std::{coin, from_json, Attribute, Coin, Timestamp, Uint128};
 
     const DEFAULT_TIME: Timestamp = Timestamp::from_nanos(1_571_797_419_879_305_533);
 
@@ -199,17 +199,23 @@ mod tests {
     fn burn_works() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+        let burner1 = deps.api.addr_make("burner-1");
+        let burner2 = deps.api.addr_make("burner-2");
+        let burner3 = deps.api.addr_make("burner-3");
+        let burner4 = deps.api.addr_make("burner-4");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {};
         let env = mock_env();
         instantiate(deps.as_mut(), env.clone(), info, msg).unwrap();
 
         let msg = ExecuteMsg::Burn {};
-        let info = mock_info("creator", &[coin(1_000, "bitcoin".to_string())]);
+        let info = message_info(&creator, &[coin(1_000, "bitcoin".to_string())]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::WrongDenom);
-        let info = mock_info(
-            "creator",
+        let info = message_info(
+            &creator,
             &[
                 coin(1_000, "unois".to_string()),
                 coin(1_000, "bitcoin".to_string()),
@@ -217,26 +223,29 @@ mod tests {
         );
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::TooManyCoins);
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::NoCoins);
-        let info = mock_info("burner-1", &[coin(1_000, "unois".to_string())]);
+        let info = message_info(&burner1, &[coin(1_000, "unois".to_string())]);
         let resp = execute(deps.as_mut(), env.clone(), info, msg.clone()).unwrap();
         assert_eq!(
             first_attr(&resp.attributes, "burnt_amount").unwrap(),
             "1000unois"
         );
-        assert_eq!(first_attr(&resp.attributes, "burner").unwrap(), "burner-1");
+        assert_eq!(
+            first_attr(&resp.attributes, "burner").unwrap(),
+            burner1.as_str()
+        );
         assert_eq!(
             first_attr(&resp.attributes, "time").unwrap(),
             "1571797419.879305533"
         );
 
-        let info = mock_info("burner-2", &[coin(2_000, "unois".to_string())]);
+        let info = message_info(&burner2, &[coin(2_000, "unois".to_string())]);
         execute(deps.as_mut(), env.clone(), info, msg.clone()).unwrap();
-        let info = mock_info("burner-3", &[coin(3_000, "unois".to_string())]);
+        let info = message_info(&burner3, &[coin(3_000, "unois".to_string())]);
         execute(deps.as_mut(), env.clone(), info, msg.clone()).unwrap();
-        let info = mock_info("burner-4", &[coin(4_000, "unois".to_string())]);
+        let info = message_info(&burner4, &[coin(4_000, "unois".to_string())]);
         execute(deps.as_mut(), env, info, msg).unwrap();
 
         // Test Query Asc
@@ -257,25 +266,25 @@ mod tests {
             [
                 QueriedAsh {
                     id: 1,
-                    burner: Some(Addr::unchecked("burner-1")),
+                    burner: Some(burner1.clone()),
                     amount: coin(1_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 2,
-                    burner: Some(Addr::unchecked("burner-2")),
+                    burner: Some(burner2.clone()),
                     amount: coin(2_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Some(Addr::unchecked("burner-3")),
+                    burner: Some(burner3.clone()),
                     amount: coin(3_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 4,
-                    burner: Some(Addr::unchecked("burner-4")),
+                    burner: Some(burner4.clone()),
                     amount: coin(4_000, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -300,25 +309,25 @@ mod tests {
             [
                 QueriedAsh {
                     id: 4,
-                    burner: Some(Addr::unchecked("burner-4")),
+                    burner: Some(burner4.clone()),
                     amount: coin(4_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Some(Addr::unchecked("burner-3")),
+                    burner: Some(burner3.clone()),
                     amount: coin(3_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 2,
-                    burner: Some(Addr::unchecked("burner-2")),
+                    burner: Some(burner2.clone()),
                     amount: coin(2_000, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 1,
-                    burner: Some(Addr::unchecked("burner-1")),
+                    burner: Some(burner1.clone()),
                     amount: coin(1_000, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -330,17 +339,22 @@ mod tests {
     fn burn_native_works() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+        let burner1 = deps.api.addr_make("burner-1");
+        let burner4 = deps.api.addr_make("burner-4");
+        let joe = deps.api.addr_make("joe");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {};
         let env = mock_env();
         instantiate(deps.as_mut(), env.to_owned(), info, msg).unwrap();
 
         let msg = ExecuteMsg::BurnBalance {};
-        let info = mock_info("creator", &[coin(1_000, "unois".to_string())]);
+        let info = message_info(&creator, &[coin(1_000, "unois".to_string())]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
         assert_eq!(err, ContractError::NonPayableMessage);
 
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap_err();
         assert_eq!(err, ContractError::NoFundsToBurn);
         let contract = env.contract.address;
@@ -353,7 +367,7 @@ mod tests {
             }],
         );
 
-        let info = mock_info("burner-1", &[]);
+        let info = message_info(&burner1, &[]);
         let response = execute(deps.as_mut(), mock_env(), info, msg.to_owned()).unwrap();
         assert_eq!(
             response.messages[0].msg,
@@ -367,10 +381,10 @@ mod tests {
         // Send 3 burn messages
         for a in [1u128, 2] {
             let msg = ExecuteMsg::Burn {};
-            let info = mock_info("joe", &[Coin::new(a, "unois")]);
+            let info = message_info(&joe, &[Coin::new(a, "unois")]);
             execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         }
-        let info = mock_info("burner-4", &[]);
+        let info = message_info(&burner4, &[]);
         deps.querier.bank.update_balance(
             contract,
             vec![Coin {
@@ -403,13 +417,13 @@ mod tests {
                 },
                 QueriedAsh {
                     id: 2,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(1, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(2, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -427,7 +441,10 @@ mod tests {
     fn query_works_for_more_than_10_elements() {
         let mut deps = mock_dependencies();
 
-        let info = mock_info("creator", &[]);
+        let creator = deps.api.addr_make("creator");
+        let joe = deps.api.addr_make("joe");
+
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {};
         let env = mock_env();
         instantiate(deps.as_mut(), env, info, msg).unwrap();
@@ -435,7 +452,7 @@ mod tests {
         // Send 12 burn messages
         for a in [1u128, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] {
             let msg = ExecuteMsg::Burn {};
-            let info = mock_info("joe", &[Coin::new(a, "unois")]);
+            let info = message_info(&joe, &[Coin::new(a, "unois")]);
             execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         }
 
@@ -457,19 +474,19 @@ mod tests {
             [
                 QueriedAsh {
                     id: 1,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(1, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 2,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(2, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(3, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -494,19 +511,19 @@ mod tests {
             [
                 QueriedAsh {
                     id: 3,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(3, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 4,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(4, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 5,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(5, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -531,73 +548,73 @@ mod tests {
             [
                 QueriedAsh {
                     id: 1,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(1, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 2,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(2, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(3, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 4,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(4, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 5,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(5, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 6,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(6, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 7,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(7, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 8,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(8, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 9,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(9, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 10,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(10, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 11,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(11, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 12,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(12, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -622,19 +639,19 @@ mod tests {
             [
                 QueriedAsh {
                     id: 5,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(5, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 4,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(4, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 3,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(3, "unois"),
                     time: DEFAULT_TIME
                 },
@@ -659,13 +676,13 @@ mod tests {
             [
                 QueriedAsh {
                     id: 2,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(2, "unois"),
                     time: DEFAULT_TIME
                 },
                 QueriedAsh {
                     id: 1,
-                    burner: Some(Addr::unchecked("joe")),
+                    burner: Some(joe.clone()),
                     amount: coin(1, "unois"),
                     time: DEFAULT_TIME
                 },

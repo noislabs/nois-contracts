@@ -21,7 +21,7 @@ nois-payment = { path = "../../contracts/nois-payment" }
 nois-proxy = { path = "../../contracts/nois-proxy" }
 nois-proxy-governance-owned = { path = "../../contracts/nois-proxy-governance-owned" }
 
-cosmwasm-std = { version = "2", features = ["iterator"] }
+cosmwasm-std = { version = "2.0.4", features = ["iterator"] }
 cw-multi-test = "2"
 
 [dev-dependencies]

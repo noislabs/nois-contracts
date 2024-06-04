@@ -19,8 +19,8 @@ nois-payment = { path = "../../contracts/nois-payment", features = ["library"] }
 nois-protocol = { path = "../../packages/nois-protocol" }
 drand-common = { path = "../../packages/drand-common" }
 nois.workspace = true
-cosmwasm-std = { version = "2", features = ["iterator", "cosmwasm_1_2"] }
-cosmwasm-schema = { version = "2" }
+cosmwasm-std = { version = "2.0.4", features = ["iterator", "cosmwasm_1_2"] }
+cosmwasm-schema = { version = "2.0.4" }
 cw-storage-plus = { version = "2" }
 cw2.workspace = true
 serde = { version = "1.0.103", default-features = false, features = ["derive"] }

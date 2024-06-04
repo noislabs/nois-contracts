@@ -626,9 +626,9 @@ mod tests {
 
     use super::*;
     use cosmwasm_std::testing::{
-        self, mock_env, mock_ibc_channel_close_init, mock_ibc_channel_connect_confirm,
-        mock_ibc_channel_open_try, mock_ibc_packet_ack, mock_ibc_packet_recv, mock_info, MockApi,
-        MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
+        self, message_info, mock_env, mock_ibc_channel_close_init,
+        mock_ibc_channel_connect_confirm, mock_ibc_channel_open_try, mock_ibc_packet_ack,
+        mock_ibc_packet_recv, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
     };
     use cosmwasm_std::{
         coin, from_json, Addr, Binary, Checksum, CodeInfoResponse, Coin, ContractResult, CosmosMsg,
@@ -660,6 +660,7 @@ mod tests {
 
     fn setup() -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let mut deps = mock_dependencies();
+        let creator = deps.api.addr_make(CREATOR);
         let manager = deps.api.addr_make(MANAGER);
         let sink = deps.api.addr_make(SINK);
         let msg = InstantiateMsg {
@@ -669,7 +670,7 @@ mod tests {
             payment_initial_funds: payment_initial(),
             sink: sink.to_string(),
         };
-        let info = mock_info(CREATOR, &[]);
+        let info = message_info(&creator, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
         deps
@@ -891,6 +892,7 @@ mod tests {
     fn instantiate_works() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make(CREATOR);
         let manager = deps.api.addr_make(MANAGER);
         let sink = deps.api.addr_make(SINK);
 
@@ -902,7 +904,7 @@ mod tests {
             payment_initial_funds: None,
             sink: sink.to_string(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let config: ConfigResponse =
@@ -929,7 +931,7 @@ mod tests {
             payment_initial_funds: payment_initial(),
             sink: sink.to_string(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let _res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let config: ConfigResponse =
@@ -952,6 +954,7 @@ mod tests {
     fn instantiate_with_non_existing_code_id_fails() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make(CREATOR);
         let manager = deps.api.addr_make(MANAGER);
         let sink = deps.api.addr_make(SINK);
 
@@ -962,7 +965,7 @@ mod tests {
             payment_initial_funds: payment_initial(),
             sink: sink.to_string(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let env = mock_env();
         let err = instantiate(deps.as_mut(), env, info, msg).unwrap_err();
         match err {
@@ -979,6 +982,7 @@ mod tests {
     fn execute_set_config_works() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make(CREATOR);
         let manager = deps.api.addr_make(MANAGER);
         let manager2 = deps.api.addr_make(MANAGER2);
         let sink = deps.api.addr_make(SINK);
@@ -991,7 +995,7 @@ mod tests {
             payment_initial_funds: None,
             sink: sink.to_string(),
         };
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let env = mock_env();
         instantiate(deps.as_mut(), env, info, msg).unwrap();
 
@@ -1007,7 +1011,7 @@ mod tests {
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info(manager2.as_str(), &[]),
+            message_info(&manager2, &[]),
             msg.clone(),
         )
         .unwrap_err();
@@ -1017,13 +1021,7 @@ mod tests {
         }
 
         // Works for correct manager
-        execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        execute(deps.as_mut(), mock_env(), message_info(&manager, &[]), msg).unwrap();
 
         let config: ConfigResponse =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
@@ -1045,13 +1043,14 @@ mod tests {
     fn add_round_verified_must_only_be_called_by_drand() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make(CREATOR);
         let manager = deps.api.addr_make(MANAGER);
         let manager2 = deps.api.addr_make(MANAGER2);
         let sink = deps.api.addr_make(SINK);
         let anon = deps.api.addr_make("anon");
         let drand = deps.api.addr_make("drand_verifier_7");
 
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: manager.to_string(),
             price: coin(1, "unois"),
@@ -1063,22 +1062,10 @@ mod tests {
 
         // drand contract unset, i.e. noone can submit
         let msg = make_add_verified_round_msg(2183668, true);
-        let err = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(anon.as_str(), &[]),
-            msg,
-        )
-        .unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&anon, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
         let msg = make_add_verified_round_msg(2183668, true);
-        let err = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
         // Set drand contract
@@ -1089,23 +1076,11 @@ mod tests {
             trusted_sources: None,
             payment_initial_funds: None,
         };
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&manager, &[]), msg).unwrap();
 
         // drand cannot add
         let msg = make_add_verified_round_msg(2183668, true);
-        let err = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
         // Set trusted sources
@@ -1116,53 +1091,30 @@ mod tests {
             trusted_sources: Some(vec![drand.to_string(), manager2.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&manager, &[]), msg).unwrap();
 
         // Anon still cannot add round
         let msg = make_add_verified_round_msg(2183668, true);
-        let err = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(anon.as_str(), &[]),
-            msg,
-        )
-        .unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&anon, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedAddVerifiedRound));
 
         // But drand and manager2 can
         let msg = make_add_verified_round_msg(2183668, true);
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         let msg = make_add_verified_round_msg(2183668, true);
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager2.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&manager2, &[]), msg).unwrap();
     }
 
     #[test]
     fn add_round_verified_processes_jobs() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make(CREATOR);
         let manager = deps.api.addr_make(MANAGER);
         let sink = deps.api.addr_make(SINK);
         let drand = deps.api.addr_make("drand_verifier_7");
 
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: manager.to_string(),
             price: coin(1, "unois"),
@@ -1180,13 +1132,7 @@ mod tests {
             trusted_sources: Some(vec![drand.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&manager, &[]), msg).unwrap();
 
         // Create one job
         let msg = mock_ibc_packet_recv(
@@ -1201,26 +1147,14 @@ mod tests {
 
         // Previous round processes no job
         let msg = make_add_verified_round_msg(ROUND1, true);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "0");
 
         // Process one job
         let msg = make_add_verified_round_msg(ROUND2, true);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
         assert!(matches!(
@@ -1245,13 +1179,7 @@ mod tests {
 
         // Process first jobs
         let msg = make_add_verified_round_msg(ROUND3, true);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
         assert!(matches!(
@@ -1263,13 +1191,7 @@ mod tests {
 
         // Process second job
         let msg = make_add_verified_round_msg(ROUND3, true);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(res.messages[0].gas_limit, None);
         assert!(matches!(
@@ -1295,78 +1217,42 @@ mod tests {
 
         // Process first job
         let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
 
         // Process next job
         let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
 
         // Process next job
         let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "1");
 
         // Process next 10 jobs
         let msg = make_add_verified_round_msg(ROUND4, false);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 10);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "10");
 
         // Process remaining jobs
         let msg = make_add_verified_round_msg(ROUND4, false);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 8);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "8");
 
         // No jobs left for later submissions
         let msg = make_add_verified_round_msg(ROUND4, true);
-        let res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 0);
         let jobs_processed = first_attr(&res.attributes, "jobs_processed").unwrap();
         assert_eq!(jobs_processed, "0");
@@ -1380,11 +1266,12 @@ mod tests {
     fn query_job_stats_works() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make(CREATOR);
         let manager = deps.api.addr_make(MANAGER);
         let sink = deps.api.addr_make(SINK);
         let drand = deps.api.addr_make("drand_verifier_7");
 
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: manager.to_string(),
             price: coin(1, "unois"),
@@ -1402,13 +1289,7 @@ mod tests {
             trusted_sources: Some(vec![drand.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&manager, &[]), msg).unwrap();
 
         fn job_stats(deps: Deps, round: u64) -> DrandJobStatsResponse {
             from_json(query(deps, mock_env(), QueryMsg::DrandJobStats { round }).unwrap()).unwrap()
@@ -1446,13 +1327,7 @@ mod tests {
         );
 
         let msg = make_add_verified_round_msg(ROUND1, true);
-        execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
 
         // 1 processed job, no unprocessed jobs
         assert_eq!(
@@ -1510,13 +1385,7 @@ mod tests {
 
         // process some
         let msg = make_add_verified_round_msg(ROUND2, true);
-        execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
 
         // Some processed, rest unprocessed
         assert_eq!(
@@ -1533,11 +1402,12 @@ mod tests {
     fn query_requests_works() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make(CREATOR);
         let manager = deps.api.addr_make(MANAGER);
         let sink = deps.api.addr_make(SINK);
         let drand = deps.api.addr_make(DRAND);
 
-        let info = mock_info("creator", &[]);
+        let info = message_info(&creator, &[]);
         let msg = InstantiateMsg {
             manager: manager.to_string(),
             price: coin(1, "unois"),
@@ -1558,13 +1428,7 @@ mod tests {
             trusted_sources: Some(vec![drand.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&manager, &[]), msg).unwrap();
 
         fn requests_asc(deps: Deps, channel_id: &str) -> RequestsLogResponse {
             from_json(
@@ -1878,13 +1742,7 @@ mod tests {
             trusted_sources: Some(vec![drand.to_string()]),
             payment_initial_funds: None,
         };
-        let _res = execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(manager.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        let _res = execute(deps.as_mut(), mock_env(), message_info(&manager, &[]), msg).unwrap();
 
         fn customer(deps: Deps, channel_id: &str) -> QueriedCustomer {
             let res: CustomerResponse = from_json(
@@ -1919,13 +1777,7 @@ mod tests {
         assert_eq!(customer(deps.as_ref(), CHANNEL_ID).requested_beacons, 1);
 
         let msg = make_add_verified_round_msg(ROUND1, true);
-        execute(
-            deps.as_mut(),
-            mock_env(),
-            mock_info(drand.as_str(), &[]),
-            msg,
-        )
-        .unwrap();
+        execute(deps.as_mut(), mock_env(), message_info(&drand, &[]), msg).unwrap();
 
         // New job for existing round gets processed immediately
         let msg = mock_ibc_packet_recv(

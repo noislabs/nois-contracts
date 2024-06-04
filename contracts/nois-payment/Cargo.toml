@@ -17,8 +17,8 @@ library = []
 
 [dependencies]
 anybuf = "0.3.0"
-cosmwasm-std = { version = "2", features = ["stargate"] }
-cosmwasm-schema = { version = "2" }
+cosmwasm-std = { version = "2.0.4", features = ["stargate"] }
+cosmwasm-schema = { version = "2.0.4" }
 cw-storage-plus = { version = "2" }
 cw2.workspace = true
 nois.workspace = true

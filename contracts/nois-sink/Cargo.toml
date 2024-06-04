@@ -14,8 +14,8 @@ crate-type = ["cdylib", "rlib"]
 [features]
 
 [dependencies]
-cosmwasm-std = { version = "2", features = ["iterator"] }
-cosmwasm-schema = { version = "2" }
+cosmwasm-std = { version = "2.0.4", features = ["iterator"] }
+cosmwasm-schema = { version = "2.0.4" }
 cw-storage-plus = { version = "2" }
 cw2.workspace = true
 nois.workspace = true
