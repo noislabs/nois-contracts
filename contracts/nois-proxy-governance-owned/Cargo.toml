@@ -12,9 +12,6 @@ license = "Apache-2.0"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-# for quicker tests, cargo test --lib
-# for more explicit tests, cargo test --features=backtraces
-backtraces = ["nois-proxy/backtraces"]
 # use library feature to disable all instantiate/execute/query exports
 library = ["nois-proxy/library"]
 
@@ -22,4 +19,4 @@ library = ["nois-proxy/library"]
 nois-proxy = { path = "../../contracts/nois-proxy", features = ["governance_owned"]}
 
 [dev-dependencies]
-cosmwasm-schema = { version = "1.4.0" }
+cosmwasm-schema = { version = "2.0.4" }

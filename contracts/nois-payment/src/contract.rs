@@ -127,6 +127,7 @@ fn execute_pay(
 
     // Send to community pool
     if !community_pool.amount.is_zero() {
+        #[allow(deprecated)]
         out_msgs.push(CosmosMsg::Stargate {
             type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
             value: encode_msg_fund_community_pool(&community_pool, &env.contract.address).into(),
@@ -160,8 +161,8 @@ mod tests {
     use crate::msg::{ConfigResponse, QueryMsg};
 
     use cosmwasm_std::{
-        coins, from_json,
-        testing::{mock_dependencies, mock_env, mock_info},
+        coin, coins, from_json,
+        testing::{message_info, mock_dependencies, mock_env},
         Addr, Attribute, Binary, Uint128,
     };
     use hex;
@@ -183,33 +184,32 @@ mod tests {
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
+        let gateway = deps.api.addr_make(NOIS_GATEWAY);
+        let sink = deps.api.addr_make(NOIS_SINK);
         let msg = InstantiateMsg {
-            sink: NOIS_SINK.to_string(),
+            sink: sink.to_string(),
         };
-        let info = mock_info(NOIS_GATEWAY, &[]);
+        let info = message_info(&gateway, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
         let config: ConfigResponse =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
-        assert_eq!(
-            config,
-            ConfigResponse {
-                sink: Addr::unchecked(NOIS_SINK),
-                gateway: Addr::unchecked(NOIS_GATEWAY),
-            }
-        );
+        assert_eq!(config, ConfigResponse { sink, gateway });
     }
 
     #[test]
     fn cannot_send_funds() {
         let mut deps = mock_dependencies();
+        let sink = deps.api.addr_make(NOIS_SINK);
+        let gateway = deps.api.addr_make(NOIS_GATEWAY);
+        let relayer = deps.api.addr_make("some-relayer");
         let msg = InstantiateMsg {
-            sink: NOIS_SINK.to_string(),
+            sink: sink.to_string(),
         };
-        let info = mock_info(NOIS_GATEWAY, &[]);
-        let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
+        let info = message_info(&gateway, &[]);
+        let _response = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info(NOIS_GATEWAY, &coins(12345, "unoisx"));
+        let info = message_info(&gateway, &coins(12345, "unoisx"));
         let msg = ExecuteMsg::Pay {
             burn: Coin {
                 denom: "unois".to_string(),
@@ -220,7 +220,7 @@ mod tests {
                 amount: Uint128::new(450_000),
             },
             relayer: (
-                "some-relayer".to_string(),
+                relayer.to_string(),
                 Coin {
                     denom: "unois".to_string(),
                     amount: Uint128::new(50_000),
@@ -235,13 +235,16 @@ mod tests {
     #[test]
     fn only_gateway_can_pay() {
         let mut deps = mock_dependencies();
+        let sink = deps.api.addr_make(NOIS_SINK);
+        let gateway = deps.api.addr_make(NOIS_GATEWAY);
+        let malicious = deps.api.addr_make("a-malicious-person");
         let msg = InstantiateMsg {
-            sink: NOIS_SINK.to_string(),
+            sink: sink.to_string(),
         };
-        let info = mock_info(NOIS_GATEWAY, &[]);
-        let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
+        let info = message_info(&gateway, &[]);
+        let _response = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info("a-malicious-person", &[]);
+        let info = message_info(&malicious, &[]);
         let msg = ExecuteMsg::Pay {
             burn: Coin {
                 denom: "unois".to_string(),
@@ -264,16 +267,20 @@ mod tests {
         assert!(matches!(err, ContractError::Unauthorized));
     }
 
+    #[allow(deprecated)]
     #[test]
     fn pay_fund_send_works() {
         let mut deps = mock_dependencies();
+        let sink = deps.api.addr_make(NOIS_SINK);
+        let gateway = deps.api.addr_make(NOIS_GATEWAY);
+        let relayer = deps.api.addr_make("some-relayer");
         let msg = InstantiateMsg {
-            sink: NOIS_SINK.to_string(),
+            sink: sink.to_string(),
         };
-        let info = mock_info(NOIS_GATEWAY, &[]);
-        let _result = instantiate(deps.as_mut(), mock_env(), info, msg);
+        let info = message_info(&gateway, &[]);
+        let _response = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
-        let info = mock_info(NOIS_GATEWAY, &[]);
+        let info = message_info(&gateway, &[]);
         let msg = ExecuteMsg::Pay {
             burn: Coin {
                 denom: "unois".to_string(),
@@ -284,7 +291,7 @@ mod tests {
                 amount: Uint128::new(450_000),
             },
             relayer: (
-                "some-relayer".to_string(),
+                relayer.to_string(),
                 Coin {
                     denom: "unois".to_string(),
                     amount: Uint128::new(50_000),
@@ -297,15 +304,15 @@ mod tests {
         assert_eq!(
             response.messages[0].msg,
             CosmosMsg::Wasm(WasmMsg::Execute {
-                contract_addr: "sink".to_string(),
+                contract_addr: sink.to_string(),
                 msg: Binary::from(br#"{"burn":{}}"#),
-                funds: vec![Coin::new(500_000, "unois")],
+                funds: vec![coin(500_000, "unois")],
             })
         );
         assert_eq!(
             response.messages[1].msg,
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: "some-relayer".to_string(),
+                to_address: relayer.to_string(),
                 amount: coins(50_000, "unois"),
             })
         );
@@ -327,11 +334,11 @@ mod tests {
         );
 
         // Zero amount is supported
-        let info = mock_info(NOIS_GATEWAY, &[]);
+        let info = message_info(&gateway, &[]);
         let msg = ExecuteMsg::Pay {
-            burn: Coin::new(0, "unois"),
-            community_pool: Coin::new(0, "unois"),
-            relayer: ("some-relayer".to_string(), Coin::new(0, "unois")),
+            burn: coin(0, "unois"),
+            community_pool: coin(0, "unois"),
+            relayer: (relayer.to_string(), coin(0, "unois")),
         };
         let response = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         // 0 because sink does not like empty funds array and bank send does not like zero coins
@@ -353,7 +360,7 @@ mod tests {
         // tx from https://stargaze-rpc.polkachu.com/tx?hash=0x0F52332EA355E306363FE321C218A3873730A6C20748425D2888063B36DCFAFB
         // "Cr0BCroBCjEvY29zbW9zLmRpc3RyaWJ1dGlvbi52MWJldGExLk1zZ0Z1bmRDb21tdW5pdHlQb29sEoQBClQKRGliYy8wRjE4MUQ5RjVCQjE4QTg0OTYxNTNDMTY2NkU5MzQxNjk1MTU1OTJDMTM1RThFOUZDQ0MzNTU4ODk4NThFQUY5Egw3OTk5OTk5OTk5OTkSLHN0YXJzMTh4c3AzN3pjNjU2OTBobHEwem0zcTVzeGN1MnJwbTRtcnR4NmVjElgKUApGCh8vY29zbW9zLmNyeXB0by5zZWNwMjU2azEuUHViS2V5EiMKIQMP/0ZvxxP7PnrW5662nEqW6GMqA1k4sWiLzoFvws+o9xIECgIIARgBEgQQwJoMGkAQ0WA71nUCX0QoOFL6KRqWrGnYsZRn9T0TtpLI6YQVVzoqat5sRdoVkNyN7HP04mzc3nZxXxJZ9//JKUx0wDXP"
 
-        let amount = Coin::new(
+        let amount = coin(
             799999999999,
             "ibc/0F181D9F5BB18A8496153C1666E934169515592C135E8E9FCCC355889858EAF9",
         );

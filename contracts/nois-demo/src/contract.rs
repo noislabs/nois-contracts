@@ -123,7 +123,7 @@ fn query_result(deps: Deps, job_id: String) -> StdResult<Option<Decimal>> {
 mod tests {
     use super::*;
     use cosmwasm_std::{
-        testing::{mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage},
+        testing::{message_info, mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage},
         Empty, HexBinary, OwnedDeps, Timestamp,
     };
 
@@ -133,10 +133,11 @@ mod tests {
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
+        let creator = deps.api.addr_make(CREATOR);
         let msg = InstantiateMsg {
-            nois_proxy: "address123".to_string(),
+            nois_proxy: deps.api.addr_make("address123").into(),
         };
-        let info = mock_info(CREATOR, &[]);
+        let info = message_info(&creator, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
     }
@@ -144,20 +145,22 @@ mod tests {
     #[test]
     fn instantiate_fails_for_invalid_proxy_address() {
         let mut deps = mock_dependencies();
+        let creator = deps.api.addr_make(CREATOR);
         let msg = InstantiateMsg {
             nois_proxy: "".to_string(),
         };
-        let info = mock_info(CREATOR, &[]);
+        let info = message_info(&creator, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(res, ContractError::InvalidProxyAddress);
     }
 
     fn instantiate_proxy() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();
+        let creator = deps.api.addr_make(CREATOR);
         let msg = InstantiateMsg {
-            nois_proxy: PROXY_ADDRESS.to_string(),
+            nois_proxy: deps.api.addr_make(PROXY_ADDRESS).into(),
         };
-        let info = mock_info(CREATOR, &[]);
+        let info = message_info(&creator, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         deps
     }
@@ -165,17 +168,19 @@ mod tests {
     #[test]
     fn execute_estimate_pi_works() {
         let mut deps = instantiate_proxy();
+        let guest = deps.api.addr_make("guest");
 
         let msg = ExecuteMsg::EstimatePi {
             job_id: "123".to_owned(),
         };
-        let info = mock_info("guest", &[]);
+        let info = message_info(&guest, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     }
 
     #[test]
     fn execute_receive_works() {
         let mut deps = instantiate_proxy();
+        let proxy = deps.api.addr_make(PROXY_ADDRESS);
 
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
@@ -187,13 +192,14 @@ mod tests {
                 .unwrap(),
             },
         };
-        let info = mock_info(PROXY_ADDRESS, &[]);
+        let info = message_info(&proxy, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     }
 
     #[test]
     fn execute_receive_fails_for_wrong_sender() {
         let mut deps = instantiate_proxy();
+        let guest = deps.api.addr_make("guest");
 
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
@@ -205,7 +211,7 @@ mod tests {
                 .unwrap(),
             },
         };
-        let info = mock_info("guest", &[]);
+        let info = message_info(&guest, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedReceive));
     }

@@ -183,7 +183,7 @@ fn query_history(deps: Deps) -> StdResult<Vec<String>> {
 mod tests {
     use super::*;
     use cosmwasm_std::testing::{
-        mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
+        message_info, mock_dependencies, mock_env, MockApi, MockQuerier, MockStorage,
     };
     use cosmwasm_std::{coins, Empty, HexBinary, OwnedDeps, Timestamp};
 
@@ -194,10 +194,13 @@ mod tests {
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
+        let creator = deps.api.addr_make(CREATOR);
+        let proxy = deps.api.addr_make("address123");
+
         let msg = InstantiateMsg {
-            nois_proxy: "address123".to_string(),
+            nois_proxy: proxy.to_string(),
         };
-        let info = mock_info("creator", &coins(1000, "earth"));
+        let info = message_info(&creator, &coins(1000, "earth"));
 
         // we can just call .unwrap() to assert this was a success
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -206,10 +209,12 @@ mod tests {
 
     fn instantiate_proxy() -> OwnedDeps<MockStorage, MockApi, MockQuerier, Empty> {
         let mut deps = mock_dependencies();
+        let creator = deps.api.addr_make(CREATOR);
+        let proxy = deps.api.addr_make(PROXY_ADDRESS);
         let msg = InstantiateMsg {
-            nois_proxy: PROXY_ADDRESS.to_string(),
+            nois_proxy: proxy.to_string(),
         };
-        let info = mock_info(CREATOR, &[]);
+        let info = message_info(&creator, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         deps
     }
@@ -217,22 +222,24 @@ mod tests {
     #[test]
     fn execute_roll_dice_works() {
         let mut deps = instantiate_proxy();
+        let guest = deps.api.addr_make("guest");
 
         let msg = ExecuteMsg::RollDice {
             job_id: "1".to_owned(),
         };
-        let info = mock_info("guest", &[]);
+        let info = message_info(&guest, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     }
 
     #[test]
     fn job_id_too_long() {
         let mut deps = instantiate_proxy();
+        let guest = deps.api.addr_make("guest");
 
         let msg = ExecuteMsg::RollDice {
             job_id: "abcabcabcabcabca_asfsdfsdgsdgbcbcabcabcabc234t34t3t34gabcabcabc49".to_owned(),
         };
-        let info = mock_info("guest", &[]);
+        let info = message_info(&guest, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
     }
@@ -241,10 +248,13 @@ mod tests {
     fn proxy_cannot_bring_an_existing_job_id() {
         let mut deps = instantiate_proxy();
 
+        let proxy = deps.api.addr_make(PROXY_ADDRESS);
+        let guest = deps.api.addr_make("guest");
+
         let msg = ExecuteMsg::RollDice {
             job_id: "round_1".to_owned(),
         };
-        let info = mock_info("guest", &[]);
+        let info = message_info(&guest, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::NoisReceive {
@@ -257,7 +267,7 @@ mod tests {
                 .unwrap(),
             },
         };
-        let info = mock_info(PROXY_ADDRESS, &[]);
+        let info = message_info(&proxy, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::NoisReceive {
@@ -270,7 +280,7 @@ mod tests {
                 .unwrap(),
             },
         };
-        let info = mock_info(PROXY_ADDRESS, &[]);
+        let info = message_info(&proxy, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
 
         assert!(matches!(err, ContractError::JobIdAlreadyPresent));
@@ -282,6 +292,8 @@ mod tests {
     fn execute_receive_fails_for_invalid_randomness() {
         let mut deps = instantiate_proxy();
 
+        let proxy = deps.api.addr_make(PROXY_ADDRESS);
+
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
                 job_id: "round_1".to_string(),
@@ -289,19 +301,24 @@ mod tests {
                 randomness: HexBinary::from_hex("ffffffff").unwrap(),
             },
         };
-        let info = mock_info(PROXY_ADDRESS, &[]);
+        let info = message_info(&proxy, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
 
         assert!(matches!(err, ContractError::InvalidRandomness));
         // we can just call .unwrap() to assert this was a success
     }
+
     #[test]
     fn players_cannot_request_an_existing_job_id() {
         let mut deps = instantiate_proxy();
+
+        let proxy = deps.api.addr_make(PROXY_ADDRESS);
+        let guest = deps.api.addr_make("guest");
+
         let msg = ExecuteMsg::RollDice {
             job_id: "111".to_owned(),
         };
-        let info = mock_info("guest", &[]);
+        let info = message_info(&guest, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::NoisReceive {
@@ -314,13 +331,13 @@ mod tests {
                 .unwrap(),
             },
         };
-        let info = mock_info(PROXY_ADDRESS, &[]);
+        let info = message_info(&proxy, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::RollDice {
             job_id: "111".to_owned(),
         };
-        let info = mock_info("guest", &[]);
+        let info = message_info(&guest, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdAlreadyPresent));
 
@@ -330,6 +347,7 @@ mod tests {
     #[test]
     fn execute_receive_fails_for_wrong_sender() {
         let mut deps = instantiate_proxy();
+        let guest = deps.api.addr_make("guest");
 
         let msg = ExecuteMsg::NoisReceive {
             callback: NoisCallback {
@@ -341,7 +359,7 @@ mod tests {
                 .unwrap(),
             },
         };
-        let info = mock_info("guest", &[]);
+        let info = message_info(&guest, &[]);
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert!(matches!(err, ContractError::UnauthorizedReceive));
     }
@@ -349,10 +367,13 @@ mod tests {
     fn execute_receive_works() {
         let mut deps = instantiate_proxy();
 
+        let proxy = deps.api.addr_make(PROXY_ADDRESS);
+        let guest = deps.api.addr_make("guest");
+
         let msg = ExecuteMsg::RollDice {
             job_id: "123".to_owned(),
         };
-        let info = mock_info("guest", &[]);
+        let info = message_info(&guest, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = ExecuteMsg::NoisReceive {
@@ -365,7 +386,7 @@ mod tests {
                 .unwrap(),
             },
         };
-        let info = mock_info(PROXY_ADDRESS, &[]);
+        let info = message_info(&proxy, &[]);
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
     }
 }

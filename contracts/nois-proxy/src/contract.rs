@@ -266,6 +266,7 @@ pub fn execute_get_randomness_impl(
                             denom: unois_denom.denom,
                         },
                         timeout: env.block.time.plus_seconds(TRANSFER_PACKET_LIFETIME).into(),
+                        memo: None,
                     }
                     .into(),
                 );
@@ -520,6 +521,7 @@ fn withdraw_to_community_pool_unchecked(
             .query_balance(env.contract.address.clone(), denom)?,
     };
 
+    #[allow(deprecated)]
     let msg = CosmosMsg::Stargate {
         type_url: "/cosmos.distribution.v1beta1.MsgFundCommunityPool".to_string(),
         value: encode_msg_fund_community_pool(&amount, &env.contract.address).into(),
@@ -802,8 +804,7 @@ pub fn ibc_packet_receive(
         // we try to capture all app-level errors and convert them into
         // acknowledgement packets that contain an error code.
         let acknowledgement = StdAck::error(format!("Error processing packet: {e}"));
-        Ok(IbcReceiveResponse::new()
-            .set_ack(acknowledgement)
+        Ok(IbcReceiveResponse::new(acknowledgement)
             .add_event(Event::new("ibc").add_attribute("packet", "receive")))
     })
 }
@@ -843,8 +844,7 @@ fn receive_deliver_beacon(
     .with_gas_limit(callback_gas_limit);
 
     let ack = StdAck::success(to_json_binary(&OutPacketAck::DeliverBeacon {})?);
-    Ok(IbcReceiveResponse::new()
-        .set_ack(ack)
+    Ok(IbcReceiveResponse::new(ack)
         .add_attribute(ATTR_ACTION, "receive_deliver_beacon")
         .add_attribute("job_id", job_id)
         .add_submessage(msg))
@@ -859,9 +859,7 @@ fn receive_welcome(
     config.payment = Some(payment);
     CONFIG.save(deps.storage, &config)?;
     let ack = StdAck::success(to_json_binary(&OutPacketAck::Welcome {})?);
-    Ok(IbcReceiveResponse::new()
-        .set_ack(ack)
-        .add_attribute(ATTR_ACTION, "receive_welcome"))
+    Ok(IbcReceiveResponse::new(ack).add_attribute(ATTR_ACTION, "receive_welcome"))
 }
 
 fn receive_push_beacon_price(
@@ -873,9 +871,7 @@ fn receive_push_beacon_price(
 ) -> Result<IbcReceiveResponse, ContractError> {
     update_nois_beacon_price(deps, timestamp, amount, denom)?;
     let ack = StdAck::success(to_json_binary(&OutPacketAck::PushBeaconPrice {})?);
-    Ok(IbcReceiveResponse::new()
-        .set_ack(ack)
-        .add_attribute(ATTR_ACTION, "receive_push_beacon_price"))
+    Ok(IbcReceiveResponse::new(ack).add_attribute(ATTR_ACTION, "receive_push_beacon_price"))
 }
 
 #[cfg_attr(not(feature = "library"), ::cosmwasm_std::entry_point)]
@@ -956,17 +952,18 @@ pub fn ibc_packet_timeout(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
     use crate::state::OperationalMode;
 
     use super::*;
     use cosmwasm_std::{
-        coins,
+        coin, coins,
         testing::{
-            mock_dependencies, mock_dependencies_with_balance, mock_env,
+            message_info, mock_dependencies, mock_dependencies_with_balance, mock_env,
             mock_ibc_channel_close_confirm, mock_ibc_channel_close_init,
             mock_ibc_channel_connect_ack, mock_ibc_channel_connect_confirm,
-            mock_ibc_channel_open_init, mock_ibc_packet_ack, mock_info, MockApi, MockQuerier,
-            MockStorage,
+            mock_ibc_channel_open_init, mock_ibc_packet_ack, MockApi, MockQuerier, MockStorage,
         },
         CosmosMsg, IbcAcknowledgement, OwnedDeps, ReplyOn, Uint128,
     };
@@ -977,27 +974,34 @@ mod tests {
     const MANAGER_ADDRESS: &str = "some-manager";
     const DAPP_ADDRESS: &str = "dapp1";
 
+    fn addr(input: &str) -> Addr {
+        MockApi::default().addr_make(input)
+    }
+
     fn setup(
         instantiate_msg: Option<InstantiateMsg>,
     ) -> OwnedDeps<MockStorage, MockApi, MockQuerier> {
         let initial_funds = vec![
-            Coin::new(22334455, "unoisx"),
-            Coin::new(
+            coin(22334455, "unoisx"),
+            coin(
                 123321,
                 "ibc/CB480EB3697F39DB828D9EFA021ABE681BFCD72E23894019B8DDB1AB94039081",
             ),
         ];
         let mut deps = mock_dependencies_with_balance(&initial_funds);
+
+        let creator = deps.api.addr_make(CREATOR);
+
         let msg = instantiate_msg.unwrap_or_else(|| InstantiateMsg {
-            manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            manager: Some(creator.to_string()),
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: None,
             allowlist: None,
         });
-        let info = mock_info(CREATOR, &[]);
+        let info = message_info(&creator, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
         deps
@@ -1025,16 +1029,17 @@ mod tests {
     #[test]
     fn instantiate_works() {
         let mut deps = mock_dependencies();
+        let manager = deps.api.addr_make(CREATOR);
         let msg = InstantiateMsg {
-            manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            manager: Some(manager.to_string()),
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: None,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: None,
             allowlist: None,
         };
-        let info = mock_info(CREATOR, &[]);
+        let info = message_info(&manager, &[]);
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(0, res.messages.len());
     }
@@ -1050,10 +1055,12 @@ mod tests {
         // Requires a channel to forward requests to
         setup_channel(deps.as_mut());
 
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+
         let msg = ExecuteMsg::GetNextRandomness {
             job_id: "foo".to_string(),
         };
-        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
+        let info = message_info(&dapp, &coins(22334455, "unoisx"));
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let out_msg = &res.messages[0];
@@ -1070,26 +1077,28 @@ mod tests {
         let mut deps = setup(None);
         setup_channel(deps.as_mut());
 
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+
         // Job ID too long
         let msg = ExecuteMsg::GetNextRandomness {
             job_id: "cb480eb3697f39db828d9efa021abe681bfcd72e23894019b8ddb1ab94039081-and-counting"
                 .to_string(),
         };
-        let err =
-            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&dapp, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
     }
 
     #[test]
     fn get_next_randomness_for_allowed_address() {
+        let creator = addr(CREATOR);
         let mut deps = setup(Some(InstantiateMsg {
-            manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            manager: Some(creator.to_string()),
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(true),
-            allowlist: Some(vec![CREATOR.to_string()]),
+            allowlist: Some(vec![creator.to_string()]),
         }));
         setup_channel(deps.as_mut());
 
@@ -1098,7 +1107,7 @@ mod tests {
         let res = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info(CREATOR, &coins(22334455, "unoisx")),
+            message_info(&creator, &coins(22334455, "unoisx")),
             msg,
         )
         .unwrap();
@@ -1114,23 +1123,26 @@ mod tests {
 
     #[test]
     fn get_next_randomness_for_disallowed_address() {
+        let creator = addr(CREATOR);
         let mut deps = setup(Some(InstantiateMsg {
-            manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            manager: Some(creator.to_string()),
+            prices: vec![Coin::new(1_000000u128, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(true),
-            allowlist: Some(vec![CREATOR.to_string()]),
+            allowlist: Some(vec![creator.to_string()]),
         }));
         setup_channel(deps.as_mut());
+
+        let anon = deps.api.addr_make("anon");
 
         // Sender in allowlist
         let msg = ExecuteMsg::GetNextRandomness { job_id: "1".into() };
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info("disallowed", &coins(22334455, "unoisx")),
+            message_info(&anon, &coins(22334455, "unoisx")),
             msg,
         );
         assert!(matches!(err, Err(ContractError::SenderNotAllowed)));
@@ -1143,11 +1155,13 @@ mod tests {
         // Requires a channel to forward requests to
         setup_channel(deps.as_mut());
 
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+
         let msg = ExecuteMsg::GetRandomnessAfter {
             after: Timestamp::from_seconds(1666343642),
             job_id: "foo".to_string(),
         };
-        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
+        let info = message_info(&dapp, &coins(22334455, "unoisx"));
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         let out_msg = &res.messages[0];
@@ -1164,14 +1178,15 @@ mod tests {
         let mut deps = setup(None);
         setup_channel(deps.as_mut());
 
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+
         // Job ID too long
         let msg = ExecuteMsg::GetRandomnessAfter {
             after: Timestamp::from_seconds(1666343642),
             job_id: "cb480eb3697f39db828d9efa021abe681bfcd72e23894019b8ddb1ab94039081-and-counting"
                 .to_string(),
         };
-        let err =
-            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&dapp, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::JobIdTooLong));
     }
 
@@ -1182,6 +1197,8 @@ mod tests {
         // Requires a channel to forward requests to
         setup_channel(deps.as_mut());
 
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+
         let instantiate_time = mock_env().block.time;
 
         // after == instantiate_time works
@@ -1189,7 +1206,7 @@ mod tests {
             after: instantiate_time,
             job_id: "foo".to_string(),
         };
-        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
+        let info = message_info(&dapp, &coins(22334455, "unoisx"));
         execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // after < instantiate_time fails
@@ -1197,7 +1214,7 @@ mod tests {
             after: instantiate_time.minus_nanos(1),
             job_id: "foo".to_string(),
         };
-        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
+        let info = message_info(&dapp, &coins(22334455, "unoisx"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::AfterTooLow { min_after, after } => {
@@ -1212,7 +1229,7 @@ mod tests {
             after: Timestamp::from_nanos(15717974198793055330),
             job_id: "foo".to_string(),
         };
-        let info = mock_info(DAPP_ADDRESS, &coins(22334455, "unoisx"));
+        let info = message_info(&dapp, &coins(22334455, "unoisx"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         match err {
             ContractError::AfterTooHigh { max_after, after } => {
@@ -1227,10 +1244,12 @@ mod tests {
     fn set_config_works() {
         let mut deps = setup(None);
 
+        let creator = deps.api.addr_make(CREATOR);
+
         // Check original config
         let ConfigResponse { config: original } =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
-        assert_eq!(original.manager, Some(Addr::unchecked(CREATOR)));
+        assert_eq!(original.manager, Some(creator.clone()));
         assert_eq!(original.callback_gas_limit, 500_000);
         assert_eq!(original.allowlist_enabled, Some(false));
 
@@ -1246,7 +1265,7 @@ mod tests {
             min_after: None,
             max_after: None,
         };
-        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        execute(deps.as_mut(), mock_env(), message_info(&creator, &[]), msg).unwrap();
         let ConfigResponse { config } =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         assert_eq!(config, original);
@@ -1263,7 +1282,7 @@ mod tests {
             min_after: None,
             max_after: None,
         };
-        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        execute(deps.as_mut(), mock_env(), message_info(&creator, &[]), msg).unwrap();
         let ConfigResponse { config } =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         // Updated
@@ -1286,7 +1305,7 @@ mod tests {
             min_after: None,
             max_after: None,
         };
-        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        execute(deps.as_mut(), mock_env(), message_info(&creator, &[]), msg).unwrap();
         let ConfigResponse { config } =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         // Updated
@@ -1309,7 +1328,7 @@ mod tests {
             min_after: None,
             max_after: None,
         };
-        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        execute(deps.as_mut(), mock_env(), message_info(&creator, &[]), msg).unwrap();
         let ConfigResponse { config } =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Config {}).unwrap()).unwrap();
         // Updated
@@ -1324,16 +1343,20 @@ mod tests {
     #[test]
     fn set_config_only_allowed_for_manager() {
         let mut deps = mock_dependencies();
+
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+        let creator = deps.api.addr_make(CREATOR);
+
         let msg = InstantiateMsg {
-            manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            manager: Some(creator.to_string()),
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: None,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: None,
             allowlist: None,
         };
-        let info = mock_info(CREATOR, &[]);
+        let info = message_info(&creator, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // Edit config
@@ -1348,8 +1371,7 @@ mod tests {
             min_after: None,
             max_after: None,
         };
-        let err =
-            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&dapp, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
     }
 
@@ -1357,25 +1379,29 @@ mod tests {
     fn withdraw_works() {
         let mut deps = setup(None);
 
+        let creator = deps.api.addr_make(CREATOR);
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+        let some = deps.api.addr_make("some-address");
+
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: Some(Uint128::new(12)),
-            address: "some-address".to_string(),
+            address: some.to_string(),
         };
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info(DAPP_ADDRESS, &[]),
+            message_info(&dapp, &[]),
             msg.clone(),
         )
         .unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
-        let res = execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&creator, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(
             res.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: "some-address".to_string(),
+                to_address: some.to_string(),
                 amount: coins(12, "unoisx"),
             })
         );
@@ -1385,29 +1411,33 @@ mod tests {
     fn withdraw_all_works() {
         let mut deps = setup(None);
 
+        let creator = deps.api.addr_make(CREATOR);
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+        let some = deps.api.addr_make("some-address");
+
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: None,
-            address: "some-address".to_string(),
+            address: some.to_string(),
         };
 
         // Withdraw by dapp
         let err = execute(
             deps.as_mut(),
             mock_env(),
-            mock_info(DAPP_ADDRESS, &[]),
+            message_info(&dapp, &[]),
             msg.clone(),
         )
         .unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
         // Withdraw by manager
-        let res = execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        let res = execute(deps.as_mut(), mock_env(), message_info(&creator, &[]), msg).unwrap();
         assert_eq!(res.messages.len(), 1);
         assert_eq!(
             res.messages[0].msg,
             CosmosMsg::Bank(BankMsg::Send {
-                to_address: "some-address".to_string(),
+                to_address: some.to_string(),
                 amount: coins(22334455, "unoisx"),
             })
         );
@@ -1417,41 +1447,45 @@ mod tests {
     fn withdraw_when_manager_is_not_set_withdraws_are_unauthorised() {
         // Check that if manager not set, a random person cannot execute manager-like operations.
         let mut deps = mock_dependencies();
+
+        let creator = deps.api.addr_make(CREATOR);
+        let manager = deps.api.addr_make(MANAGER_ADDRESS);
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+        let some = deps.api.addr_make("some-address");
+
         let msg = InstantiateMsg {
             manager: None,
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: None,
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: None,
             allowlist: None,
         };
-        let info = mock_info(CREATOR, &[]);
+        let info = message_info(&creator, &[]);
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         // withdraw
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: Some(Uint128::new(12)),
-            address: "some-address".to_string(),
+            address: some.to_string(),
         };
-        let err =
-            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&dapp, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
         // withdraw all
         let msg = ExecuteMsg::Withdraw {
             denom: "unoisx".to_string(),
             amount: None,
-            address: "some-address".to_string(),
+            address: some.to_string(),
         };
-        let err =
-            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&dapp, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
 
         // Edit config
         let msg = ExecuteMsg::SetConfig {
-            manager: Some(MANAGER_ADDRESS.to_string()),
+            manager: Some(manager.to_string()),
             prices: None,
             payment: None,
             nois_beacon_price: None,
@@ -1462,39 +1496,45 @@ mod tests {
             max_after: None,
         };
 
-        let err =
-            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&dapp, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
     }
 
     #[test]
     fn update_allowlist_works() {
         let mut deps = setup(None);
+
+        let creator = deps.api.addr_make(CREATOR);
+        let aaa = deps.api.addr_make("aaa");
+        let bbb = deps.api.addr_make("bbb");
+        let ccc = deps.api.addr_make("ccc");
+
         let msg = ExecuteMsg::UpdateAllowlist {
-            add: vec!["aaa".to_owned(), "ccc".to_owned()],
-            remove: vec!["aaa".to_owned(), "bbb".to_owned()],
+            add: vec![aaa.to_string(), ccc.to_string()],
+            remove: vec![aaa.to_string(), bbb.to_string()],
         };
 
-        execute(deps.as_mut(), mock_env(), mock_info(CREATOR, &[]), msg).unwrap();
+        execute(deps.as_mut(), mock_env(), message_info(&creator, &[]), msg).unwrap();
 
-        assert!(!ALLOWLIST.has(&deps.storage, &Addr::unchecked("bbb")));
-        assert!(ALLOWLIST.has(&deps.storage, &Addr::unchecked("ccc")));
+        assert!(!ALLOWLIST.has(&deps.storage, &bbb));
+        assert!(ALLOWLIST.has(&deps.storage, &ccc));
 
         // If an address is both added and removed, err on the side or removing it,
         // hence, here we check that "aaa" is indeed not found.
-        assert!(!ALLOWLIST.has(&deps.storage, &Addr::unchecked("aaa")));
+        assert!(!ALLOWLIST.has(&deps.storage, &aaa));
     }
 
     #[test]
     fn update_allowlist_fails_for_non_manager() {
         let mut deps = setup(None);
+        let dapp = deps.api.addr_make(DAPP_ADDRESS);
+
         let msg = ExecuteMsg::UpdateAllowlist {
             add: vec!["aaa".to_owned(), "ccc".to_owned()],
             remove: vec!["aaa".to_owned(), "bbb".to_owned()],
         };
 
-        let err =
-            execute(deps.as_mut(), mock_env(), mock_info(DAPP_ADDRESS, &[]), msg).unwrap_err();
+        let err = execute(deps.as_mut(), mock_env(), message_info(&dapp, &[]), msg).unwrap_err();
         assert!(matches!(err, ContractError::Unauthorized));
     }
 
@@ -1545,10 +1585,10 @@ mod tests {
     #[test]
     fn query_allowlist_works() {
         // some list
-        let addr_in_allowlist = vec![String::from("addr2"), String::from("addr1")];
+        let addr_in_allowlist = vec![addr("addr2").to_string(), addr("addr1").to_string()];
         let deps = setup(Some(InstantiateMsg {
-            manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            manager: Some(addr(CREATOR).to_string()),
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1558,12 +1598,15 @@ mod tests {
 
         let AllowlistResponse { allowed } =
             from_json(query(deps.as_ref(), mock_env(), QueryMsg::Allowlist {}).unwrap()).unwrap();
-        assert_eq!(allowed, ["addr1", "addr2"]);
+        assert_eq!(
+            allowed.into_iter().collect::<HashSet<_, _>>(),
+            HashSet::from([addr("addr1").to_string(), addr("addr2").to_string()])
+        );
 
         // empty list
         let deps = setup(Some(InstantiateMsg {
-            manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            manager: Some(addr(CREATOR).to_string()),
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
@@ -1578,16 +1621,16 @@ mod tests {
 
     #[test]
     fn query_is_allowed_works_when_allowlist_enabled() {
-        let addr_in_allowlist = String::from("addr1");
-        let addr_not_in_allowlist = String::from("addr2");
+        let addr_in_allowlist = addr("addr1");
+        let addr_not_in_allowlist = addr("addr2");
         let deps = setup(Some(InstantiateMsg {
-            manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            manager: Some(addr(CREATOR).to_string()),
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(true),
-            allowlist: Some(vec![addr_in_allowlist.clone()]),
+            allowlist: Some(vec![addr_in_allowlist.to_string()]),
         }));
 
         // expect the address IN allow list to return true
@@ -1596,7 +1639,7 @@ mod tests {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
-                    address: addr_in_allowlist,
+                    address: addr_in_allowlist.to_string(),
                 },
             )
             .unwrap(),
@@ -1610,7 +1653,7 @@ mod tests {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
-                    address: addr_not_in_allowlist,
+                    address: addr_not_in_allowlist.to_string(),
                 },
             )
             .unwrap(),
@@ -1621,16 +1664,17 @@ mod tests {
 
     #[test]
     fn query_is_allowed_works_when_allowlist_disabled() {
-        let addr_in_allowlist = String::from("addr1");
-        let addr_not_in_allowlist = String::from("addr2");
+        let creator = addr(CREATOR);
+        let addr_in_allowlist = addr("addr1");
+        let addr_not_in_allowlist = addr("addr2");
         let deps = setup(Some(InstantiateMsg {
-            manager: Some(CREATOR.to_string()),
-            prices: vec![Coin::new(1_000000, "unoisx")],
+            manager: Some(creator.to_string()),
+            prices: vec![coin(1_000000, "unoisx")],
             test_mode: Some(true),
             callback_gas_limit: 500_000,
             mode: OperationalMode::Funded {},
             allowlist_enabled: Some(false),
-            allowlist: Some(vec![addr_in_allowlist.clone()]),
+            allowlist: Some(vec![addr_in_allowlist.to_string()]),
         }));
 
         // expect the address IN allow list to return true
@@ -1639,7 +1683,7 @@ mod tests {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
-                    address: addr_in_allowlist,
+                    address: addr_in_allowlist.to_string(),
                 },
             )
             .unwrap(),
@@ -1653,7 +1697,7 @@ mod tests {
                 deps.as_ref(),
                 mock_env(),
                 QueryMsg::IsAllowlisted {
-                    address: addr_not_in_allowlist,
+                    address: addr_not_in_allowlist.to_string(),
                 },
             )
             .unwrap(),

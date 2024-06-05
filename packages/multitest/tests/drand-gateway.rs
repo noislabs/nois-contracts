@@ -1,12 +1,8 @@
 // Testing nois-drand and nois-gateway interaction
 
-use cosmwasm_std::{
-    testing::mock_env, Addr, Coin, Decimal, HexBinary, Timestamp, Uint128, Validator,
-};
+use cosmwasm_std::{coin, testing::mock_env, Decimal, HexBinary, Timestamp, Uint128, Validator};
 use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::{first_attr, mint_native, payment_initial, query_balance_native};
-
-const SINK: &str = "sink";
+use nois_multitest::{addr, first_attr, mint_native, payment_initial, query_balance_native};
 
 #[test]
 fn integration_test() {
@@ -23,12 +19,12 @@ fn integration_test() {
                 },
             )
             .unwrap();
-        let valoper1 = Validator {
-            address: "noislabs".to_string(),
-            commission: Decimal::percent(1),
-            max_commission: Decimal::percent(100),
-            max_change_rate: Decimal::percent(1),
-        };
+        let valoper1 = Validator::new(
+            addr("noislabs").to_string(), // TODO: this should not be an account address
+            Decimal::percent(1),
+            Decimal::percent(100),
+            Decimal::percent(1),
+        );
         let block = mock_env().block;
         router
             .staking
@@ -36,8 +32,13 @@ fn integration_test() {
             .unwrap();
     });
 
+    let owner = addr("owner");
+    let bossman = addr("bossman");
+    let manager = addr("manager");
+    let sink = addr("sink");
+
     // Mint 1000 NOIS for owner
-    mint_native(&mut app, "owner", "unois", 1_000_000_000);
+    mint_native(&mut app, &owner, "unois", 1_000_000_000);
 
     // Storing nois-drand code
     let code_nois_drand = ContractWrapper::new(
@@ -51,14 +52,14 @@ fn integration_test() {
     let addr_nois_drand = app
         .instantiate_contract(
             code_id_nois_drand,
-            Addr::unchecked("owner"),
+            owner.clone(),
             &nois_drand::msg::InstantiateMsg {
-                manager: "bossman".to_string(),
+                manager: bossman.to_string(),
                 incentive_point_price: Uint128::new(1_500),
                 incentive_denom: "unois".to_string(),
                 min_round: 0,
             },
-            &[Coin::new(600_000_000, "unois")],
+            &[coin(600_000_000, "unois")],
             "Nois-Drand",
             None,
         )
@@ -70,7 +71,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_drand::msg::ConfigResponse {
-            manager: Addr::unchecked("bossman"),
+            manager: bossman.clone(),
             gateway: None,
             min_round: 0,
             incentive_point_price: Uint128::new(1_500),
@@ -98,13 +99,13 @@ fn integration_test() {
     let addr_nois_gateway = app
         .instantiate_contract(
             code_id_nois_gateway,
-            Addr::unchecked("owner"),
+            owner.clone(),
             &nois_gateway::msg::InstantiateMsg {
-                manager: "manager".to_string(),
-                price: Coin::new(1, "unois"),
+                manager: manager.to_string(),
+                price: coin(1, "unois"),
                 payment_code_id: code_id_nois_payment,
                 payment_initial_funds: payment_initial(),
-                sink: SINK.to_string(),
+                sink: sink.to_string(),
             },
             &[],
             "Nois-Gateway",
@@ -122,17 +123,17 @@ fn integration_test() {
         nois_gateway::msg::ConfigResponse {
             drand: None,
             trusted_sources: None,
-            manager: Addr::unchecked("manager"),
-            price: Coin::new(1, "unois"),
+            manager: manager.clone(),
+            price: coin(1, "unois"),
             payment_code_id: code_id_nois_payment,
             payment_initial_funds: payment_initial(),
-            sink: Addr::unchecked(SINK),
+            sink: sink.clone(),
         }
     );
 
     // Set gateway address to drand
     app.execute_contract(
-        Addr::unchecked("bossman"),
+        bossman.clone(),
         addr_nois_drand.to_owned(),
         &nois_drand::msg::ExecuteMsg::SetConfig {
             manager: None,
@@ -151,7 +152,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_drand::msg::ConfigResponse {
-            manager: Addr::unchecked("bossman"),
+            manager: bossman.clone(),
             gateway: Some(addr_nois_gateway.clone()),
             min_round: 0,
             incentive_point_price: Uint128::new(1_500),
@@ -161,7 +162,7 @@ fn integration_test() {
 
     // Set drand address to gateway
     app.execute_contract(
-        Addr::unchecked("manager"),
+        manager.clone(),
         addr_nois_gateway.to_owned(),
         &nois_gateway::msg::ExecuteMsg::SetConfig {
             manager: None,
@@ -182,11 +183,11 @@ fn integration_test() {
         nois_gateway::msg::ConfigResponse {
             drand: Some(addr_nois_drand.clone()),
             trusted_sources: Some(vec![addr_nois_drand.clone()]),
-            manager: Addr::unchecked("manager"),
-            price: Coin::new(1, "unois"),
+            manager: manager.clone(),
+            price: coin(1, "unois"),
             payment_code_id: code_id_nois_payment,
             payment_initial_funds: payment_initial(),
-            sink: Addr::unchecked(SINK),
+            sink: sink.clone(),
         }
     );
 
@@ -202,10 +203,10 @@ fn integration_test() {
     let addr_nois_proxy = app
         .instantiate_contract(
             code_id_nois_proxy,
-            Addr::unchecked("owner"),
+            owner.clone(),
             &nois_proxy::msg::InstantiateMsg {
-                manager: Some("manager".to_string()),
-                prices: vec![Coin::new(1_000_000, "unoisx")],
+                manager: Some(manager.to_string()),
+                prices: vec![coin(1_000_000, "unoisx")],
                 test_mode: None,
                 callback_gas_limit: 500_000,
                 mode: nois_proxy::state::OperationalMode::Funded {},
@@ -228,8 +229,8 @@ fn integration_test() {
         resp,
         nois_proxy::msg::ConfigResponse {
             config: nois_proxy::state::Config {
-                manager: Some(Addr::unchecked("manager")),
-                prices: vec![Coin::new(1_000_000, "unoisx")],
+                manager: Some(manager.clone()),
+                prices: vec![coin(1_000_000, "unoisx")],
                 test_mode: false,
                 callback_gas_limit: 500_000,
                 payment: None,
@@ -243,76 +244,72 @@ fn integration_test() {
         }
     );
 
-    const BOT1: &str = "drand_bot_one";
-    const BOT2: &str = "drand_bot_2";
-    const BOT3: &str = "drand_bot_three33333";
-    const BOT4: &str = "drand_bot_4";
-    const BOT5: &str = "drand_bot_5";
-    const BOT6: &str = "drand_bot_six_";
-    const BOT7: &str = "drand_bot_7";
-    const BOT8: &str = "drand_bot_8";
+    let bot1 = addr("drand_bot_1");
+    let bot2 = addr("drand_bot_two");
+    let bot3 = addr("drand_bot_three33333");
+    let bot4 = addr("drand_bot_4");
+    let bot5 = addr("drand_bot_5");
+    let bot6 = addr("drand_bot_six_");
+    let bot7 = addr("drand_bot_7");
+    let bot8 = addr("drand_bot_8");
+    let new_bot = addr("new_bot");
 
     // register bots
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: BOT1.to_string(),
+        moniker: "bot1".to_string(),
     };
-    app.execute_contract(Addr::unchecked(BOT1), addr_nois_drand.to_owned(), &msg, &[])
+    app.execute_contract(bot1.clone(), addr_nois_drand.to_owned(), &msg, &[])
         .unwrap();
     // register bot 2
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: BOT2.to_string(),
+        moniker: "bot2".to_string(),
     };
-    app.execute_contract(Addr::unchecked(BOT2), addr_nois_drand.to_owned(), &msg, &[])
+    app.execute_contract(bot2.clone(), addr_nois_drand.to_owned(), &msg, &[])
         .unwrap();
     // register bot 3
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: BOT3.to_string(),
+        moniker: "bot3".to_string(),
     };
-    app.execute_contract(Addr::unchecked(BOT3), addr_nois_drand.to_owned(), &msg, &[])
+    app.execute_contract(bot3.clone(), addr_nois_drand.to_owned(), &msg, &[])
         .unwrap();
     // register bot 4
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: BOT4.to_string(),
+        moniker: "bot4".to_string(),
     };
-    app.execute_contract(Addr::unchecked(BOT4), addr_nois_drand.to_owned(), &msg, &[])
+    app.execute_contract(bot4.clone(), addr_nois_drand.to_owned(), &msg, &[])
         .unwrap();
     // register bot 5
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: BOT5.to_string(),
+        moniker: "bot5".to_string(),
     };
-    app.execute_contract(Addr::unchecked(BOT5), addr_nois_drand.to_owned(), &msg, &[])
+    app.execute_contract(bot5.clone(), addr_nois_drand.to_owned(), &msg, &[])
         .unwrap();
     // register bot 6
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: BOT6.to_string(),
+        moniker: "bot6".to_string(),
     };
-    app.execute_contract(Addr::unchecked(BOT6), addr_nois_drand.to_owned(), &msg, &[])
+    app.execute_contract(bot6.clone(), addr_nois_drand.to_owned(), &msg, &[])
         .unwrap();
     // register bot 7
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: BOT7.to_string(),
+        moniker: "bot7".to_string(),
     };
-    app.execute_contract(Addr::unchecked(BOT7), addr_nois_drand.to_owned(), &msg, &[])
+    app.execute_contract(bot7.clone(), addr_nois_drand.to_owned(), &msg, &[])
         .unwrap();
     // register bot 8
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
-        moniker: BOT8.to_string(),
+        moniker: "bot8".to_string(),
     };
-    app.execute_contract(Addr::unchecked(BOT8), addr_nois_drand.to_owned(), &msg, &[])
+    app.execute_contract(bot8.clone(), addr_nois_drand.to_owned(), &msg, &[])
         .unwrap();
 
     // whitelist bot doesn't work by non admin
     let msg = nois_drand::msg::ExecuteMsg::UpdateAllowlistBots {
-        add: vec!["drand_bot".to_string()],
+        add: vec![new_bot.to_string()],
         remove: vec![],
     };
     let err = app
-        .execute_contract(
-            Addr::unchecked("drand_bot"),
-            addr_nois_drand.to_owned(),
-            &msg,
-            &[],
-        )
+        .execute_contract(new_bot, addr_nois_drand.to_owned(), &msg, &[])
         .unwrap_err();
 
     assert!(matches!(
@@ -323,24 +320,19 @@ fn integration_test() {
     // add  bot to allow list
     let msg = nois_drand::msg::ExecuteMsg::UpdateAllowlistBots {
         add: vec![
-            BOT1.to_string(),
-            BOT2.to_string(),
-            BOT3.to_string(),
-            BOT4.to_string(),
-            BOT5.to_string(),
-            BOT6.to_string(),
-            BOT7.to_string(),
-            BOT8.to_string(),
+            bot1.to_string(),
+            bot2.to_string(),
+            bot3.to_string(),
+            bot4.to_string(),
+            bot5.to_string(),
+            bot6.to_string(),
+            bot7.to_string(),
+            bot8.to_string(),
         ],
         remove: vec![],
     };
-    app.execute_contract(
-        Addr::unchecked("bossman"),
-        addr_nois_drand.to_owned(),
-        &msg,
-        &[],
-    )
-    .unwrap();
+    app.execute_contract(bossman.clone(), addr_nois_drand.to_owned(), &msg, &[])
+        .unwrap();
 
     // Add round
     const ROUND: u64 = 72775;
@@ -351,7 +343,7 @@ fn integration_test() {
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
     let resp = app
-        .execute_contract(Addr::unchecked(BOT1), addr_nois_drand.clone(), &msg, &[])
+        .execute_contract(bot1.clone(), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -370,7 +362,7 @@ fn integration_test() {
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
     let resp = app
-        .execute_contract(Addr::unchecked(BOT2), addr_nois_drand.clone(), &msg, &[])
+        .execute_contract(bot2.clone(), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -389,7 +381,7 @@ fn integration_test() {
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
     let resp = app
-        .execute_contract(Addr::unchecked(BOT3), addr_nois_drand.clone(), &msg, &[])
+        .execute_contract(bot3.clone(), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -408,7 +400,7 @@ fn integration_test() {
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
     let resp = app
-        .execute_contract(Addr::unchecked(BOT4), addr_nois_drand.clone(), &msg, &[])
+        .execute_contract(bot4.clone(), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -427,7 +419,7 @@ fn integration_test() {
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
     let resp = app
-        .execute_contract(Addr::unchecked(BOT5), addr_nois_drand.clone(), &msg, &[])
+        .execute_contract(bot5.clone(), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -446,7 +438,7 @@ fn integration_test() {
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
     let resp = app
-        .execute_contract(Addr::unchecked(BOT6), addr_nois_drand.clone(), &msg, &[])
+        .execute_contract(bot6.clone(), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -465,7 +457,7 @@ fn integration_test() {
         signature: HexBinary::from_hex(SIGNATURE).unwrap(),
     };
     let resp = app
-        .execute_contract(Addr::unchecked(BOT7), addr_nois_drand.clone(), &msg, &[])
+        .execute_contract(bot7.clone(), addr_nois_drand.clone(), &msg, &[])
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
@@ -487,7 +479,7 @@ fn integration_test() {
         signature: HexBinary::from_hex("886832ac1b059709a8966347fc447773e15ceff1eada944504fa541ab71c1d1c9ff4f2bbc69f90669a0cf936d018ab52").unwrap(),
     };
     let err = app
-        .execute_contract(Addr::unchecked(BOT8), addr_nois_drand, &msg, &[])
+        .execute_contract(bot8.clone(), addr_nois_drand, &msg, &[])
         .unwrap_err();
 
     assert!(matches!(
