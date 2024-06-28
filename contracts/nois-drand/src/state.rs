@@ -14,7 +14,7 @@ pub enum TopKey {
 
 impl TopKey {
     const fn as_str(&self) -> &str {
-        let data = unsafe { std::mem::transmute::<_, &[u8; 1]>(self) };
+        let data = unsafe { std::mem::transmute::<&Self, &[u8; 1]>(self) };
         match std::str::from_utf8(data) {
             Ok(a) => a,
             Err(_) => panic!("Non-utf8 enum value found. Use a-z, A-Z and 0-9"),
