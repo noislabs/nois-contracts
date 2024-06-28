@@ -1,8 +1,8 @@
 use cosmwasm_std::{
     coin, testing::mock_env, Addr, BlockInfo, Decimal, Delegation, Uint128, Validator,
 };
-use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::{addr, first_attr, mint_native, query_balance_native};
+use cw_multi_test::{AppBuilder, ContractWrapper, Executor, IntoBech32, StakingInfo};
+use nois_multitest::{first_attr, mint_native, query_balance_native};
 
 #[test]
 fn integration_test() {
@@ -20,7 +20,9 @@ fn integration_test() {
             )
             .unwrap();
         let valoper1 = Validator::new(
-            addr("noislabs").to_string(), // TODO: this should not be an account address
+            "noislabs"
+                .into_bech32_with_prefix("noisevaloper")
+                .to_string(),
             Decimal::percent(1),
             Decimal::percent(100),
             Decimal::percent(1),
@@ -32,8 +34,8 @@ fn integration_test() {
             .unwrap();
     });
 
-    let owner = addr("owner");
-    let bossman = addr("bossman");
+    let owner = app.api().addr_make("owner");
+    let bossman = app.api().addr_make("bossman");
 
     // Storing nois-drand code
     let code_nois_drand = ContractWrapper::new(
@@ -166,7 +168,9 @@ fn integration_test() {
 
     // Make nois-icecube delegate
     let msg = nois_icecube::msg::ExecuteMsg::Delegate {
-        addr: addr("noislabs").to_string(), // TODO: this should not be an account address
+        addr: "noislabs"
+            .into_bech32_with_prefix("noisevaloper")
+            .to_string(),
         amount: Uint128::new(500_000),
     };
     app.execute_contract(bossman.clone(), addr_nois_icecube.to_owned(), &msg, &[])
@@ -184,7 +188,9 @@ fn integration_test() {
             .unwrap()[0],
         Delegation::new(
             addr_nois_icecube.clone(),
-            addr("noislabs").to_string(), // TODO: this should not be an account address
+            "noislabs"
+                .into_bech32_with_prefix("noisevaloper")
+                .to_string(),
             coin(500_000, "unois"),
         )
     );
@@ -200,7 +206,9 @@ fn integration_test() {
 
     // Make nois-icecube claim
     let msg = nois_icecube::msg::ExecuteMsg::ClaimRewards {
-        addr: addr("noislabs").to_string(), // TODO: this should not be an account address
+        addr: "noislabs"
+            .into_bech32_with_prefix("noisevaloper")
+            .to_string(),
     };
     let resp = app
         .execute_contract(owner.clone(), addr_nois_icecube, &msg, &[])

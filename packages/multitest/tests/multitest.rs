@@ -1,6 +1,6 @@
 use cosmwasm_std::{coin, testing::mock_env, Decimal, HexBinary, Timestamp, Uint128, Validator};
-use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::{addr, mint_native, payment_initial};
+use cw_multi_test::{AppBuilder, ContractWrapper, Executor, IntoBech32, StakingInfo};
+use nois_multitest::{mint_native, payment_initial};
 
 const PAYMENT: u64 = 17;
 
@@ -20,7 +20,9 @@ fn integration_test() {
             )
             .unwrap();
         let valoper1 = Validator::new(
-            addr("noislabs").to_string(), // TODO: this should not be an account address
+            "noislabs"
+                .into_bech32_with_prefix("noisevaloper")
+                .to_string(),
             Decimal::percent(1),
             Decimal::percent(100),
             Decimal::percent(1),
@@ -32,10 +34,10 @@ fn integration_test() {
             .unwrap();
     });
 
-    let owner = addr("owner");
-    let manager = addr("manager");
-    let sink = addr("sink");
-    let drand = addr("drand_verifier_7");
+    let owner = app.api().addr_make("owner");
+    let manager = app.api().addr_make("manager");
+    let sink = app.api().addr_make("sink");
+    let drand = app.api().addr_make("drand_verifier_7");
 
     //Mint some coins for owner
     mint_native(&mut app, &owner, "unois", 100_000_000);
