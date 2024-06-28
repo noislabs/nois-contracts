@@ -1,13 +1,13 @@
 use cosmwasm_std::{
     coin, testing::mock_env, Addr, BlockInfo, Decimal, Delegation, Uint128, Validator,
 };
-use cw_multi_test::{AppBuilder, ContractWrapper, Executor, IntoBech32, StakingInfo};
+use cw_multi_test::{App, ContractWrapper, Executor, IntoBech32, StakingInfo};
 use nois_multitest::{first_attr, mint_native, query_balance_native};
 
 #[test]
 fn integration_test() {
-    // Insantiate a chain mock environment
-    let mut app = AppBuilder::new().build(|router, api, storage| {
+    // Instantiate a chain mock environment
+    let mut app = App::new(|router, api, storage| {
         router
             .staking
             .setup(
@@ -35,7 +35,7 @@ fn integration_test() {
     });
 
     let owner = app.api().addr_make("owner");
-    let bossman = app.api().addr_make("bossman");
+    let bosman = app.api().addr_make("bosman");
 
     // Storing nois-drand code
     let code_nois_drand = ContractWrapper::new(
@@ -51,7 +51,7 @@ fn integration_test() {
             code_id_nois_drand,
             owner.clone(),
             &nois_drand::msg::InstantiateMsg {
-                manager: bossman.to_string(),
+                manager: bosman.to_string(),
                 incentive_point_price: Uint128::new(20_000),
                 incentive_denom: "unois".to_string(),
                 min_round: 0,
@@ -79,7 +79,7 @@ fn integration_test() {
             code_id_nois_icecube,
             owner.clone(),
             &nois_icecube::msg::InstantiateMsg {
-                manager: bossman.to_string(),
+                manager: bosman.to_string(),
             },
             &[coin(1_000_000, "unois")],
             "Nois-Icecube",
@@ -95,7 +95,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_icecube::msg::ConfigResponse {
-            manager: bossman.clone(),
+            manager: bosman.clone(),
             drand: None,
         }
     );
@@ -114,17 +114,17 @@ fn integration_test() {
             &[],
         )
         .unwrap_err();
-    // Make sure the the tx fails when it's not the manager
+    // Make sure the tx fails when it's not the manager
     assert!(matches!(
         err.downcast().unwrap(),
         nois_icecube::error::ContractError::Unauthorized
     ));
 
     let resp = app
-        .execute_contract(bossman.clone(), addr_nois_icecube.to_owned(), &msg, &[])
+        .execute_contract(bosman.clone(), addr_nois_icecube.to_owned(), &msg, &[])
         .unwrap();
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
-    // Make sure the the tx passed
+    // Make sure the tx passed
     assert_eq!(
         first_attr(&wasm.attributes, "nois-drand-address").unwrap(),
         addr_nois_drand.to_string()
@@ -138,7 +138,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_icecube::msg::ConfigResponse {
-            manager: bossman.clone(),
+            manager: bosman.clone(),
             drand: Some(addr_nois_drand.clone())
         }
     );
@@ -173,7 +173,7 @@ fn integration_test() {
             .to_string(),
         amount: Uint128::new(500_000),
     };
-    app.execute_contract(bossman.clone(), addr_nois_icecube.to_owned(), &msg, &[])
+    app.execute_contract(bosman.clone(), addr_nois_icecube.to_owned(), &msg, &[])
         .unwrap();
     // Check balance nois-icecube
     let balance = query_balance_native(&app, &addr_nois_icecube, "unois").amount;
@@ -202,7 +202,7 @@ fn integration_test() {
         chain_id: block.chain_id,
     });
 
-    //TODO simulte advance many blocks to accumulate some staking rewards
+    //TODO simulate advance many blocks to accumulate some staking rewards
 
     // Make nois-icecube claim
     let msg = nois_icecube::msg::ExecuteMsg::ClaimRewards {
@@ -218,7 +218,7 @@ fn integration_test() {
         .iter()
         .find(|ev| ev.ty == "withdraw_delegator_reward")
         .unwrap();
-    // Make sure the the tx passed
+    // Make sure the tx passed
     assert_eq!(
         first_attr(&withdraw_event.attributes, "amount").unwrap(),
         "6unois"

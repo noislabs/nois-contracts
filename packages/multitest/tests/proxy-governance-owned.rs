@@ -1,15 +1,15 @@
 use cosmwasm_std::{
     coin, testing::mock_env, Addr, Decimal, HexBinary, Timestamp, Uint128, Validator,
 };
-use cw_multi_test::{AppBuilder, ContractWrapper, Executor, IntoBech32, StakingInfo};
+use cw_multi_test::{App, ContractWrapper, Executor, IntoBech32, StakingInfo};
 use nois_multitest::{mint_native, payment_initial};
 
 const PAYMENT: u64 = 17;
 
 #[test]
 fn integration_test() {
-    // Insantiate a chain mock environment
-    let mut app = AppBuilder::new().build(|router, api, storage| {
+    // Instantiate a chain mock environment
+    let mut app = App::new(|router, api, storage| {
         router
             .staking
             .setup(
@@ -41,7 +41,7 @@ fn integration_test() {
     let sink = app.api().addr_make("sink");
     let drand = app.api().addr_make("drand_verifier_7");
 
-    //Mint some coins for owner
+    // Mint some coins for owner
     mint_native(&mut app, &owner, "unois", 100_000_000);
 
     // Storing nois-gateway code
