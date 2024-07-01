@@ -21,7 +21,7 @@ fn integration_test() {
             .unwrap();
         let valoper1 = Validator::new(
             "noislabs"
-                .into_bech32_with_prefix("noisevaloper")
+                .into_bech32_with_prefix("noisvaloper")
                 .to_string(),
             Decimal::percent(1),
             Decimal::percent(100),
@@ -169,7 +169,7 @@ fn integration_test() {
     // Make nois-icecube delegate
     let msg = nois_icecube::msg::ExecuteMsg::Delegate {
         addr: "noislabs"
-            .into_bech32_with_prefix("noisevaloper")
+            .into_bech32_with_prefix("noisvaloper")
             .to_string(),
         amount: Uint128::new(500_000),
     };
@@ -189,7 +189,7 @@ fn integration_test() {
         Delegation::new(
             addr_nois_icecube.clone(),
             "noislabs"
-                .into_bech32_with_prefix("noisevaloper")
+                .into_bech32_with_prefix("noisvaloper")
                 .to_string(),
             coin(500_000, "unois"),
         )
@@ -207,7 +207,7 @@ fn integration_test() {
     // Make nois-icecube claim
     let msg = nois_icecube::msg::ExecuteMsg::ClaimRewards {
         addr: "noislabs"
-            .into_bech32_with_prefix("noisevaloper")
+            .into_bech32_with_prefix("noisvaloper")
             .to_string(),
     };
     let resp = app

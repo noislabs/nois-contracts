@@ -21,7 +21,7 @@ fn integration_test() {
             .unwrap();
         let valoper1 = Validator::new(
             "noislabs"
-                .into_bech32_with_prefix("noisevaloper")
+                .into_bech32_with_prefix("noisvaloper")
                 .to_string(),
             Decimal::percent(1),
             Decimal::percent(100),
