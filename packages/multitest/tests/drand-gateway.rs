@@ -35,7 +35,7 @@ fn integration_test() {
     });
 
     let owner = app.api().addr_make("owner");
-    let bosman = app.api().addr_make("bosman");
+    let bossman = app.api().addr_make("bossman");
     let manager = app.api().addr_make("manager");
     let sink = app.api().addr_make("sink");
 
@@ -56,7 +56,7 @@ fn integration_test() {
             code_id_nois_drand,
             owner.clone(),
             &nois_drand::msg::InstantiateMsg {
-                manager: bosman.to_string(),
+                manager: bossman.to_string(),
                 incentive_point_price: Uint128::new(1_500),
                 incentive_denom: "unois".to_string(),
                 min_round: 0,
@@ -73,7 +73,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_drand::msg::ConfigResponse {
-            manager: bosman.clone(),
+            manager: bossman.clone(),
             gateway: None,
             min_round: 0,
             incentive_point_price: Uint128::new(1_500),
@@ -135,7 +135,7 @@ fn integration_test() {
 
     // Set gateway address to drand
     app.execute_contract(
-        bosman.clone(),
+        bossman.clone(),
         addr_nois_drand.to_owned(),
         &nois_drand::msg::ExecuteMsg::SetConfig {
             manager: None,
@@ -154,7 +154,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_drand::msg::ConfigResponse {
-            manager: bosman.clone(),
+            manager: bossman.clone(),
             gateway: Some(addr_nois_gateway.clone()),
             min_round: 0,
             incentive_point_price: Uint128::new(1_500),
@@ -333,7 +333,7 @@ fn integration_test() {
         ],
         remove: vec![],
     };
-    app.execute_contract(bosman.clone(), addr_nois_drand.to_owned(), &msg, &[])
+    app.execute_contract(bossman.clone(), addr_nois_drand.to_owned(), &msg, &[])
         .unwrap();
 
     // Add round

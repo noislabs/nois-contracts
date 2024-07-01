@@ -35,7 +35,7 @@ fn integration_test() {
     });
 
     let owner = app.api().addr_make("owner");
-    let bosman = app.api().addr_make("bosman");
+    let bossman = app.api().addr_make("bossman");
 
     // Storing nois-drand code
     let code_nois_drand = ContractWrapper::new(
@@ -51,7 +51,7 @@ fn integration_test() {
             code_id_nois_drand,
             owner.clone(),
             &nois_drand::msg::InstantiateMsg {
-                manager: bosman.to_string(),
+                manager: bossman.to_string(),
                 incentive_point_price: Uint128::new(20_000),
                 incentive_denom: "unois".to_string(),
                 min_round: 0,
@@ -79,7 +79,7 @@ fn integration_test() {
             code_id_nois_icecube,
             owner.clone(),
             &nois_icecube::msg::InstantiateMsg {
-                manager: bosman.to_string(),
+                manager: bossman.to_string(),
             },
             &[coin(1_000_000, "unois")],
             "Nois-Icecube",
@@ -95,7 +95,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_icecube::msg::ConfigResponse {
-            manager: bosman.clone(),
+            manager: bossman.clone(),
             drand: None,
         }
     );
@@ -121,7 +121,7 @@ fn integration_test() {
     ));
 
     let resp = app
-        .execute_contract(bosman.clone(), addr_nois_icecube.to_owned(), &msg, &[])
+        .execute_contract(bossman.clone(), addr_nois_icecube.to_owned(), &msg, &[])
         .unwrap();
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
     // Make sure the tx passed
@@ -138,7 +138,7 @@ fn integration_test() {
     assert_eq!(
         resp,
         nois_icecube::msg::ConfigResponse {
-            manager: bosman.clone(),
+            manager: bossman.clone(),
             drand: Some(addr_nois_drand.clone())
         }
     );
@@ -173,7 +173,7 @@ fn integration_test() {
             .to_string(),
         amount: Uint128::new(500_000),
     };
-    app.execute_contract(bosman.clone(), addr_nois_icecube.to_owned(), &msg, &[])
+    app.execute_contract(bossman.clone(), addr_nois_icecube.to_owned(), &msg, &[])
         .unwrap();
     // Check balance nois-icecube
     let balance = query_balance_native(&app, &addr_nois_icecube, "unois").amount;
