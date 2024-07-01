@@ -14,14 +14,14 @@ crate-type = ["cdylib", "rlib"]
 [features]
 
 [dependencies]
-nois-drand = { path = "../../contracts/nois-drand"}
-nois-gateway = { path = "../../contracts/nois-gateway"}
-nois-icecube = { path = "../../contracts/nois-icecube"}
+nois-drand = { path = "../../contracts/nois-drand" }
+nois-gateway = { path = "../../contracts/nois-gateway" }
+nois-icecube = { path = "../../contracts/nois-icecube" }
 nois-payment = { path = "../../contracts/nois-payment" }
 nois-proxy = { path = "../../contracts/nois-proxy" }
 nois-proxy-governance-owned = { path = "../../contracts/nois-proxy-governance-owned" }
 
-cosmwasm-std = { version = "2.0.4", features = ["iterator"] }
-cw-multi-test = "2"
+cosmwasm-std = "2.0.4"
+cw-multi-test = { version = "2.1.0-rc.1", features = ["staking", "cosmwasm_2_0"] }
 
 [dev-dependencies]

@@ -1,15 +1,10 @@
 // Testing utils. See tests folder for actual tests.
 
-use cosmwasm_std::testing::MockApi;
 use cosmwasm_std::{
     coin, from_json, to_json_binary, Addr, Attribute, BalanceResponse, BankQuery, Coin, Querier,
     QueryRequest,
 };
 use cw_multi_test::App;
-
-pub fn addr(input: &str) -> Addr {
-    MockApi::default().addr_make(input)
-}
 
 /// Gets the value of the first attribute with the given key
 pub fn first_attr(data: impl AsRef<[Attribute]>, search_key: &str) -> Option<String> {

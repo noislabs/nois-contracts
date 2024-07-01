@@ -1,13 +1,13 @@
 // Testing nois-drand and nois-gateway interaction
 
 use cosmwasm_std::{coin, testing::mock_env, Decimal, HexBinary, Timestamp, Uint128, Validator};
-use cw_multi_test::{AppBuilder, ContractWrapper, Executor, StakingInfo};
-use nois_multitest::{addr, first_attr, mint_native, payment_initial, query_balance_native};
+use cw_multi_test::{App, ContractWrapper, Executor, IntoBech32, StakingInfo};
+use nois_multitest::{first_attr, mint_native, payment_initial, query_balance_native};
 
 #[test]
 fn integration_test() {
-    // Insantiate a chain mock environment
-    let mut app = AppBuilder::new().build(|router, api, storage| {
+    // Instantiate a chain mock environment
+    let mut app = App::new(|router, api, storage| {
         router
             .staking
             .setup(
@@ -20,7 +20,9 @@ fn integration_test() {
             )
             .unwrap();
         let valoper1 = Validator::new(
-            addr("noislabs").to_string(), // TODO: this should not be an account address
+            "noislabs"
+                .into_bech32_with_prefix("noisvaloper")
+                .to_string(),
             Decimal::percent(1),
             Decimal::percent(100),
             Decimal::percent(1),
@@ -32,10 +34,10 @@ fn integration_test() {
             .unwrap();
     });
 
-    let owner = addr("owner");
-    let bossman = addr("bossman");
-    let manager = addr("manager");
-    let sink = addr("sink");
+    let owner = app.api().addr_make("owner");
+    let bossman = app.api().addr_make("bossman");
+    let manager = app.api().addr_make("manager");
+    let sink = app.api().addr_make("sink");
 
     // Mint 1000 NOIS for owner
     mint_native(&mut app, &owner, "unois", 1_000_000_000);
@@ -244,15 +246,15 @@ fn integration_test() {
         }
     );
 
-    let bot1 = addr("drand_bot_1");
-    let bot2 = addr("drand_bot_two");
-    let bot3 = addr("drand_bot_three33333");
-    let bot4 = addr("drand_bot_4");
-    let bot5 = addr("drand_bot_5");
-    let bot6 = addr("drand_bot_six_");
-    let bot7 = addr("drand_bot_7");
-    let bot8 = addr("drand_bot_8");
-    let new_bot = addr("new_bot");
+    let bot1 = app.api().addr_make("drand_bot_1");
+    let bot2 = app.api().addr_make("drand_bot_two");
+    let bot3 = app.api().addr_make("drand_bot_three33333");
+    let bot4 = app.api().addr_make("drand_bot_4");
+    let bot5 = app.api().addr_make("drand_bot_5");
+    let bot6 = app.api().addr_make("drand_bot_six_");
+    let bot7 = app.api().addr_make("drand_bot_7");
+    let bot8 = app.api().addr_make("drand_bot_8");
+    let new_bot = app.api().addr_make("new_bot");
 
     // register bots
     let msg = nois_drand::msg::ExecuteMsg::RegisterBot {
@@ -461,7 +463,7 @@ fn integration_test() {
         .unwrap();
 
     let wasm = resp.events.iter().find(|ev| ev.ty == "wasm").unwrap();
-    // Make sure that there is no incentive for this bot because it didn't do the verification and it was slow
+    // Make sure that there is no incentive for this bot because it didn't do the verification, and it was slow
     // i.e. enough drandbots have already verified this round.
     assert_eq!(first_attr(&wasm.attributes, "reward_points").unwrap(), "0");
     assert_eq!(
@@ -469,7 +471,7 @@ fn integration_test() {
         "0unois"
     );
 
-    // Add round 8th submission: invalid siganture
+    // Add round 8th submission: invalid signature
     //
     // Check that when a submission has been verified in previous txs by enough other bots
     // and when a new bot brings a submission that won't go through verification. It should fail if it
