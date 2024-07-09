@@ -22,6 +22,6 @@ nois-proxy = { path = "../../contracts/nois-proxy" }
 nois-proxy-governance-owned = { path = "../../contracts/nois-proxy-governance-owned" }
 
 cosmwasm-std = "2.0.4"
-cw-multi-test = { version = "2.1.0-rc.1", features = ["staking", "cosmwasm_2_0"] }
+cw-multi-test = { version = "2.1.0", features = ["staking", "cosmwasm_2_0"] }
 
 [dev-dependencies]
