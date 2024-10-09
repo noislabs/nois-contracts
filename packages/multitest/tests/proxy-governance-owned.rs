@@ -221,10 +221,10 @@ fn integration_test() {
 
     // Add verified round
     let msg = nois_gateway::msg::ExecuteMsg::AddVerifiedRound {
-        // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72785
+        // curl -sS https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/72785
         round: 72785,
         randomness: HexBinary::from_hex(
-            "650be14f6ffd7dcb67df9138c3b7d7d6bca455d0438fc81d3fbb24a4ee038f36",
+            "2437ee0ba2797e863e9f470860e206167de16cb5b6698a24033e767e9b9e904a",
         )
         .unwrap(),
         is_verifying_tx: true,

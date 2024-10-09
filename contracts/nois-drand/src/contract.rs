@@ -705,9 +705,9 @@ mod tests {
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(res.messages.len(), 0);
 
-        const ROUND: u64 = 72762; // https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72762
+        const ROUND: u64 = 72762; // https://api3.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/72762
         const EXPECTED_RANDOMNESS: &str =
-            "528bb3e953412bea63dff0f86ad44aeda64953cd50040279e7b1aba4b9196f28";
+            "91b0ef278e72ab5e34958838fc3e717da61d3efc2fb6fe73cdf10a8d3210cae5";
 
         register_bot(deps.as_mut(), &bot1);
         register_bot(deps.as_mut(), &bot2);
@@ -1346,10 +1346,10 @@ mod tests {
         };
 
         let msg = ExecuteMsg::AddRound {
-            // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/72780
+            // curl -sS https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/72780
             round: 72780,
             // wrong signature (first two bytes swapped)
-            signature: hex::decode("ac86005aaffa5e9de34b558c470a111c862e976922e8da34f9dce1a78507dbd53badd554862bc54bd8e44f44ddd8b100").unwrap().into(),
+            signature: hex::decode("a1a7e62ad5dcc7fc732bc223abc6ab4c00a4c2d04428b69bd365515b881441bbde4b3329e32546be8cce8e70e85070cc").unwrap().into(),
         };
         let result = execute(deps.as_mut(), mock_env(), message_info(&anon, &[]), msg);
         match result.unwrap_err() {

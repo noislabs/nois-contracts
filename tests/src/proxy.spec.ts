@@ -51,7 +51,7 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info1, 1, true);
     const ack1 = JSON.parse(fromUtf8(info1.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(ack1.result), {
-      request_processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
+      request_processed: { source_id: "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:800" },
     });
 
     t.log("Relaying DeliverBeacon");
@@ -71,15 +71,15 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
+      request_queued: { source_id: "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:810" },
     });
   }
 
   t.log("Executing get_randomness_after for a round that does not yet exists");
   {
-    // Wednesday, 5. April 2023 06:07:08
-    // 1680674828
-    const msg: ProxyExecuteMsg = { get_randomness_after: { after: "1680674828000000000", job_id: "drei" } };
+    // Wednesday, 9. October 2024 19:30:56
+    // 1728495056
+    const msg: ProxyExecuteMsg = { get_randomness_after: { after: "1728495056000000000", job_id: "drei" } };
     await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
@@ -87,8 +87,8 @@ test.serial("proxy works", async (t) => {
     assertPacketsFromA(info, 1, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      // Expected round: (1680674828-1677685200) / 3 + 1 = 996543.6666666666
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:996544" },
+      // Expected round: (1728495056-1692803367) / 3 + 1 = 11897230.666666666
+      request_queued: { source_id: "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:11897231" },
     });
   }
 });
@@ -107,7 +107,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
 
   t.log("Executing get_randomness_after time between 3nd and 4rd round");
   {
-    const msg: ProxyExecuteMsg = { get_randomness_after: { after: "1677687666000000000", job_id: "first job" } };
+    const msg: ProxyExecuteMsg = { get_randomness_after: { after: "1692805833000000000", job_id: "first job" } };
     await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
@@ -116,13 +116,13 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     assertPacketsFromB(info, 0, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:824" },
+      request_queued: { source_id: "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:824" },
     });
   }
 
   t.log("Executing get_randomness_after time between 1nd and 2rd round");
   {
-    const msg: ProxyExecuteMsg = { get_randomness_after: { after: "1677687603000000000", job_id: "second job" } };
+    const msg: ProxyExecuteMsg = { get_randomness_after: { after: "1692805770000000000", job_id: "second job" } };
     await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, msg, "auto", undefined, [payment]);
 
     t.log("Relaying RequestBeacon");
@@ -131,7 +131,7 @@ test.serial("proxy works for get_randomness_after", async (t) => {
     assertPacketsFromB(info, 0, true);
     const stdAck = JSON.parse(fromUtf8(info.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:803" },
+      request_queued: { source_id: "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:803" },
     });
   }
 
@@ -200,7 +200,7 @@ test.serial("demo contract can be used", async (t) => {
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      request_processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
+      request_processed: { source_id: "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:800" },
     });
 
     // DeliverBeacon packet
@@ -236,7 +236,7 @@ test.serial("demo contract can be used", async (t) => {
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
+      request_queued: { source_id: "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:810" },
     });
 
     // DeliverBeacon packet not yet
@@ -306,7 +306,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     assertPacketsFromA(infoA2B, 1, true);
     const stdAckRequest = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAckRequest.result), {
-      request_processed: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:800" },
+      request_processed: { source_id: "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:800" },
     });
 
     // DeliverBeacon packet (check ack and transaction of the ack)
@@ -349,7 +349,7 @@ test.serial("demo contract runs into out of gas in callback", async (t) => {
     assertPacketsFromA(infoA2B, 1, true);
     const stdAck = JSON.parse(fromUtf8(infoA2B.acksFromB[0].acknowledgement));
     t.deepEqual(fromBinary(stdAck.result), {
-      request_queued: { source_id: "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810" },
+      request_queued: { source_id: "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:810" },
     });
 
     // DeliverBeacon packet not yet

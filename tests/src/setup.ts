@@ -100,9 +100,9 @@ export async function instantiateAndConnectIbc(
 
   const updateProxyConfig: ProxyExecuteMsg = {
     set_config: {
-      // drand genesis https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info
+      // drand genesis https://api3.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info
       // to allow old rounds in tests
-      min_after: "1677685200000000000",
+      min_after: "1692803367000000000",
     },
   };
   await wasmClient.sign.execute(wasmClient.senderAddress, noisProxyAddress, updateProxyConfig, "auto");

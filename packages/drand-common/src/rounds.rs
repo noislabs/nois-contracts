@@ -40,7 +40,7 @@ mod tests {
     fn time_of_round_works() {
         assert_eq!(time_of_round(1), DRAND_GENESIS);
         assert_eq!(time_of_round(2), DRAND_GENESIS.plus_seconds(3));
-        assert_eq!(time_of_round(111765), Timestamp::from_seconds(1678020492));
+        assert_eq!(time_of_round(111765), Timestamp::from_seconds(1693138659));
     }
 
     #[test]
@@ -55,24 +55,24 @@ mod tests {
         let round = round_after(Timestamp::from_seconds(0));
         assert_eq!(round, 1);
 
-        // Before Drand genesis (https://api3.drand.sh/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/info)
-        let round = round_after(Timestamp::from_seconds(1677685200).minus_nanos(1));
+        // Before Drand genesis (https://api3.drand.sh/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info)
+        let round = round_after(Timestamp::from_seconds(1692803367).minus_nanos(1));
         assert_eq!(round, 1);
 
         // At Drand genesis
-        let round = round_after(Timestamp::from_seconds(1677685200));
+        let round = round_after(Timestamp::from_seconds(1692803367));
         assert_eq!(round, 2);
 
         // After Drand genesis
-        let round = round_after(Timestamp::from_seconds(1677685200).plus_nanos(1));
+        let round = round_after(Timestamp::from_seconds(1692803367).plus_nanos(1));
         assert_eq!(round, 2);
 
         // Drand genesis +2s/3s/4s
-        let round = round_after(Timestamp::from_seconds(1677685200).plus_seconds(2));
+        let round = round_after(Timestamp::from_seconds(1692803367).plus_seconds(2));
         assert_eq!(round, 2);
-        let round = round_after(Timestamp::from_seconds(1677685200).plus_seconds(3));
+        let round = round_after(Timestamp::from_seconds(1692803367).plus_seconds(3));
         assert_eq!(round, 3);
-        let round = round_after(Timestamp::from_seconds(1677685200).plus_seconds(4));
+        let round = round_after(Timestamp::from_seconds(1692803367).plus_seconds(4));
         assert_eq!(round, 3);
     }
 

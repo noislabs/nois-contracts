@@ -689,37 +689,37 @@ mod tests {
                 is_verifying_tx,
             },
             810 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/810
+                // curl -sS https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/810
                 round: 810,
                 randomness: HexBinary::from_hex(
-                    "192af38cb4e26fd9d15e8b4968fb3df137f3e6d9b4aeb04c7c5b6201091872cc",
+                    "a3da4f4f5f4c2f5d901a3a731abb027707b3c839b8d2ccfde0343de2a324822a",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
             820 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/820
+                // curl -sS https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/820
                 round: 820,
                 randomness: HexBinary::from_hex(
-                    "32f614c72e9a382540f6cdca5f4d58537ea11de9b692bcdef7b10e892690d233",
+                    "4c9b36d4a6eff819ed35052a277f9ea489ed71246edcb283a44507e1e26dfc08",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
             830 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/830
+                // curl -sS https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/830
                 round: 830,
                 randomness: HexBinary::from_hex(
-                    "9e8d112e4c9b66e17ca3cd78aca91e6c076a42917a03fe1fe837f7eaf2fa8b86",
+                    "1c09cc0ea685da9b080264f6dcee983b09b3c1b0c1fbbf792b6f9beeac5d1b0b",
                 )
                 .unwrap(),
                 is_verifying_tx,
             },
             840 => ExecuteMsg::AddVerifiedRound {
-                // curl -sS https://drand.cloudflare.com/dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493/public/840
+                // curl -sS https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/840
                 round: 840,
                 randomness: HexBinary::from_hex(
-                    "59b949f6455a6d7319232f8fe085cbba884727cccf79fa5239579078c0a19cd4",
+                    "b14a7f1e5e66d32e60930c82b5ddd7981582824d6e810134e28941546231d106",
                 )
                 .unwrap(),
                 is_verifying_tx,
@@ -728,7 +728,7 @@ mod tests {
                 // curl -sS https://drand.cloudflare.com/public/72785
                 round: 72785,
                 randomness: HexBinary::from_hex(
-                    "650be14f6ffd7dcb67df9138c3b7d7d6bca455d0438fc81d3fbb24a4ee038f36",
+                    "8b676484b5fb1f37f9ec5c413d7d29883504e5b669f604a1ce68b3388e9ae3d9",
                 )
                 .unwrap(),
                 is_verifying_tx,
@@ -1496,7 +1496,7 @@ mod tests {
                     origin: origin(1),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                        "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:810"
                             .to_string(),
                     tx: expected_tx_1
                 }]
@@ -1509,7 +1509,7 @@ mod tests {
                     origin: origin(1),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                        "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:810"
                             .to_string(),
                     tx: expected_tx_1
                 }]
@@ -1541,14 +1541,14 @@ mod tests {
                     origin: origin(1),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                        "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:810"
                             .to_string(),
                     tx: expected_tx_1
                 }, RequestLogEntry {
                     origin: origin(2),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
+                        "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:820"
                             .to_string(),
                     tx: expected_tx_2
                 }]
@@ -1561,14 +1561,14 @@ mod tests {
                     origin: origin(2),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:820"
+                        "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:820"
                             .to_string(),
                     tx: expected_tx_2
                   }, RequestLogEntry {
                     origin: origin(1),
                     queued: true,
                     source_id:
-                        "drand:dbd506d6ef76e5f386f41c651dcb808c5bcbd75471cc4eafa3f4df7ad4e4c493:810"
+                        "drand:52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971:810"
                             .to_string(),
                     tx: expected_tx_1
                 }]
